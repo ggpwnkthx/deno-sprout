@@ -1,0 +1,25 @@
+{
+  "name": "@ggpwnkthx/sprout-jsx",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./renderer": "./renderer.ts",
+    "./components": "./components.ts",
+    "./streaming": "./streaming.ts",
+    "./hooks": "./hooks.ts",
+    "./lib/context": "./lib/context.ts",
+    "./lib/memo": "./lib/memo.ts"
+  },
+  "imports": {
+    "@hono/hono": "jsr:@hono/hono@^4.12.14"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "@hono/hono/jsx"
+  },
+  "publish": {
+    "scope": "@ggpwnkthx",
+    "registry": "https://jsr.io"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@ggpwnkthx/sprout-init",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./init": "./init.ts",
+    "./template": "./template.ts"
+  },
+  "imports": {
+    "@std/cli": "jsr:@std/cli@^1.0.0",
+    "@std/fs": "jsr:@std/fs@^1.0.0",
+    "@std/path": "jsr:@std/path@^1.0.0"
+  },
+  "compilerOptions": {
+    "strict": true
+  },
+  "publish": {
+    "scope": "@ggpwnkthx",
+    "registry": "https://jsr.io"
+  }
+}

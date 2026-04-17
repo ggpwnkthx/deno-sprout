@@ -1,0 +1,25 @@
+{
+  "name": "@ggpwnkthx/sprout-islands",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./signals": "./signals.ts",
+    "./hydrator": "./hydrator.ts",
+    "./serializer": "./serializer.ts",
+    "./hooks": "./hooks.ts",
+    "./lib/component": "./lib/component.ts",
+    "./lib/props": "./lib/props.ts"
+  },
+  "imports": {
+    "@hono/hono": "jsr:@hono/hono@^4.12.14"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "@hono/hono"
+  },
+  "publish": {
+    "scope": "@ggpwnkthx",
+    "registry": "https://jsr.io"
+  }
+}

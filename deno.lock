@@ -1,0 +1,355 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@hono/esbuild-transpiler@~0.1.4": "0.1.4",
+    "jsr:@hono/hono@^4.12.14": "4.12.14",
+    "jsr:@hono/hono@^4.8.3": "4.12.14",
+    "jsr:@hono/otel@^1.1.1": "1.1.1",
+    "jsr:@hono/session@0.1": "0.1.0",
+    "jsr:@hono/typebox-validator@^1.1.0": "1.1.0",
+    "jsr:@hono/zod-validator@~0.7.6": "0.7.6",
+    "jsr:@panva/jose@^6.0.11": "6.2.2",
+    "jsr:@std/assert@1": "1.0.19",
+    "jsr:@std/cli@1": "1.0.28",
+    "jsr:@std/crypto@1": "1.0.5",
+    "jsr:@std/encoding@1": "1.0.10",
+    "jsr:@std/fmt@^1.0.9": "1.0.9",
+    "jsr:@std/fs@1": "1.0.23",
+    "jsr:@std/internal@^1.0.12": "1.0.12",
+    "jsr:@std/path@1": "1.1.4",
+    "jsr:@std/path@^1.1.4": "1.1.4",
+    "npm:@opentelemetry/api@^1.9.0": "1.9.1",
+    "npm:@opentelemetry/semantic-conventions@^1.28.0": "1.40.0",
+    "npm:esbuild-wasm@~0.19.5": "0.19.12",
+    "npm:esbuild@~0.19.9": "0.19.12",
+    "npm:typebox@^1.0.30": "1.1.27",
+    "npm:zod@^4.1.13": "4.3.6"
+  },
+  "jsr": {
+    "@hono/esbuild-transpiler@0.1.4": {
+      "integrity": "4a280f715acd8f4d29b45a50404cbfee5618f2fe4925c177c67a3297a2d29e5e",
+      "dependencies": [
+        "jsr:@hono/hono@^4.8.3",
+        "npm:esbuild",
+        "npm:esbuild-wasm"
+      ]
+    },
+    "@hono/hono@4.12.14": {
+      "integrity": "4eedba4b53f27c8e0db683d515e11ec3b88b8fdc1748e229cd7988d243ca018d"
+    },
+    "@hono/otel@1.1.1": {
+      "integrity": "f52b4ca6881bb42c9b7e1a9356eb18a791f52e416f19778d116e4b7cb9c22472",
+      "dependencies": [
+        "jsr:@hono/hono@^4.8.3",
+        "npm:@opentelemetry/api",
+        "npm:@opentelemetry/semantic-conventions"
+      ]
+    },
+    "@hono/session@0.1.0": {
+      "integrity": "0eff500a07b0d502eb566fe193a2dde74fa30f60dc153dd4e4147758ca6d9d37",
+      "dependencies": [
+        "jsr:@hono/hono@^4.8.3",
+        "jsr:@panva/jose"
+      ]
+    },
+    "@hono/typebox-validator@1.1.0": {
+      "integrity": "a84a69f8225cc721ed0a3a7515932e1959f6983d1ff14fc7bd470d1f25ec08ee",
+      "dependencies": [
+        "jsr:@hono/hono@^4.8.3",
+        "npm:typebox"
+      ]
+    },
+    "@hono/zod-validator@0.7.6": {
+      "integrity": "cc15ec57dd8a49e49d81f1790fb2d35cb96c9d3b8b14d8d0b851c00ab00e50ca",
+      "dependencies": [
+        "jsr:@hono/hono@^4.8.3",
+        "npm:zod"
+      ]
+    },
+    "@panva/jose@6.2.2": {
+      "integrity": "bfe1178a9d2f53effa5ee6c1786b6534a39690b03969472b3ad690600d8898ec"
+    },
+    "@std/assert@1.0.19": {
+      "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
+    },
+    "@std/cli@1.0.28": {
+      "integrity": "74ef9b976db59ca6b23a5283469c9072be6276853807a83ec6c7ce412135c70a",
+      "dependencies": [
+        "jsr:@std/fmt",
+        "jsr:@std/internal"
+      ]
+    },
+    "@std/crypto@1.0.5": {
+      "integrity": "0dcfbb319fe0bba1bd3af904ceb4f948cde1b92979ec1614528380ed308a3b40"
+    },
+    "@std/encoding@1.0.10": {
+      "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
+    },
+    "@std/fmt@1.0.9": {
+      "integrity": "2487343e8899fb2be5d0e3d35013e54477ada198854e52dd05ed0422eddcabe0"
+    },
+    "@std/fs@1.0.23": {
+      "integrity": "3ecbae4ce4fee03b180fa710caff36bb5adb66631c46a6460aaad49515565a37",
+      "dependencies": [
+        "jsr:@std/internal",
+        "jsr:@std/path@^1.1.4"
+      ]
+    },
+    "@std/internal@1.0.12": {
+      "integrity": "972a634fd5bc34b242024402972cd5143eac68d8dffaca5eaa4dba30ce17b027"
+    },
+    "@std/path@1.1.4": {
+      "integrity": "1d2d43f39efb1b42f0b1882a25486647cb851481862dc7313390b2bb044314b5",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
+    }
+  },
+  "npm": {
+    "@esbuild/aix-ppc64@0.19.12": {
+      "integrity": "sha512-bmoCYyWdEL3wDQIVbcyzRyeKLgk2WtWLTWz1ZIAZF/EGbNOwSA6ew3PftJ1PqMiOOGu0OyFMzG53L0zqIpPeNA==",
+      "os": ["aix"],
+      "cpu": ["ppc64"]
+    },
+    "@esbuild/android-arm64@0.19.12": {
+      "integrity": "sha512-P0UVNGIienjZv3f5zq0DP3Nt2IE/3plFzuaS96vihvD0Hd6H/q4WXUGpCxD/E8YrSXfNyRPbpTq+T8ZQioSuPA==",
+      "os": ["android"],
+      "cpu": ["arm64"]
+    },
+    "@esbuild/android-arm@0.19.12": {
+      "integrity": "sha512-qg/Lj1mu3CdQlDEEiWrlC4eaPZ1KztwGJ9B6J+/6G+/4ewxJg7gqj8eVYWvao1bXrqGiW2rsBZFSX3q2lcW05w==",
+      "os": ["android"],
+      "cpu": ["arm"]
+    },
+    "@esbuild/android-x64@0.19.12": {
+      "integrity": "sha512-3k7ZoUW6Q6YqhdhIaq/WZ7HwBpnFBlW905Fa4s4qWJyiNOgT1dOqDiVAQFwBH7gBRZr17gLrlFCRzF6jFh7Kew==",
+      "os": ["android"],
+      "cpu": ["x64"]
+    },
+    "@esbuild/darwin-arm64@0.19.12": {
+      "integrity": "sha512-B6IeSgZgtEzGC42jsI+YYu9Z3HKRxp8ZT3cqhvliEHovq8HSX2YX8lNocDn79gCKJXOSaEot9MVYky7AKjCs8g==",
+      "os": ["darwin"],
+      "cpu": ["arm64"]
+    },
+    "@esbuild/darwin-x64@0.19.12": {
+      "integrity": "sha512-hKoVkKzFiToTgn+41qGhsUJXFlIjxI/jSYeZf3ugemDYZldIXIxhvwN6erJGlX4t5h417iFuheZ7l+YVn05N3A==",
+      "os": ["darwin"],
+      "cpu": ["x64"]
+    },
+    "@esbuild/freebsd-arm64@0.19.12": {
+      "integrity": "sha512-4aRvFIXmwAcDBw9AueDQ2YnGmz5L6obe5kmPT8Vd+/+x/JMVKCgdcRwH6APrbpNXsPz+K653Qg8HB/oXvXVukA==",
+      "os": ["freebsd"],
+      "cpu": ["arm64"]
+    },
+    "@esbuild/freebsd-x64@0.19.12": {
+      "integrity": "sha512-EYoXZ4d8xtBoVN7CEwWY2IN4ho76xjYXqSXMNccFSx2lgqOG/1TBPW0yPx1bJZk94qu3tX0fycJeeQsKovA8gg==",
+      "os": ["freebsd"],
+      "cpu": ["x64"]
+    },
+    "@esbuild/linux-arm64@0.19.12": {
+      "integrity": "sha512-EoTjyYyLuVPfdPLsGVVVC8a0p1BFFvtpQDB/YLEhaXyf/5bczaGeN15QkR+O4S5LeJ92Tqotve7i1jn35qwvdA==",
+      "os": ["linux"],
+      "cpu": ["arm64"]
+    },
+    "@esbuild/linux-arm@0.19.12": {
+      "integrity": "sha512-J5jPms//KhSNv+LO1S1TX1UWp1ucM6N6XuL6ITdKWElCu8wXP72l9MM0zDTzzeikVyqFE6U8YAV9/tFyj0ti+w==",
+      "os": ["linux"],
+      "cpu": ["arm"]
+    },
+    "@esbuild/linux-ia32@0.19.12": {
+      "integrity": "sha512-Thsa42rrP1+UIGaWz47uydHSBOgTUnwBwNq59khgIwktK6x60Hivfbux9iNR0eHCHzOLjLMLfUMLCypBkZXMHA==",
+      "os": ["linux"],
+      "cpu": ["ia32"]
+    },
+    "@esbuild/linux-loong64@0.19.12": {
+      "integrity": "sha512-LiXdXA0s3IqRRjm6rV6XaWATScKAXjI4R4LoDlvO7+yQqFdlr1Bax62sRwkVvRIrwXxvtYEHHI4dm50jAXkuAA==",
+      "os": ["linux"],
+      "cpu": ["loong64"]
+    },
+    "@esbuild/linux-mips64el@0.19.12": {
+      "integrity": "sha512-fEnAuj5VGTanfJ07ff0gOA6IPsvrVHLVb6Lyd1g2/ed67oU1eFzL0r9WL7ZzscD+/N6i3dWumGE1Un4f7Amf+w==",
+      "os": ["linux"],
+      "cpu": ["mips64el"]
+    },
+    "@esbuild/linux-ppc64@0.19.12": {
+      "integrity": "sha512-nYJA2/QPimDQOh1rKWedNOe3Gfc8PabU7HT3iXWtNUbRzXS9+vgB0Fjaqr//XNbd82mCxHzik2qotuI89cfixg==",
+      "os": ["linux"],
+      "cpu": ["ppc64"]
+    },
+    "@esbuild/linux-riscv64@0.19.12": {
+      "integrity": "sha512-2MueBrlPQCw5dVJJpQdUYgeqIzDQgw3QtiAHUC4RBz9FXPrskyyU3VI1hw7C0BSKB9OduwSJ79FTCqtGMWqJHg==",
+      "os": ["linux"],
+      "cpu": ["riscv64"]
+    },
+    "@esbuild/linux-s390x@0.19.12": {
+      "integrity": "sha512-+Pil1Nv3Umes4m3AZKqA2anfhJiVmNCYkPchwFJNEJN5QxmTs1uzyy4TvmDrCRNT2ApwSari7ZIgrPeUx4UZDg==",
+      "os": ["linux"],
+      "cpu": ["s390x"]
+    },
+    "@esbuild/linux-x64@0.19.12": {
+      "integrity": "sha512-B71g1QpxfwBvNrfyJdVDexenDIt1CiDN1TIXLbhOw0KhJzE78KIFGX6OJ9MrtC0oOqMWf+0xop4qEU8JrJTwCg==",
+      "os": ["linux"],
+      "cpu": ["x64"]
+    },
+    "@esbuild/netbsd-x64@0.19.12": {
+      "integrity": "sha512-3ltjQ7n1owJgFbuC61Oj++XhtzmymoCihNFgT84UAmJnxJfm4sYCiSLTXZtE00VWYpPMYc+ZQmB6xbSdVh0JWA==",
+      "os": ["netbsd"],
+      "cpu": ["x64"]
+    },
+    "@esbuild/openbsd-x64@0.19.12": {
+      "integrity": "sha512-RbrfTB9SWsr0kWmb9srfF+L933uMDdu9BIzdA7os2t0TXhCRjrQyCeOt6wVxr79CKD4c+p+YhCj31HBkYcXebw==",
+      "os": ["openbsd"],
+      "cpu": ["x64"]
+    },
+    "@esbuild/sunos-x64@0.19.12": {
+      "integrity": "sha512-HKjJwRrW8uWtCQnQOz9qcU3mUZhTUQvi56Q8DPTLLB+DawoiQdjsYq+j+D3s9I8VFtDr+F9CjgXKKC4ss89IeA==",
+      "os": ["sunos"],
+      "cpu": ["x64"]
+    },
+    "@esbuild/win32-arm64@0.19.12": {
+      "integrity": "sha512-URgtR1dJnmGvX864pn1B2YUYNzjmXkuJOIqG2HdU62MVS4EHpU2946OZoTMnRUHklGtJdJZ33QfzdjGACXhn1A==",
+      "os": ["win32"],
+      "cpu": ["arm64"]
+    },
+    "@esbuild/win32-ia32@0.19.12": {
+      "integrity": "sha512-+ZOE6pUkMOJfmxmBZElNOx72NKpIa/HFOMGzu8fqzQJ5kgf6aTGrcJaFsNiVMH4JKpMipyK+7k0n2UXN7a8YKQ==",
+      "os": ["win32"],
+      "cpu": ["ia32"]
+    },
+    "@esbuild/win32-x64@0.19.12": {
+      "integrity": "sha512-T1QyPSDCyMXaO3pzBkF96E8xMkiRYbUEZADd29SyPGabqxMViNoii+NcK7eWJAEoU6RZyEm5lVSIjTmcdoB9HA==",
+      "os": ["win32"],
+      "cpu": ["x64"]
+    },
+    "@opentelemetry/api@1.9.1": {
+      "integrity": "sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q=="
+    },
+    "@opentelemetry/semantic-conventions@1.40.0": {
+      "integrity": "sha512-cifvXDhcqMwwTlTK04GBNeIe7yyo28Mfby85QXFe1Yk8nmi36Ab/5UQwptOx84SsoGNRg+EVSjwzfSZMy6pmlw=="
+    },
+    "esbuild-wasm@0.19.12": {
+      "integrity": "sha512-Zmc4hk6FibJZBcTx5/8K/4jT3/oG1vkGTEeKJUQFCUQKimD6Q7+adp/bdVQyYJFolMKaXkQnVZdV4O5ZaTYmyQ==",
+      "bin": true
+    },
+    "esbuild@0.19.12": {
+      "integrity": "sha512-aARqgq8roFBj054KvQr5f1sFu0D65G+miZRCuJyJ0G13Zwx7vRar5Zhn2tkQNzIXcBrNVsv/8stehpj+GAjgbg==",
+      "optionalDependencies": [
+        "@esbuild/aix-ppc64",
+        "@esbuild/android-arm",
+        "@esbuild/android-arm64",
+        "@esbuild/android-x64",
+        "@esbuild/darwin-arm64",
+        "@esbuild/darwin-x64",
+        "@esbuild/freebsd-arm64",
+        "@esbuild/freebsd-x64",
+        "@esbuild/linux-arm",
+        "@esbuild/linux-arm64",
+        "@esbuild/linux-ia32",
+        "@esbuild/linux-loong64",
+        "@esbuild/linux-mips64el",
+        "@esbuild/linux-ppc64",
+        "@esbuild/linux-riscv64",
+        "@esbuild/linux-s390x",
+        "@esbuild/linux-x64",
+        "@esbuild/netbsd-x64",
+        "@esbuild/openbsd-x64",
+        "@esbuild/sunos-x64",
+        "@esbuild/win32-arm64",
+        "@esbuild/win32-ia32",
+        "@esbuild/win32-x64"
+      ],
+      "scripts": true,
+      "bin": true
+    },
+    "typebox@1.1.27": {
+      "integrity": "sha512-0G7OIrG890WbiRwExAgfvM/1uKVP4HcjGxEprJ+WrCXIH0nnTASB2zKO59cx4RMUm4r2SuZfDpX+ZLcATt2ehA=="
+    },
+    "zod@4.3.6": {
+      "integrity": "sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg=="
+    }
+  },
+  "workspace": {
+    "dependencies": [
+      "jsr:@hono/esbuild-transpiler@~0.1.4",
+      "jsr:@hono/hono@^4.12.14",
+      "jsr:@hono/otel@^1.1.1",
+      "jsr:@hono/session@0.1",
+      "jsr:@hono/typebox-validator@^1.1.0",
+      "jsr:@hono/zod-validator@~0.7.6",
+      "jsr:@std/assert@1",
+      "jsr:@std/cli@1",
+      "jsr:@std/crypto@1",
+      "jsr:@std/encoding@1",
+      "jsr:@std/fs@1",
+      "jsr:@std/path@1"
+    ],
+    "members": {
+      "packages/build": {
+        "dependencies": [
+          "jsr:@hono/hono@^4.12.14"
+        ]
+      },
+      "packages/core": {
+        "dependencies": [
+          "jsr:@ggpwnkthx/sprout-jsx@0.1",
+          "jsr:@ggpwnkthx/sprout-router@0.1",
+          "jsr:@ggpwnkthx/sprout-static@0.1",
+          "jsr:@hono/hono@^4.12.14",
+          "jsr:@std/fs@1",
+          "jsr:@std/path@1"
+        ]
+      },
+      "packages/dev": {
+        "dependencies": [
+          "jsr:@hono/esbuild-transpiler@~0.1.4",
+          "jsr:@hono/hono@^4.12.14"
+        ]
+      },
+      "packages/init": {
+        "dependencies": [
+          "jsr:@std/cli@1",
+          "jsr:@std/fs@1",
+          "jsr:@std/path@1"
+        ]
+      },
+      "packages/islands": {
+        "dependencies": [
+          "jsr:@hono/hono@^4.12.14"
+        ]
+      },
+      "packages/jsx": {
+        "dependencies": [
+          "jsr:@hono/hono@^4.12.14"
+        ]
+      },
+      "packages/router": {
+        "dependencies": [
+          "jsr:@hono/hono@^4.12.14",
+          "jsr:@std/fs@1",
+          "jsr:@std/path@1"
+        ]
+      },
+      "packages/sprout": {
+        "dependencies": [
+          "jsr:@ggpwnkthx/sprout-build@0.1",
+          "jsr:@ggpwnkthx/sprout-core@0.1",
+          "jsr:@ggpwnkthx/sprout-dev@0.1",
+          "jsr:@ggpwnkthx/sprout-init@0.1",
+          "jsr:@ggpwnkthx/sprout-islands@0.1",
+          "jsr:@ggpwnkthx/sprout-jsx@0.1",
+          "jsr:@ggpwnkthx/sprout-router@0.1",
+          "jsr:@ggpwnkthx/sprout-static@0.1"
+        ]
+      },
+      "packages/static": {
+        "dependencies": [
+          "jsr:@hono/hono@^4.12.14",
+          "jsr:@std/path@1"
+        ]
+      }
+    }
+  }
+}

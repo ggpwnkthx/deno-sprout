@@ -1,0 +1,25 @@
+{
+  "name": "@ggpwnkthx/sprout-router",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./fs": "./fs.ts",
+    "./matcher": "./matcher.ts",
+    "./groups": "./groups.ts",
+    "./config": "./config.ts",
+    "./lib/file": "./lib/file.ts",
+    "./lib/params": "./lib/params.ts"
+  },
+  "imports": {
+    "@hono/hono": "jsr:@hono/hono@^4.12.14",
+    "@std/fs": "jsr:@std/fs@^1.0.0",
+    "@std/path": "jsr:@std/path@^1.0.0"
+  },
+  "compilerOptions": {
+    "strict": true
+  },
+  "publish": {
+    "scope": "@ggpwnkthx",
+    "registry": "https://jsr.io"
+  }
+}

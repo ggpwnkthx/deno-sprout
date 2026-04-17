@@ -1,0 +1,21 @@
+{
+  "name": "@ggpwnkthx/sprout-static",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./server": "./server.ts",
+    "./deploy-assets": "./deploy-assets.ts",
+    "./lib/options": "./lib/options.ts"
+  },
+  "imports": {
+    "@hono/hono": "jsr:@hono/hono@^4.12.14",
+    "@std/path": "jsr:@std/path@^1.0.0"
+  },
+  "compilerOptions": {
+    "strict": true
+  },
+  "publish": {
+    "scope": "@ggpwnkthx",
+    "registry": "https://jsr.io"
+  }
+}

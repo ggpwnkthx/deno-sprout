@@ -1,0 +1,35 @@
+{
+  "name": "@ggpwnkthx/sprout-core",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./app": "./app.tsx",
+    "./context": "./context.ts",
+    "./types": "./types.ts",
+    "./lib/define": "./lib/define.ts",
+    "./lib/layout": "./lib/layout.ts",
+    "./lib/middleware": "./lib/middleware.ts",
+    "./lib/head": "./lib/head.ts"
+  },
+  "imports": {
+    "@hono/hono": "jsr:@hono/hono@^4.12.14",
+    "@ggpwnkthx/sprout-jsx": "jsr:@ggpwnkthx/sprout-jsx@^0.1.0",
+    "@ggpwnkthx/sprout-jsx/renderer": "jsr:@ggpwnkthx/sprout-jsx@^0.1.0/renderer",
+    "@ggpwnkthx/sprout-router": "jsr:@ggpwnkthx/sprout-router@^0.1.0",
+    "@ggpwnkthx/sprout-router/fs": "jsr:@ggpwnkthx/sprout-router@^0.1.0/fs",
+    "@ggpwnkthx/sprout-static": "jsr:@ggpwnkthx/sprout-static@^0.1.0",
+    "@ggpwnkthx/sprout-static/server": "jsr:@ggpwnkthx/sprout-static@^0.1.0/server",
+    "@ggpwnkthx/sprout-static/deploy-assets": "jsr:@ggpwnkthx/sprout-static@^0.1.0/deploy-assets",
+    "@std/fs": "jsr:@std/fs@^1.0.0",
+    "@std/path": "jsr:@std/path@^1.0.0"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "@hono/hono/jsx"
+  },
+  "publish": {
+    "scope": "@ggpwnkthx",
+    "registry": "https://jsr.io"
+  }
+}

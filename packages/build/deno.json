@@ -1,0 +1,21 @@
+{
+  "name": "@ggpwnkthx/sprout-build",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./bundler": "./bundler.ts",
+    "./manifest": "./manifest.ts",
+    "./lib/esbuild": "./lib/esbuild.ts",
+    "./lib/assets": "./lib/assets.ts"
+  },
+  "imports": {
+    "@hono/hono": "jsr:@hono/hono@^4.12.14"
+  },
+  "compilerOptions": {
+    "strict": true
+  },
+  "publish": {
+    "scope": "@ggpwnkthx",
+    "registry": "https://jsr.io"
+  }
+}
