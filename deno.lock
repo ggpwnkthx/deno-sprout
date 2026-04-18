@@ -294,6 +294,7 @@
       },
       "packages/core": {
         "dependencies": [
+          "jsr:@ggpwnkthx/sprout-islands@0.1",
           "jsr:@ggpwnkthx/sprout-jsx@0.1",
           "jsr:@ggpwnkthx/sprout-router@0.1",
           "jsr:@ggpwnkthx/sprout-static@0.1",
@@ -317,7 +318,9 @@
       },
       "packages/islands": {
         "dependencies": [
-          "jsr:@hono/hono@^4.12.14"
+          "jsr:@hono/hono@^4.12.14",
+          "jsr:@std/crypto@1",
+          "jsr:@std/encoding@1"
         ]
       },
       "packages/jsx": {

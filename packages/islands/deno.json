@@ -8,15 +8,20 @@
     "./serializer": "./serializer.ts",
     "./hooks": "./hooks.ts",
     "./lib/component": "./lib/component.ts",
-    "./lib/props": "./lib/props.ts"
+    "./lib/props": "./lib/props.ts",
+    "./lib/mount": "./lib/mount.ts",
+    "./lib/runtime": "./lib/runtime.ts",
+    "./lib/wrapper-template": "./lib/wrapper-template.ts"
   },
   "imports": {
-    "@hono/hono": "jsr:@hono/hono@^4.12.14"
+    "@hono/hono": "jsr:@hono/hono@^4.12.14",
+    "@std/crypto": "jsr:@std/crypto@^1.0.0",
+    "@std/encoding": "jsr:@std/encoding@^1.0.0"
   },
   "compilerOptions": {
     "strict": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "@hono/hono"
+    "jsxImportSource": "@hono/hono/jsx"
   },
   "publish": {
     "scope": "@ggpwnkthx",

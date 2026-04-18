@@ -4,7 +4,7 @@ import { Fragment, memo } from "@hono/hono/jsx";
 import type { MiddlewareHandler } from "@hono/hono";
 import type { LayoutComponent } from "@ggpwnkthx/sprout-core/types";
 
-export function jsxRenderer(
+export function createJsxRenderer(
   layout?: LayoutComponent,
 ): MiddlewareHandler {
   return honoJsxRenderer(({ children }) => {

@@ -1,9 +1,10 @@
 // app.tsx - Core App class extending Hono with JSX support
 import { Hono } from "@hono/hono";
-import { jsxRenderer } from "@ggpwnkthx/sprout-jsx/renderer";
+import { createJsxRenderer } from "@ggpwnkthx/sprout-jsx/renderer";
 import { fsRoutes, fsRoutesFromManifest } from "@ggpwnkthx/sprout-router/fs";
-import { staticFiles } from "@ggpwnkthx/sprout-static/server";
+import { sproutAssets, staticFiles } from "@ggpwnkthx/sprout-static/server";
 import { deployIslandAssets } from "@ggpwnkthx/sprout-static/deploy-assets";
+import { loadManifest } from "./lib/manifest.ts";
 import { join, toFileUrl } from "@std/path";
 import type { LayoutComponent } from "./types.ts";
 import type { RouteModule } from "@ggpwnkthx/sprout-router/fs";
@@ -22,6 +23,7 @@ export interface AppOptions {
 
 export class App extends Hono {
   readonly #appOptions: Required<AppOptions>;
+  #islandManifest: Record<string, string> | null = null;
 
   constructor(options: AppOptions = {}) {
     super();
@@ -41,12 +43,36 @@ export class App extends Hono {
     return this.#initLocal();
   }
 
+  /** Returns the island manifest for building correct asset URLs. */
+  getIslandManifest(): Record<string, string> | null {
+    return this.#islandManifest;
+  }
+
   async #initLocal(): Promise<this> {
     const resolvedRoutesDir = join(
       this.#appOptions.root,
       this.#appOptions.routesDir,
     );
+    // Mount sproutAssets first for /_sprout/* requests
+    this.use(sproutAssets({ distDir: this.#appOptions.distDir }));
     this.use(staticFiles({ root: this.#appOptions.staticDir }));
+    // Try to load island manifest from distDir
+    const manifest = await loadManifest(this.#appOptions.distDir);
+    if (manifest?.islands) {
+      this.#islandManifest = manifest.islands;
+    }
+    // Expose manifest on context for all routes (layouts may read it)
+    if (manifest) {
+      this.use((c, next) => {
+        // Using type assertion for custom context variable - Hono's c.set() requires
+        // the key to be typed on the Context, but we store this for framework use.
+        (c as unknown as { set: (k: string, v: unknown) => void }).set(
+          "islandManifest",
+          manifest,
+        );
+        return next();
+      });
+    }
     await fsRoutes({
       app: this,
       dir: resolvedRoutesDir,
@@ -55,7 +81,7 @@ export class App extends Hono {
           layoutChain,
           this.#appOptions.rootLayout,
         );
-        this.use(pattern, jsxRenderer(layout));
+        this.use(pattern, createJsxRenderer(layout));
       },
     });
     this.notFound(async (c) => {
@@ -91,7 +117,7 @@ export class App extends Hono {
           layoutChain,
           this.#appOptions.rootLayout,
         );
-        this.use(pattern, jsxRenderer(layout));
+        this.use(pattern, createJsxRenderer(layout));
       },
     });
     this.notFound((c) => c.text("404 Not Found", 404));
@@ -110,12 +136,12 @@ async function composeLayouts(
     layoutChain.map((filePath) => import(String(toFileUrl(filePath)))),
   );
   return modules.reduceRight<LayoutComponent>(
-    (layout, mod) => {
+    (inner, mod) => {
       const modLayout = (mod as RouteModule).default as (
         props: Record<string, unknown>,
       ) => unknown;
-      if (!modLayout) return layout;
-      return ({ children }) => modLayout({ children, layout });
+      if (!modLayout) return inner;
+      return ({ children }) => modLayout({ children });
     },
     fallbackLayout ?? (({ children }) => <>{children}</>),
   );

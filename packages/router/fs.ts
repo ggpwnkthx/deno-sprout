@@ -198,12 +198,17 @@ async function registerRoute(
   }
 
   // Compute or use pre-computed chains
+  // Always use absolute paths: file.filePath is already absolute in manifest mode,
+  // or relative to routesDir in local mode.
+  const absFilePath = routesDir
+    ? join(routesDir, file.filePath)
+    : file.filePath;
   const layoutChain = file.layoutChain.length > 0
     ? file.layoutChain
-    : await resolveLayoutChain(file.filePath, routesDir);
+    : await resolveLayoutChain(absFilePath, routesDir);
   const middlewareChain = file.middlewareChain.length > 0
     ? file.middlewareChain
-    : await resolveMiddlewareChain(file.filePath, routesDir);
+    : await resolveMiddlewareChain(absFilePath, routesDir);
 
   // Page route: default component + optional method handlers + optional handler()
   const skipLayouts = file.skipInheritedLayouts ??
@@ -322,9 +327,12 @@ async function renderPage(
       | ((props: Record<string, unknown>) => unknown)
       | undefined;
     if (layoutFn) {
-      const currentComponent = component;
+      const currentComponent = component as (
+        props: Record<string, unknown>,
+      ) => unknown;
+      // Pass the RESULT of calling currentComponent (rendered JSX) as children
       component = (props: Record<string, unknown>) =>
-        layoutFn({ ...props, children: currentComponent });
+        layoutFn({ ...props, children: currentComponent(props) });
     }
   }
 

@@ -13,7 +13,8 @@ export type {
 } from "./types.ts";
 export { define } from "./lib/define.ts";
 export { defineLayout } from "./lib/layout.ts";
-export { defineHandlers, defineMiddleware } from "./lib/middleware.ts";
+export { defineMiddleware } from "./lib/middleware.ts";
+export { Head, Meta, Title } from "./lib/head.ts";
 
 // Re-export CORS and CSRF from @hono/hono
 export { cors } from "@hono/hono/cors";

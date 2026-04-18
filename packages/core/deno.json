@@ -13,6 +13,7 @@
   },
   "imports": {
     "@hono/hono": "jsr:@hono/hono@^4.12.14",
+    "@ggpwnkthx/sprout-islands": "jsr:@ggpwnkthx/sprout-islands@^0.1.0",
     "@ggpwnkthx/sprout-jsx": "jsr:@ggpwnkthx/sprout-jsx@^0.1.0",
     "@ggpwnkthx/sprout-jsx/renderer": "jsr:@ggpwnkthx/sprout-jsx@^0.1.0/renderer",
     "@ggpwnkthx/sprout-router": "jsr:@ggpwnkthx/sprout-router@^0.1.0",

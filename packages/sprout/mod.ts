@@ -3,6 +3,7 @@ import { App, isDeploy } from "@ggpwnkthx/sprout-core/app";
 import type { AppOptions } from "@ggpwnkthx/sprout-core/app";
 export { App, isDeploy };
 export type { AppOptions };
+export type { SproutContext } from "@ggpwnkthx/sprout-core/context";
 export type {
   Handler,
   Handlers,

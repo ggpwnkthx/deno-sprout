@@ -1,11 +1,5 @@
 // lib/middleware.ts - Middleware helpers
-import type { MiddlewareHandler } from "../context.ts";
-
-export const defineHandlers = (
-  handlers: Record<string, MiddlewareHandler> | MiddlewareHandler,
-): Record<string, MiddlewareHandler> | MiddlewareHandler => {
-  return handlers;
-};
+import type { MiddlewareHandler } from "@hono/hono";
 
 export const defineMiddleware = (
   handler: MiddlewareHandler,
