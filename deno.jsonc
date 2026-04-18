@@ -7,7 +7,7 @@
     "build": "deno run --allow-net --allow-read --allow-env --allow-write jsr:@ggpwnkthx/sprout/build",
     "init": "deno run -Ar jsr:@ggpwnkthx/sprout/init",
     "check": "deno check",
-    "test": "deno test -A packages/router/ packages/jsx/ packages/core/ packages/islands/ packages/static/ packages/build/ packages/dev/ packages/init/ e2e_test.ts",
+    "test": "deno test -A packages/router/ packages/jsx/ packages/core/ packages/islands/ packages/static/ packages/build/ packages/dev/ packages/init/ tests/e2e.test.ts",
     "lint": "deno lint packages/ tests/",
     "fmt": "deno fmt",
     "ci": "deno task lint && deno task check && deno task test"
