@@ -1,7 +1,7 @@
 // bundler_test.ts - Tests for buildIslands
 import { assertEquals, assertExists, assertStringIncludes } from "@std/assert";
-import { buildIslands } from "./bundler.ts";
-import { readManifest } from "./manifest.ts";
+import { buildIslands } from "../bundler.ts";
+import { readManifest } from "../manifest.ts";
 import { join } from "@std/path";
 
 Deno.test("buildIslands - creates hashed island bundles", async () => {

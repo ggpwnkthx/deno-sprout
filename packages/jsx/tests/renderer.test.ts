@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { createJsxRenderer } from "./renderer.ts";
+import { createJsxRenderer } from "../renderer.ts";
 import type { LayoutComponent } from "@ggpwnkthx/sprout-core/types";
 
 Deno.test("createJsxRenderer returns a middleware handler", () => {

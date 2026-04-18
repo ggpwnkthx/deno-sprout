@@ -1,6 +1,6 @@
 // hmr_test.ts - Tests for HMR functions
 import { assertEquals, assertExists } from "@std/assert";
-import { classifyFsEvent, createHmrHandler, watchFiles } from "./hmr.ts";
+import { classifyFsEvent, createHmrHandler, watchFiles } from "../hmr.ts";
 
 Deno.test("classifyFsEvent - CSS file returns css-update", () => {
   const event = {
@@ -81,7 +81,7 @@ Deno.test("createHmrHandler - returns handler and broadcast function", () => {
 
 Deno.test("watchFiles - returns close function", () => {
   // Use a non-existent directory to avoid file system side effects
-  const result = watchFiles(["/nonexistent/path"], () => {});
+  const result = watchFiles(["/nonexistent/path"], () => { });
 
   assertEquals(typeof result.close, "function");
   result.close();

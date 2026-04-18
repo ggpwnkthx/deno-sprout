@@ -1,6 +1,6 @@
 // hooks_test.ts - Tests for useSignal, useComputed, useEffect
 import { assertEquals } from "@std/assert";
-import { useComputed, useEffect, useSignal } from "./hooks.ts";
+import { useComputed, useEffect, useSignal } from "../hooks.ts";
 
 Deno.test("useSignal: returns signal with correct initial value", () => {
   const sig = useSignal(0);

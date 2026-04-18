@@ -4,7 +4,7 @@ import {
   copyStaticAssets,
   discoverIslands,
   writeIslandBundle,
-} from "./assets.ts";
+} from "@ggpwnkthx/sprout-build/lib/assets";
 import { join } from "@std/path";
 
 Deno.test("discoverIslands - finds .tsx and .ts files", async () => {

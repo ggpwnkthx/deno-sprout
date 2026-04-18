@@ -1,6 +1,6 @@
 // lib/file_test.ts — unit tests for filePathToPattern, sortRouteFiles, getRouteFiles
 import { assertEquals, assertExists } from "@std/assert";
-import { filePathToPattern, getRouteFiles, sortRouteFiles } from "./file.ts";
+import { filePathToPattern, getRouteFiles, sortRouteFiles } from "@ggpwnkthx/sprout-router/lib/file";
 
 // ---------------------------------------------------------------------------
 // Helpers

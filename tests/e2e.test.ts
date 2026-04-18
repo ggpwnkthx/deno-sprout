@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { createApp } from "./packages/sprout/mod.ts";
+import { createApp } from "../packages/sprout/mod.ts";
 
 Deno.test("full fixture: GET / returns 200", async () => {
   const app = await createApp({ root: "./fixtures/full" });

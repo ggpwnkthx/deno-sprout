@@ -1,6 +1,6 @@
 // bundler_test.ts - Tests for dev island bundler
 import { assertEquals } from "@std/assert";
-import { devIslandBundler } from "./bundler.ts";
+import { devIslandBundler } from "@ggpwnkthx/sprout-dev/lib/bundler";
 
 Deno.test("devIslandBundler - returns middleware and invalidate function", () => {
   const result = devIslandBundler({

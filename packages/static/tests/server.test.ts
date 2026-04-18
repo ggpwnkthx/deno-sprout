@@ -1,6 +1,6 @@
 // server_test.ts - Tests for static file serving middleware
 import { assertEquals } from "@std/assert";
-import { sproutAssets, staticFiles } from "./server.ts";
+import { sproutAssets, staticFiles } from "../server.ts";
 
 Deno.test("staticFiles: prefix is stripped from path", () => {
   // This test verifies the middleware is constructed correctly.

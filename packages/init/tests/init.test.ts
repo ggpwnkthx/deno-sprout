@@ -1,5 +1,5 @@
 import { assertEquals, assertExists } from "@std/assert";
-import { initProject } from "./template.ts";
+import { initProject } from "../template.ts";
 
 Deno.test("initProject creates project with minimal template", async () => {
   const tmpDir = await Deno.makeTempDir({ prefix: "sprout-test-" });
