@@ -9,7 +9,11 @@
   },
   "imports": {
     "@hono/hono": "jsr:@hono/hono@^4.12.14",
-    "@hono/esbuild-transpiler": "jsr:@hono/esbuild-transpiler@^0.1.4"
+    "@hono/esbuild-transpiler": "jsr:@hono/esbuild-transpiler@^0.1.4",
+    "@ggpwnkthx/sprout-build": "jsr:@ggpwnkthx/sprout-build@^0.1.0",
+    "@ggpwnkthx/sprout-core": "jsr:@ggpwnkthx/sprout-core@^0.1.0",
+    "@ggpwnkthx/sprout-islands": "jsr:@ggpwnkthx/sprout-islands@^0.1.0",
+    "@std/path": "jsr:@std/path@^1.0.0"
   },
   "compilerOptions": {
     "strict": true

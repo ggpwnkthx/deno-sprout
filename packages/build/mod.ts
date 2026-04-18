@@ -2,7 +2,13 @@
 // Production build and bundling
 
 export { buildIslands } from "./bundler.ts";
-export { generateAssetManifest } from "./manifest.ts";
+export {
+  buildManifest,
+  contentHash,
+  readManifest,
+  writeManifest,
+} from "./manifest.ts";
+export { buildManifest as generateAssetManifest } from "./manifest.ts";
 export {
   generateRoutesManifest,
   loadRoutesManifest,
@@ -11,4 +17,6 @@ export type {
   RouteManifestEntry,
   RoutesManifest,
 } from "@ggpwnkthx/sprout-core/types";
-export type { AssetManifest, BuildOptions, BuildResult } from "./lib/assets.ts";
+export type { DiscoveredIsland } from "./lib/assets.ts";
+export type { BuildOptions, BuildResult } from "./bundler.ts";
+export type { IslandManifest } from "./manifest.ts";

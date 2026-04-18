@@ -3,4 +3,5 @@
 
 export { createDevServer } from "./server.ts";
 export { watchFiles } from "./hmr.ts";
-export type { DevServerOptions, HMRClient } from "./lib/bundler.ts";
+export type { HmrEvent, HmrEventType } from "./hmr.ts";
+export type { DevBundlerOptions } from "./lib/bundler.ts";
