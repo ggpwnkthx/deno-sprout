@@ -1,5 +1,5 @@
 import { assertEquals, assertExists } from "@std/assert";
-import { TEMPLATES } from "./template.ts";
+import { TEMPLATES } from "../template.ts";
 
 Deno.test("TEMPLATES contains minimal, blog, and api templates", () => {
   assertEquals(Object.keys(TEMPLATES).length, 3);

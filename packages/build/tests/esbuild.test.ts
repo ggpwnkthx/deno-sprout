@@ -1,7 +1,7 @@
 // esbuild_test.ts - Tests for transpile function
 import { assertEquals, assertExists, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { transpile } from "./esbuild.ts";
+import { transpile } from "../lib/esbuild.ts";
 
 Deno.test("transpile - valid TSX returns JS without JSX syntax", async () => {
   const result = await transpile({

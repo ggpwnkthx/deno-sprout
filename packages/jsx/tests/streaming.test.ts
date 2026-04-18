@@ -1,5 +1,5 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
-import { renderToString } from "./streaming.ts";
+import { renderToString } from "../streaming.ts";
 
 Deno.test("renderToString returns a string for string input", async () => {
   const result = await renderToString("hello");

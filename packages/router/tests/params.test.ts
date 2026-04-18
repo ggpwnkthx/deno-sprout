@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { extractParams } from "./params.ts";
+import { extractParams } from "../lib/params.ts";
 
 Deno.test("extractParams for static routes returns empty object", () => {
   assertEquals(extractParams("/about", {}), {});

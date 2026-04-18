@@ -1,6 +1,6 @@
 // serializer_test.ts - Tests for prop serialization
 import { assertEquals, assertThrows } from "@std/assert";
-import { deserializeProps, serializeProps } from "./serializer.ts";
+import { deserializeProps, serializeProps } from "../serializer.ts";
 
 Deno.test("serializeProps: round-trips primitives", () => {
   const input = { n: 1, s: "hello", flag: true, nil: null };

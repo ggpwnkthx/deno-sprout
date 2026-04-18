@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
-import { resolveLayoutChain, resolveMiddlewareChain } from "./groups.ts";
+import { resolveLayoutChain, resolveMiddlewareChain } from "../groups.ts";
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { createDevServer } from "./server.ts";
+import { createDevServer } from "../server.ts";
 
 async function createServerAndClose(root: string) {
   const app = await createDevServer({ root });

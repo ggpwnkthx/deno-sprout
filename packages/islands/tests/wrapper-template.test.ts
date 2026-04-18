@@ -1,6 +1,6 @@
 // wrapper-template_test.ts - Tests for generateIslandWrapper
 import { assertEquals } from "@std/assert";
-import { generateIslandWrapper } from "./wrapper-template.ts";
+import { generateIslandWrapper } from "../lib/wrapper-template.ts";
 
 Deno.test("generateIslandWrapper: contains component import path", () => {
   const output = generateIslandWrapper("Counter");

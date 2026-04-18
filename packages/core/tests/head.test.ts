@@ -1,5 +1,10 @@
 import { assertEquals, assertExists } from "@std/assert";
-import { createHeadManager, Head, Meta, Title } from "@ggpwnkthx/sprout-core/lib/head";
+import {
+  createHeadManager,
+  Head,
+  Meta,
+  Title,
+} from "@ggpwnkthx/sprout-core/lib/head";
 
 Deno.test("createHeadManager returns manager with add method", () => {
   const manager = createHeadManager();

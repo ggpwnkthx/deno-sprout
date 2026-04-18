@@ -1,6 +1,6 @@
 // signals_test.ts - Tests for reactive signals implementation
 import { assertEquals } from "@std/assert";
-import { batch, computed, effect, signal } from "./signals.ts";
+import { batch, computed, effect, signal } from "../signals.ts";
 
 Deno.test("signal: get and set value", () => {
   const s = signal(42);

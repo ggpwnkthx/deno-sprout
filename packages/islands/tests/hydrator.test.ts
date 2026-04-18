@@ -1,6 +1,6 @@
 // hydrator_test.ts - Tests for Island SSR wrapper
 import { assertEquals } from "@std/assert";
-import { Island } from "./hydrator.ts";
+import { Island } from "../hydrator.ts";
 
 // Minimal test component
 function TestComponent(props: { name: string; count: number }) {

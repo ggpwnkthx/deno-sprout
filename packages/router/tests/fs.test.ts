@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { Hono } from "@hono/hono";
-import { fsRoutes } from "./fs.ts";
+import { fsRoutes } from "../fs.ts";
 
 // ---------------------------------------------------------------------------
 // Helpers
