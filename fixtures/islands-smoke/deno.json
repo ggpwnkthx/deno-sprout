@@ -1,0 +1,14 @@
+{
+  "imports": {
+    "@ggpwnkthx/sprout": "../packages/sprout"
+  },
+  "tasks": {
+    "dev": "deno run -A jsr:@ggpwnkthx/sprout/dev",
+    "build": "deno run -A jsr:@ggpwnkthx/sprout/build",
+    "check": "deno check routes/**/*.tsx islands/**/*.tsx main.ts"
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "@hono/hono"
+  }
+}

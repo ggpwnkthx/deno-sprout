@@ -5,9 +5,10 @@ import { fsRoutes, fsRoutesFromManifest } from "@ggpwnkthx/sprout-router/fs";
 import { sproutAssets, staticFiles } from "@ggpwnkthx/sprout-static/server";
 import { deployIslandAssets } from "@ggpwnkthx/sprout-static/deploy-assets";
 import { loadManifest } from "./lib/manifest.ts";
-import { join, toFileUrl } from "@std/path";
+import { join, resolve, toFileUrl } from "@std/path";
 import type { LayoutComponent } from "./types.ts";
 import type { RouteModule } from "@ggpwnkthx/sprout-router/fs";
+import type { Child } from "@hono/hono/jsx";
 import type { RoutesManifest } from "./types.ts";
 
 export const isDeploy: boolean = typeof Deno !== "undefined" &&
@@ -85,12 +86,15 @@ export class App extends Hono {
       },
     });
     this.notFound(async (c) => {
-      const mod = await tryImport(join(resolvedRoutesDir, "_404.tsx"));
+      const mod = await tryImport(
+        resolve(resolvedRoutesDir, "_404.tsx"),
+      );
       if (mod?.default) {
         const component = mod.default as (
           props: Record<string, unknown>,
         ) => unknown;
         const result = await component({ url: new URL(c.req.url) });
+        c.status(404);
         return c.html(String(result));
       }
       return c.text("404 Not Found", 404);
@@ -139,11 +143,11 @@ async function composeLayouts(
     (inner, mod) => {
       const modLayout = (mod as RouteModule).default as (
         props: Record<string, unknown>,
-      ) => unknown;
+      ) => Child;
       if (!modLayout) return inner;
       return ({ children }) => modLayout({ children });
     },
-    fallbackLayout ?? (({ children }) => <>{children}</>),
+    fallbackLayout ?? ((({ children }) => <>{children}</>) as LayoutComponent),
   );
 }
 
@@ -151,12 +155,19 @@ async function tryImport(
   filePath: string,
 ): Promise<Record<string, unknown> | null> {
   try {
+    // Check file exists before trying to import
+    await Deno.stat(filePath);
     return await import(String(toFileUrl(filePath))) as Record<
       string,
       unknown
     >;
   } catch (e) {
-    if (e instanceof Deno.errors.NotFound) return null;
+    if (
+      e instanceof Deno.errors.NotFound ||
+      e instanceof TypeError // Module not found
+    ) {
+      return null;
+    }
     throw e;
   }
 }

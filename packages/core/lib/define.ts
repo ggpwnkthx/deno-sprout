@@ -1,5 +1,6 @@
 // lib/define.ts - Helper exports for routes
 import type {
+  DataLoader,
   Handler,
   Handlers,
   LayoutComponent,
@@ -7,13 +8,24 @@ import type {
 } from "../types.ts";
 
 interface DefineExports {
-  page(component: PageComponent): PageComponent;
+  /** Type-narrow a page component. */
+  page<TData = unknown>(component: PageComponent<TData>): PageComponent<TData>;
+  /** Type-narrow a data loader. */
+  loader<TData = unknown>(loader: DataLoader<TData>): DataLoader<TData>;
+  /** Type-narrow HTTP method handlers. Accepts a single function (mapped to GET). */
   handlers(handlers: Handlers | Handler): Handlers;
+  /** Type-narrow a layout component. */
+  layout(component: LayoutComponent): LayoutComponent;
+  /** Type-narrow a middleware handler. */
+  middleware(handler: Handler): Handler;
 }
 
 export const define: DefineExports = {
-  page(component: PageComponent): PageComponent {
+  page<TData = unknown>(component: PageComponent<TData>): PageComponent<TData> {
     return component;
+  },
+  loader<TData = unknown>(loader: DataLoader<TData>): DataLoader<TData> {
+    return loader;
   },
   handlers(handlers: Handlers | Handler): Handlers {
     if (typeof handlers === "function") {
@@ -21,6 +33,12 @@ export const define: DefineExports = {
     }
     return handlers;
   },
+  layout(component: LayoutComponent): LayoutComponent {
+    return component;
+  },
+  middleware(handler: Handler): Handler {
+    return handler;
+  },
 };
 
-export type { Handler, Handlers, LayoutComponent, PageComponent };
+export type { DataLoader, Handler, Handlers, LayoutComponent, PageComponent };

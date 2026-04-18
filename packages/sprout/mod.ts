@@ -5,10 +5,14 @@ export { App, isDeploy };
 export type { AppOptions };
 export type { SproutContext } from "@ggpwnkthx/sprout-core/context";
 export type {
+  DataLoader,
+  ErrorPageProps,
   Handler,
   Handlers,
   LayoutComponent,
+  NotFoundPageProps,
   PageComponent,
+  PageProps,
   RouteConfig,
 } from "@ggpwnkthx/sprout-core/types";
 export { define } from "@ggpwnkthx/sprout-core/lib/define";

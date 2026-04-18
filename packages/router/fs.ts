@@ -153,13 +153,30 @@ async function registerReserved(
     switch (file.kind) {
       case "error": {
         if (mod.default) {
-          app.use("*", errorHandler(mod.default));
+          app.onError((err, c) => {
+            console.error(err);
+            const error = err instanceof Error ? err : new Error(String(err));
+            c.status(500);
+            return c.render(
+              (mod.default as (props: Record<string, unknown>) => unknown)({
+                error,
+                url: new URL(c.req.url, "http://localhost"),
+              }) as unknown as string,
+            );
+          });
         }
         break;
       }
       case "notFound": {
         if (mod.default) {
-          app.use("*", notFoundHandler(mod.default));
+          app.notFound((c) => {
+            c.status(404);
+            return c.render(
+              (mod.default as (props: Record<string, unknown>) => unknown)({
+                url: new URL(c.req.url, "http://localhost"),
+              }) as unknown as string,
+            );
+          });
         }
         break;
       }
@@ -252,7 +269,7 @@ function asHandler(fn: unknown): MiddlewareHandler {
     if (result instanceof Response) return result;
     // Return empty response to prevent fall-through to page component
     // when handler is defined but returns undefined/void
-    return c.text("", 204 as unknown as undefined);
+    return new Response(null, { status: 204 });
   };
 }
 
@@ -271,23 +288,11 @@ function compose(
   };
 }
 
-function errorHandler(_component: unknown): MiddlewareHandler {
-  return async (c, next) => {
-    c.error = new Error("handled");
-    await next();
-  };
-}
-
-function notFoundHandler(_component: unknown): MiddlewareHandler {
-  return async (_c, next) => {
-    await next();
-  };
-}
-
 /**
  * Build the handler for a page route.
  *
  * - If `handler()` returns a Response → send it immediately, skip page rendering.
+ * - If `handler()` returns data → pass it to the page component as `data`.
  * - If `handler()` returns undefined → render page component with layout chain.
  */
 function resolvePageHandler(
@@ -305,17 +310,19 @@ function resolvePageHandler(
     return async (c) => {
       const result = await handler(c);
       if (result instanceof Response) return result;
-      return renderPage(c, page, layoutChain);
+      // Pass handler return value as `data` to the page component
+      return renderPage(c, page, layoutChain, result);
     };
   }
 
-  return (c) => renderPage(c, page, layoutChain);
+  return (c) => renderPage(c, page, layoutChain, undefined);
 }
 
 async function renderPage(
   c: Parameters<MiddlewareHandler>[0],
   page: ((props: Record<string, unknown>) => unknown) | undefined,
   layoutChain: string[],
+  loaderData?: unknown,
 ): Promise<Response> {
   // Build layout wrapper chain: innermost page, outermost root layout
   // layoutChain is ordered root → leaf (most distant first)
@@ -336,7 +343,12 @@ async function renderPage(
     }
   }
 
-  const props = { params: c.req.param(), children: undefined };
+  const props = {
+    data: loaderData,
+    params: c.req.param(),
+    url: new URL(c.req.url),
+    children: undefined,
+  };
   const result =
     await (component as (props: Record<string, unknown>) => unknown)(props);
 

@@ -4,11 +4,15 @@
 export { App, type AppOptions, isDeploy } from "./app.tsx";
 export type { Context, MiddlewareHandler } from "./context.ts";
 export type {
+  DataLoader,
+  ErrorPageProps,
   Handler,
   Handlers,
   LayoutComponent,
   LayoutConfig,
+  NotFoundPageProps,
   PageComponent,
+  PageProps,
   RouteConfig,
 } from "./types.ts";
 export { define } from "./lib/define.ts";
