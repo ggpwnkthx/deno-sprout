@@ -11,7 +11,7 @@ export interface TranspileOptions {
   minify?: boolean;
   /**
    * Treat these module specifiers as external (not bundled).
-   * Default: [] — bundle everything.
+   * Default: [] - bundle everything.
    */
   external?: string[];
   /**

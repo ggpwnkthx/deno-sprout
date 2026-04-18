@@ -52,7 +52,7 @@ async function hydrateImmediate(el: Element): Promise<void> {
   await hydrateOne(el);
 }
 
-/** Strategy: "visible" — hydrate when element enters viewport */
+/** Strategy: "visible" - hydrate when element enters viewport */
 async function hydrateVisible(el: Element): Promise<void> {
   await new Promise<void>((resolve) => {
     const observer = new IntersectionObserver((entries) => {
@@ -68,7 +68,7 @@ async function hydrateVisible(el: Element): Promise<void> {
   });
 }
 
-/** Strategy: "idle" — hydrate during browser idle time */
+/** Strategy: "idle" - hydrate during browser idle time */
 async function hydrateIdle(el: Element): Promise<void> {
   await new Promise<void>((resolve) => {
     const cb = () => {

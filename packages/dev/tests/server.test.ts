@@ -13,19 +13,19 @@ async function createServerAndClose(root: string) {
 }
 
 Deno.test("createDevServer returns an App instance", async () => {
-  const app = await createServerAndClose("./fixtures/smoke");
+  const app = await createServerAndClose("./tests/fixtures/smoke");
   assertEquals(typeof app, "object");
   assertEquals(typeof app.fetch, "function");
 });
 
 Deno.test("createDevServer with smoke fixture responds 200 on /", async () => {
-  const app = await createServerAndClose("./fixtures/smoke");
+  const app = await createServerAndClose("./tests/fixtures/smoke");
   const res = await app.request("/");
   assertEquals(res.status, 200);
 });
 
 Deno.test("createDevServer handles missing route with 404", async () => {
-  const app = await createServerAndClose("./fixtures/smoke");
+  const app = await createServerAndClose("./tests/fixtures/smoke");
   const res = await app.request("/nonexistent");
   assertEquals(res.status, 404);
 });

@@ -66,13 +66,13 @@ Deno.test("computed: only recomputes when dependency changes", () => {
   // computed() calls effect() which runs fn() immediately, plus signal(fn()) also calls fn()
   // so runCount is 2 after initialization
   assertEquals(runCount, 2);
-  // First read — returns cached value, no additional run
+  // First read - returns cached value, no additional run
   assertEquals(comp.value, 2);
   assertEquals(runCount, 2);
-  // Second read — should NOT re-run (dependency unchanged)
+  // Second read - should NOT re-run (dependency unchanged)
   assertEquals(comp.value, 2);
   assertEquals(runCount, 2);
-  // Change dependency — effect re-runs fn()
+  // Change dependency - effect re-runs fn()
   s.value = 3;
   assertEquals(comp.value, 6);
   assertEquals(runCount, 3);

@@ -24,11 +24,11 @@ export interface InitOptions {
   name?: string;
   /** Template to use. Default: "minimal" */
   template?: TemplateName;
-  /** Suppress prompts — use defaults for all missing options. */
+  /** Suppress prompts - use defaults for all missing options. */
   yes?: boolean;
 }
 
-// ── SPROUT_IMPORT (Task 9 — SPROUT_LOCAL) ────────────────────────────────────
+// ── SPROUT_IMPORT (Task 9 - SPROUT_LOCAL) ────────────────────────────────────
 
 const SPROUT_IMPORT = Deno.env.get("SPROUT_LOCAL") === "1"
   ? "../packages/sprout"
@@ -421,7 +421,7 @@ export async function initProject(options?: InitOptions): Promise<void> {
     if (err instanceof Error && err.message.includes("already exists")) {
       throw err;
     }
-    // Directory doesn't exist, which is fine — continue
+    // Directory doesn't exist, which is fine - continue
   }
 
   // 4. Write all template files

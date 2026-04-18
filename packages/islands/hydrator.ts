@@ -6,7 +6,7 @@ import { renderToString } from "@hono/hono/jsx/dom/server";
 export type HydrationStrategy = "immediate" | "visible" | "idle";
 
 export interface IslandProps<P extends Record<string, unknown>> {
-  /** Island name — must match the file name in islands/ (without extension). */
+  /** Island name - must match the file name in islands/ (without extension). */
   name: string;
   /** The actual island component to render during SSR. */
   component: FC<P>;
@@ -14,9 +14,9 @@ export interface IslandProps<P extends Record<string, unknown>> {
   props: P;
   /**
    * When to hydrate:
-   *   "immediate" — as soon as the bundle loads (default)
-   *   "visible"   — when the container enters the viewport (IntersectionObserver)
-   *   "idle"      — during browser idle time (requestIdleCallback)
+   *   "immediate" - as soon as the bundle loads (default)
+   *   "visible"   - when the container enters the viewport (IntersectionObserver)
+   *   "idle"      - during browser idle time (requestIdleCallback)
    */
   strategy?: HydrationStrategy;
 }

@@ -8,7 +8,9 @@ import {
 import { join } from "@std/path";
 
 Deno.test("discoverIslands - finds .tsx and .ts files", async () => {
-  const islands = await discoverIslands("./fixtures/islands-smoke/islands");
+  const islands = await discoverIslands(
+    "./tests/fixtures/islands-smoke/islands",
+  );
 
   assertEquals(islands.length >= 1, true);
   const counter = islands.find((i) => i.name === "Counter");
@@ -19,6 +21,17 @@ Deno.test("discoverIslands - finds .tsx and .ts files", async () => {
 Deno.test("discoverIslands - returns empty array for non-existent dir", async () => {
   const islands = await discoverIslands("/nonexistent/path");
   assertEquals(islands, []);
+});
+
+Deno.test("discoverIslands - returns empty array for existing but empty dir", async () => {
+  const tempDir = await Deno.makeTempDir();
+  const emptyIslandsDir = join(tempDir, "islands");
+  await Deno.mkdir(emptyIslandsDir);
+
+  const islands = await discoverIslands(emptyIslandsDir);
+  assertEquals(islands, []);
+
+  await Deno.remove(tempDir, { recursive: true });
 });
 
 Deno.test("writeIslandBundle - creates file with correct name", async () => {

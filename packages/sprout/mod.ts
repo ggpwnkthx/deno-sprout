@@ -1,4 +1,4 @@
-// @ggpwnkthx/sprout — public surface
+// @ggpwnkthx/sprout - public surface
 import { App, isDeploy } from "@ggpwnkthx/sprout-core/app";
 import type { AppOptions } from "@ggpwnkthx/sprout-core/app";
 export { App, isDeploy };

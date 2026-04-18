@@ -55,7 +55,7 @@ function hmrInjector(): MiddlewareHandler {
  *   - HMR script injected into every HTML response
  *   - File watcher that broadcasts changes to connected browsers
  *
- * Returns the Hono app (not a running server — caller calls Deno.serve).
+ * Returns the Hono app (not a running server - caller calls Deno.serve).
  */
 export async function createDevServer(
   options?: DevServerOptions,

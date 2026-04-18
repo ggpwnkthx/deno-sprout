@@ -193,7 +193,7 @@ export function buildProjectReviewPrompt(
   const delegationList = suggestedAgents.length === 0
     ? "- None"
     : suggestedAgents
-      .map((agent) => `- ${formatAgentMention(agent.name)} — ${agent.reason}`)
+      .map((agent) => `- ${formatAgentMention(agent.name)} - ${agent.reason}`)
       .join("\n");
 
   const referencedFiles = reviewFiles.length === 0

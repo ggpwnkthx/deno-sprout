@@ -10,7 +10,7 @@
  *   2. Imports the island component by name from `"./{name}.tsx"`, which
  *      resolves relative to the island source file when esbuild bundles them
  *      together. The bundler's `stdin.resolveDir` must be set to `islandsDir`.
- *   3. Exports a `default function hydrate(props, el)` — the interface that
+ *   3. Exports a `default function hydrate(props, el)` - the interface that
  *      `hydrateAll()` in `runtime.ts` (Task 4) expects.
  *
  * @param name  Island name without extension, e.g. `"Counter"`. Used as the

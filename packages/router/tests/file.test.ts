@@ -1,4 +1,4 @@
-// lib/file_test.ts — unit tests for filePathToPattern, sortRouteFiles, getRouteFiles
+// lib/file_test.ts - unit tests for filePathToPattern, sortRouteFiles, getRouteFiles
 import { assertEquals, assertExists } from "@std/assert";
 import {
   filePathToPattern,
@@ -151,7 +151,7 @@ Deno.test("sortRouteFiles handles a single item", () => {
 });
 
 // ---------------------------------------------------------------------------
-// getRouteFiles — temp directory fixtures
+// getRouteFiles - temp directory fixtures
 // ---------------------------------------------------------------------------
 
 Deno.test("getRouteFiles discovers regular route files", async () => {

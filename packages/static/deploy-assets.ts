@@ -1,4 +1,4 @@
-// deploy-assets.ts — Deno Deploy-compatible island bundle serving
+// deploy-assets.ts - Deno Deploy-compatible island bundle serving
 //
 // ## Design (PLAN-0 decision)
 //
@@ -9,7 +9,7 @@
 // If a bundle was embedded as a string at build time (e.g. via a build flag),
 // it can be served from an in-memory map instead of redirecting.
 //
-// This file is NOT used in local dev mode — local dev uses the on-the-fly
+// This file is NOT used in local dev mode - local dev uses the on-the-fly
 // bundler middleware in sprout-dev (PLAN-3).
 
 import type { MiddlewareHandler } from "@hono/hono";
@@ -37,7 +37,7 @@ export interface DeployIslandAssetsOptions {
  *   GET /_sprout/hydrate.js       → redirect to CDN or serve in-memory
  *   GET /_sprout/islands/:name.js → redirect to CDN or serve in-memory
  *
- * Falls through (calls next()) for any other path — allowing the static
+ * Falls through (calls next()) for any other path - allowing the static
  * files middleware or 404 handler to handle it.
  *
  * ## Forward reference
@@ -55,7 +55,7 @@ export function deployIslandAssets(
   return async (c, next) => {
     const path = c.req.path;
 
-    // hydrate.js — the client-side hydration runtime
+    // hydrate.js - the client-side hydration runtime
     if (path === "/_sprout/hydrate.js") {
       const hydrateUrl = islandManifest["hydrate"] ?? "/_sprout/hydrate.js";
       const redirectUrl = cdnBase ? `${cdnBase}${hydrateUrl}` : hydrateUrl;
@@ -71,7 +71,7 @@ export function deployIslandAssets(
         const redirectUrl = cdnBase ? `${cdnBase}${bundleUrl}` : bundleUrl;
         return c.redirect(redirectUrl, 302);
       }
-      // Bundle not found in manifest — fall through to 404
+      // Bundle not found in manifest - fall through to 404
     }
 
     // All other /_sprout/* paths: let the next handler deal with them

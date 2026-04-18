@@ -136,7 +136,7 @@ export async function buildIslands(
 
 /**
  * Build the hydration runtime from packages/islands/lib/runtime.ts.
- * Output: {outdir}/hydrate.js (not content-hashed — always revalidated).
+ * Output: {outdir}/hydrate.js (not content-hashed - always revalidated).
  */
 export async function buildRuntime(outdir: string): Promise<void> {
   // Read the runtime source from the islands package
@@ -195,7 +195,7 @@ async function hydrateImmediate(el: Element): Promise<void> {
   await hydrateOne(el);
 }
 
-/** Strategy: "visible" — hydrate when element enters viewport */
+/** Strategy: "visible" - hydrate when element enters viewport */
 async function hydrateVisible(el: Element): Promise<void> {
   await new Promise<void>((resolve) => {
     const observer = new IntersectionObserver((entries) => {
@@ -211,7 +211,7 @@ async function hydrateVisible(el: Element): Promise<void> {
   });
 }
 
-/** Strategy: "idle" — hydrate during browser idle time */
+/** Strategy: "idle" - hydrate during browser idle time */
 async function hydrateIdle(el: Element): Promise<void> {
   await new Promise<void>((resolve) => {
     const cb = () => {
@@ -264,7 +264,7 @@ export async function hydrateAll(): Promise<void> {
 
 /**
  * Build the mount helper from packages/islands/lib/mount.ts.
- * Output: {outdir}/runtime/mount.js (not content-hashed — always revalidated).
+ * Output: {outdir}/runtime/mount.js (not content-hashed - always revalidated).
  */
 export async function buildMount(outdir: string): Promise<void> {
   const mountSource = `
@@ -281,7 +281,7 @@ import type { FC } from "@hono/hono/jsx";
  *
  * ## Rendering model (0.1.0)
  *
- * Hono's JSX runtime is string-serialisation-first — it has no DOM reconciler.
+ * Hono's JSX runtime is string-serialisation-first - it has no DOM reconciler.
  * For 0.1.0, island hydration therefore uses a **full innerHTML replacement**:
  *   1. Call \`Component(props)\` to get a JSX node.
  *   2. Serialise to an HTML string via \`renderToString\`.
@@ -309,7 +309,7 @@ export async function mount<P extends Record<string, unknown>>(
   } catch (err) {
     console.error("[sprout] Failed to hydrate island:", err);
   }
-  return () => {}; // dispose — no-op in 0.1.0
+  return () => {}; // dispose - no-op in 0.1.0
 }
 `;
 

@@ -11,7 +11,7 @@ import type { FC } from "@hono/hono/jsx";
  *
  * ## Rendering model (0.1.0)
  *
- * Hono's JSX runtime is string-serialisation-first — it has no DOM reconciler.
+ * Hono's JSX runtime is string-serialisation-first - it has no DOM reconciler.
  * For 0.1.0, island hydration therefore uses a **full innerHTML replacement**:
  *   1. Call `Component(props)` to get a JSX node.
  *   2. Serialise to an HTML string via `renderToString`.
@@ -39,5 +39,5 @@ export async function mount<P extends Record<string, unknown>>(
   } catch (err) {
     console.error("[sprout] Failed to hydrate island:", err);
   }
-  return () => {}; // dispose — no-op in 0.1.0
+  return () => {}; // dispose - no-op in 0.1.0
 }

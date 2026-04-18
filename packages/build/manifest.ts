@@ -11,7 +11,7 @@ export interface IslandManifest {
   islands: Record<string, string>;
   /**
    * URL of the hydration runtime bundle.
-   * e.g. "/_sprout/hydrate.js"  (unhashed — always revalidated)
+   * e.g. "/_sprout/hydrate.js"  (unhashed - always revalidated)
    */
   hydrate: string;
 }

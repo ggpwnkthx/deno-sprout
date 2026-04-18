@@ -26,7 +26,7 @@ Deno.test(
       // Root layout exists.
       await touch(join(routesDir, "_layout.tsx"));
 
-      // Route sits directly inside routesDir — depth 0.
+      // Route sits directly inside routesDir - depth 0.
       const routeFile = join(routesDir, "index.tsx");
       await touch(routeFile);
 
@@ -121,7 +121,7 @@ Deno.test(
     try {
       const routesDir = join(tmp, "routes");
 
-      // Only root middleware — no blog/_middleware.ts.
+      // Only root middleware - no blog/_middleware.ts.
       await touch(join(routesDir, "_middleware.ts"));
 
       const routeFile = join(routesDir, "blog", "[slug].tsx");

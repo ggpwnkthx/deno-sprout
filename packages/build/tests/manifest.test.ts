@@ -66,3 +66,21 @@ Deno.test("readManifest - returns null when file absent", async () => {
 
   assertEquals(result, null);
 });
+
+Deno.test("generateAssetManifest - is an alias for buildManifest", async () => {
+  // @ts-ignore: test that the export exists
+  const { generateAssetManifest } = await import("../mod.ts");
+  assertExists(generateAssetManifest);
+
+  const islands = { Counter: "console.log(1)", Timer: "console.log(2)" };
+  const result = await generateAssetManifest(islands);
+
+  // Same expected output as buildManifest
+  assertExists(result.islands["Counter"]);
+  assertExists(result.islands["Timer"]);
+  assertEquals(result.hydrate, "/_sprout/hydrate.js");
+  assertStringIncludes(result.islands["Counter"], "/_sprout/islands/Counter.");
+  assertStringIncludes(result.islands["Counter"], ".js");
+  assertStringIncludes(result.islands["Timer"], "/_sprout/islands/Timer.");
+  assertStringIncludes(result.islands["Timer"], ".js");
+});

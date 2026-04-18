@@ -19,7 +19,7 @@ export function serializeProps(props: unknown): string {
       // Detect Date → ISO string (JSON.stringify converts Date before calling replacer).
       // Wrapping in {__type:"Date", value: "ISO"} causes infinite recursion because
       // the nested ISO string matches the same regex. Use a number (timestamp) for
-      // the value instead — numbers don't match the ISO regex, so no recursion.
+      // the value instead - numbers don't match the ISO regex, so no recursion.
       return { __type: "Date", value: new Date(value).getTime() };
     }
     if (value !== null && typeof value === "object") {
