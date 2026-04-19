@@ -49,8 +49,8 @@ export function Island<P extends Record<string, unknown>>(
   >;
 }
 
-/** Simple deterministic hash for the data-key attribute. */
-function simpleHash(str: string): string {
+/** Simple deterministic hash for the data-key attribute. Exported for testing. */
+export function simpleHash(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);

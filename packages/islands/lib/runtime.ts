@@ -9,8 +9,9 @@ const loaded = new Map<
 
 /**
  * Decode and parse the data-props attribute.
+ * Exported for testability; do not use in production browser code outside this bundle.
  */
-function decodeProps(encoded: string): unknown {
+export function decodeProps(encoded: string): unknown {
   const binary = atob(encoded);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
