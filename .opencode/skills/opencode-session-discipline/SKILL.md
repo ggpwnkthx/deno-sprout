@@ -16,7 +16,7 @@ I guide the agent's **working style** inside this repository.
 ## Goals
 
 - prefer repo-local OpenCode tools before ad hoc shell commands
-- prefer `deno task`, `deno test`, `deno lint`, and `deno check`
+- prefer `deno task`, `deno test -A`, `deno lint`, and `deno check`
 - avoid `node`, `npm`, `pnpm`, `yarn`, and `npx` unless the repo explicitly
   requires them
 - keep shell operations inside the worktree

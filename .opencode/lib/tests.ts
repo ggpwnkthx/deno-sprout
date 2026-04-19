@@ -179,7 +179,7 @@ export async function runSelectedTests(
     `Exit code: ${result.exitCode}`,
     "",
     "### Command",
-    `deno test ${testFiles.join(" ")}`,
+    `deno test -A ${testFiles.join(" ")}`,
     "",
     "### Stdout",
     clipText(result.stdout, 12_000) || "(empty)",
