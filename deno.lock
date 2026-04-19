@@ -555,6 +555,7 @@
       "packages/static": {
         "dependencies": [
           "jsr:@hono/hono@^4.12.14",
+          "jsr:@std/assert@1",
           "jsr:@std/path@1"
         ]
       }

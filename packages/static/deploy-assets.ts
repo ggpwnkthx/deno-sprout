@@ -51,6 +51,9 @@ export function deployIslandAssets(
   options: DeployIslandAssetsOptions,
 ): MiddlewareHandler {
   const { islandManifest, cdnBase } = options;
+  // Normalize cdnBase: remove trailing slash so concatenation with manifest
+  // URLs (which start with /) produces a valid URL with a single slash.
+  const normalizedCdnBase = cdnBase?.replace(/\/$/, "");
 
   return async (c, next) => {
     const path = c.req.path;
@@ -58,7 +61,9 @@ export function deployIslandAssets(
     // hydrate.js - the client-side hydration runtime
     if (path === "/_sprout/hydrate.js") {
       const hydrateUrl = islandManifest["hydrate"] ?? "/_sprout/hydrate.js";
-      const redirectUrl = cdnBase ? `${cdnBase}${hydrateUrl}` : hydrateUrl;
+      const redirectUrl = normalizedCdnBase
+        ? `${normalizedCdnBase}${hydrateUrl}`
+        : hydrateUrl;
       return c.redirect(redirectUrl, 302);
     }
 
@@ -68,13 +73,18 @@ export function deployIslandAssets(
       const name = islandsMatch[1];
       const bundleUrl = islandManifest[name];
       if (bundleUrl) {
-        const redirectUrl = cdnBase ? `${cdnBase}${bundleUrl}` : bundleUrl;
+        const redirectUrl = normalizedCdnBase
+          ? `${normalizedCdnBase}${bundleUrl}`
+          : bundleUrl;
         return c.redirect(redirectUrl, 302);
       }
       // Bundle not found in manifest - fall through to 404
     }
 
-    // All other /_sprout/* paths: let the next handler deal with them
+    // All other /_sprout/* paths: let the next handler deal with them.
+    // Return value of next() is intentionally discarded — this function's
+    // contract is redirect-or-pass-through; downstream error responses are
+    // returned as-is by Hono's middleware runner.
     await next();
   };
 }
