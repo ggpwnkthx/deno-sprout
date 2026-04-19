@@ -1,22 +1,36 @@
 // groups.ts - Route grouping and layout/middleware chain resolution
 import { dirname, join } from "@std/path";
 
+/** Shared chain cache keyed by directory path. */
+const chainCache = new Map<string, string[]>();
+
 /**
- * Walk from the route file's directory up to routesDir, collecting `_layout.tsx`
- * files that exist on disk.
+ * Walk from `routeFilePath`'s directory up to `routesDir`, collecting files
+ * named `filename` that exist on disk. Results are cached per directory.
  */
-export async function resolveLayoutChain(
+async function resolveChain(
   routeFilePath: string,
   routesDir: string,
+  filename: string,
 ): Promise<string[]> {
-  const chain: string[] = [];
-  let currentDir = dirname(routeFilePath);
+  const dir = dirname(routeFilePath);
 
-  while (currentDir.startsWith(routesDir + "/")) {
-    const layoutPath = join(currentDir, "_layout.tsx");
+  // Check cache for this directory level
+  const cached = chainCache.get(dir + "|" + filename);
+  if (cached !== undefined) return [...cached];
+
+  const chain: string[] = [];
+  let currentDir = dir;
+
+  while (
+    routesDir.length > 0 &&
+    currentDir.startsWith(routesDir + "/")
+  ) {
+    const filePath = join(currentDir, filename);
+
     try {
-      await Deno.stat(layoutPath);
-      chain.push(layoutPath);
+      await Deno.stat(filePath);
+      chain.push(filePath);
     } catch (e) {
       if (e instanceof Deno.errors.NotFound) {
         // silently skip missing files
@@ -27,11 +41,12 @@ export async function resolveLayoutChain(
 
     currentDir = dirname(currentDir);
   }
-  // Include root _layout if it exists
-  const rootLayout = join(routesDir, "_layout.tsx");
+
+  // Include root-level file if it exists
+  const rootFile = join(routesDir, filename);
   try {
-    await Deno.stat(rootLayout);
-    chain.unshift(rootLayout);
+    await Deno.stat(rootFile);
+    chain.unshift(rootFile);
   } catch (e) {
     if (e instanceof Deno.errors.NotFound) {
       // silently skip
@@ -40,47 +55,29 @@ export async function resolveLayoutChain(
     }
   }
 
+  // Cache the result for this directory
+  chainCache.set(dir + "|" + filename, [...chain]);
   return chain;
 }
 
 /**
- * Walk from the route file's directory up to routesDir, collecting `_middleware.ts`
- * files that exist on disk.
+ * Walk from the route file's directory up to routesDir, collecting `_layout.tsx`
+ * files that exist on disk. Results are cached per directory.
  */
-export async function resolveMiddlewareChain(
+export function resolveLayoutChain(
   routeFilePath: string,
   routesDir: string,
 ): Promise<string[]> {
-  const chain: string[] = [];
-  let currentDir = dirname(routeFilePath);
+  return resolveChain(routeFilePath, routesDir, "_layout.tsx");
+}
 
-  while (currentDir.startsWith(routesDir + "/")) {
-    const middlewarePath = join(currentDir, "_middleware.ts");
-    try {
-      await Deno.stat(middlewarePath);
-      chain.push(middlewarePath);
-    } catch (e) {
-      if (e instanceof Deno.errors.NotFound) {
-        // silently skip missing files
-      } else {
-        throw e;
-      }
-    }
-
-    currentDir = dirname(currentDir);
-  }
-  // Include root _middleware if it exists
-  const rootMiddleware = join(routesDir, "_middleware.ts");
-  try {
-    await Deno.stat(rootMiddleware);
-    chain.unshift(rootMiddleware);
-  } catch (e) {
-    if (e instanceof Deno.errors.NotFound) {
-      // silently skip
-    } else {
-      throw e;
-    }
-  }
-
-  return chain;
+/**
+ * Walk from the route file's directory up to routesDir, collecting `_middleware.ts`
+ * files that exist on disk. Results are cached per directory.
+ */
+export function resolveMiddlewareChain(
+  routeFilePath: string,
+  routesDir: string,
+): Promise<string[]> {
+  return resolveChain(routeFilePath, routesDir, "_middleware.ts");
 }

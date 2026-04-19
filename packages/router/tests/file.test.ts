@@ -66,6 +66,188 @@ Deno.test("filePathToPattern maps dynamic segment at root level", () => {
 });
 
 // ---------------------------------------------------------------------------
+// filePathToPattern edge cases
+// ---------------------------------------------------------------------------
+
+Deno.test("filePathToPattern returns / for index.tsx", () => {
+  assertEquals(filePathToPattern("index.tsx"), "/");
+});
+
+Deno.test("filePathToPattern returns / for index/index.tsx", () => {
+  assertEquals(filePathToPattern("index/index.tsx"), "/");
+});
+
+Deno.test("filePathToPattern returns / for (group)/index.tsx", () => {
+  assertEquals(filePathToPattern("(admin)/index.tsx"), "/");
+});
+
+Deno.test("filePathToPattern handles file with dots in name", () => {
+  assertEquals(filePathToPattern("blog/sprout.v2.tsx"), "/blog/sprout.v2");
+});
+
+Deno.test("filePathToPattern handles route group with hyphens", () => {
+  assertEquals(filePathToPattern("(my-group)/about.tsx"), "/about");
+});
+
+Deno.test("filePathToPattern preserves hyphen in regular segment", () => {
+  assertEquals(filePathToPattern("my-page.tsx"), "/my-page");
+});
+
+// ---------------------------------------------------------------------------
+// sortRouteFiles edge cases
+// ---------------------------------------------------------------------------
+
+Deno.test("sortRouteFiles handles urlPattern with empty string for reserved files", () => {
+  const files = [
+    {
+      filePath: "_layout.tsx",
+      urlPattern: "",
+      isReserved: true,
+      kind: "layout" as const,
+    },
+    { filePath: "index.tsx", urlPattern: "/", isReserved: false },
+  ];
+  const sorted = sortRouteFiles(files);
+  // Non-reserved should come after reserved (or they may be mixed - check stable behavior)
+  assertEquals(sorted.length, 2);
+});
+
+Deno.test("sortRouteFiles all static same segment length sorts alphabetically", () => {
+  const files = [
+    { filePath: "z.tsx", urlPattern: "/z", isReserved: false },
+    { filePath: "a.tsx", urlPattern: "/a", isReserved: false },
+    { filePath: "m.tsx", urlPattern: "/m", isReserved: false },
+  ];
+  const sorted = sortRouteFiles(files);
+  assertEquals(sorted[0].urlPattern, "/a");
+  assertEquals(sorted[1].urlPattern, "/m");
+  assertEquals(sorted[2].urlPattern, "/z");
+});
+
+Deno.test("sortRouteFiles deeply nested static routes sorted by depth first", () => {
+  const files = [
+    { filePath: "a/b/c/d.tsx", urlPattern: "/a/b/c/d", isReserved: false },
+    { filePath: "a.tsx", urlPattern: "/a", isReserved: false },
+    { filePath: "a/b.tsx", urlPattern: "/a/b", isReserved: false },
+  ];
+  const sorted = sortRouteFiles(files);
+  // Shorter paths first
+  assertEquals(sorted[0].urlPattern, "/a");
+  assertEquals(sorted[1].urlPattern, "/a/b");
+  assertEquals(sorted[2].urlPattern, "/a/b/c/d");
+});
+
+Deno.test("sortRouteFiles mixed static and param same depth orders correctly", () => {
+  const files = [
+    {
+      filePath: "blog/[slug].tsx",
+      urlPattern: "/blog/:slug",
+      isReserved: false,
+    },
+    { filePath: "blog/post.tsx", urlPattern: "/blog/post", isReserved: false },
+    { filePath: "blog/[id].tsx", urlPattern: "/blog/:id", isReserved: false },
+  ];
+  const sorted = sortRouteFiles(files);
+  // Static before dynamic
+  assertEquals(sorted[0].urlPattern, "/blog/post");
+  assertEquals(sorted[1].urlPattern, "/blog/:id");
+  assertEquals(sorted[2].urlPattern, "/blog/:slug");
+});
+
+// ---------------------------------------------------------------------------
+// getRouteFiles - deeper edge cases
+// ---------------------------------------------------------------------------
+
+Deno.test("getRouteFiles does not include files outside routesDir", async () => {
+  const dir = await makeTempRoutes({
+    "index.tsx": "",
+  });
+  try {
+    // Create a subdirectory that should not be walked as a route
+    const nestedDir = dir + "/../sibling";
+    await Deno.mkdir(nestedDir, { recursive: true });
+    await Deno.writeFile(
+      nestedDir + "/sibling.tsx",
+      new TextEncoder().encode(""),
+    );
+
+    const routes = await getRouteFiles(dir);
+    const patterns = routes.map((r) => r.urlPattern);
+    // sibling route should not appear
+    assertEquals(patterns.includes("/sibling"), false);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("getRouteFiles handles route group with multiple segments", async () => {
+  const dir = await makeTempRoutes({
+    "(auth)/(sso)/login.tsx": "",
+    "(auth)/dashboard.tsx": "",
+  });
+  try {
+    const routes = await getRouteFiles(dir);
+    const patterns = routes.map((r) => r.urlPattern);
+    assertEquals(patterns.includes("/login"), true);
+    assertEquals(patterns.includes("/dashboard"), true);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("getRouteFiles distinguishes files with same name in different dirs", async () => {
+  const dir = await makeTempRoutes({
+    "blog/index.tsx": "",
+    "about/index.tsx": "",
+  });
+  try {
+    const routes = await getRouteFiles(dir);
+    const patterns = routes.map((r) => r.urlPattern);
+    assertEquals(patterns.includes("/blog"), true);
+    assertEquals(patterns.includes("/about"), true);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Reserved file isolation tests
+// ---------------------------------------------------------------------------
+
+Deno.test("getRouteFiles _layout alone does not register a route", async () => {
+  const dir = await makeTempRoutes({
+    "_layout.tsx": "",
+    "index.tsx": "",
+  });
+  try {
+    const routes = await getRouteFiles(dir);
+    const nonReserved = routes.filter((r) => !r.isReserved);
+    assertEquals(nonReserved.length, 1);
+    assertEquals(nonReserved[0].urlPattern, "/");
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("getRouteFiles _middleware alone does not register a route", async () => {
+  const dir = await makeTempRoutes({
+    "_middleware.ts": "",
+    "index.tsx": "",
+  });
+  try {
+    const routes = await getRouteFiles(dir);
+    const nonReserved = routes.filter((r) => !r.isReserved);
+    assertEquals(nonReserved.length, 1);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// getRouteFiles - empty dir edge case already covered above
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
 // sortRouteFiles
 // ---------------------------------------------------------------------------
 

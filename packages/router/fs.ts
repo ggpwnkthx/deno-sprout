@@ -43,6 +43,9 @@ export interface RouteModule {
 
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"] as const;
 
+/** Module-level cache for layout files: path → loaded module. */
+const layoutModuleCache = new Map<string, RouteModule>();
+
 export async function fsRoutes(options: FsRoutesOptions): Promise<void> {
   const { app, dir = "./routes" } = options;
   const routesDir = resolve(Deno.cwd(), dir);
@@ -53,7 +56,7 @@ export async function fsRoutes(options: FsRoutesOptions): Promise<void> {
     isApi: false,
     isReserved: file.isReserved,
     kind: file.kind,
-    skipInheritedLayouts: false,
+    skipInheritedLayouts: undefined,
     routeOverride: undefined,
     layoutChain: [],
     middlewareChain: [],
@@ -88,10 +91,17 @@ interface RouteFileLike {
   isApi: boolean;
   isReserved?: boolean;
   kind?: "layout" | "middleware" | "error" | "notFound";
-  skipInheritedLayouts: boolean;
+  skipInheritedLayouts?: boolean;
   routeOverride?: string;
   layoutChain: string[];
   middlewareChain: string[];
+}
+
+interface OnPageEntry {
+  pattern: string;
+  layoutChain: string[];
+  middlewareChain: string[];
+  module: RouteModule;
 }
 
 async function registerRoutes(
@@ -106,36 +116,26 @@ async function registerRoutes(
   const reservedFiles = files.filter((f) => f.isReserved);
   const routeFiles = files.filter((f) => !f.isReserved);
 
+  // Collect onPage data while registering routes to avoid double-imports
+  const onPageEntries: OnPageEntry[] = [];
+
   // Register reserved handlers first
   await registerReserved(app, reservedFiles, routesDir);
 
   // Register page and API routes
   for (const file of routeFiles) {
-    await registerRoute(app, file, routesDir);
+    await registerRoute(app, file, routesDir, onPageEntries);
   }
 
-  // Fire onPage callback for each page route
+  // Fire onPage callback once per page route
   if (onPage) {
-    for (const file of routeFiles) {
-      if (file.isApi) continue;
-      const fileUrl = `file://${join(routesDir, file.filePath)}`;
-      const mod: RouteModule = await import(fileUrl);
-      if (!mod.default) continue;
-
-      const pattern = resolvePattern(file, mod.config);
-      // Use pre-computed chains or compute on the fly
-      const layoutChain = file.layoutChain.length > 0
-        ? file.layoutChain
-        : await resolveLayoutChain(file.filePath, routesDir);
-      const middlewareChain = file.middlewareChain.length > 0
-        ? file.middlewareChain
-        : await resolveMiddlewareChain(file.filePath, routesDir);
+    for (const entry of onPageEntries) {
       onPage({
         app,
-        pattern,
-        layoutChain,
-        middlewareChain,
-        module: mod,
+        pattern: entry.pattern,
+        layoutChain: entry.layoutChain,
+        middlewareChain: entry.middlewareChain,
+        module: entry.module,
       });
     }
   }
@@ -198,6 +198,7 @@ async function registerRoute(
   app: Hono,
   file: RouteFileLike,
   routesDir: string,
+  onPageEntries: OnPageEntry[],
 ): Promise<void> {
   const fileUrl = `file://${join(routesDir, file.filePath)}`;
   const mod: RouteModule = await import(fileUrl);
@@ -210,6 +211,21 @@ async function registerRoute(
       if (handler) {
         app.on(method.toLowerCase(), pattern, asHandler(handler));
       }
+    }
+    // onPage still fires for API routes with a default component
+    if (mod.default) {
+      const layoutChain = file.layoutChain.length > 0
+        ? file.layoutChain
+        : await resolveLayoutChain(file.filePath, routesDir);
+      const middlewareChain = file.middlewareChain.length > 0
+        ? file.middlewareChain
+        : await resolveMiddlewareChain(file.filePath, routesDir);
+      onPageEntries.push({
+        pattern,
+        layoutChain,
+        middlewareChain,
+        module: mod,
+      });
     }
     return;
   }
@@ -230,7 +246,9 @@ async function registerRoute(
   // Page route: default component + optional method handlers + optional handler()
   const skipLayouts = file.skipInheritedLayouts ??
     mod.config?.skipInheritedLayouts ?? false;
-  const resolvedLayouts = skipLayouts ? layoutChain.slice(-1) : layoutChain;
+  const resolvedLayouts = skipLayouts
+    ? layoutChain.slice(1) // skipInheritedLayouts: skip root (first), keep nearest
+    : layoutChain;
 
   // Build the final handler: middleware → handler() → page component
   let finalHandler = resolvePageHandler(mod, resolvedLayouts);
@@ -251,6 +269,9 @@ async function registerRoute(
 
   // Page component handles any method not explicitly overridden
   app.use(pattern, finalHandler);
+
+  // Collect onPage data — layout chains computed once above
+  onPageEntries.push({ pattern, layoutChain, middlewareChain, module: mod });
 }
 
 function resolvePattern(
@@ -267,9 +288,12 @@ function asHandler(fn: unknown): MiddlewareHandler {
     ) => unknown;
     const result = await handlerFn(c);
     if (result instanceof Response) return result;
-    // Return empty response to prevent fall-through to page component
-    // when handler is defined but returns undefined/void
-    return new Response(null, { status: 204 });
+    // Handler returned non-Response data — pass it as response body.
+    // Returning undefined/void here produces an empty 204, which is
+    // intentional to prevent fall-through to the page component.
+    return new Response(result === undefined ? null : String(result), {
+      status: result === undefined ? 204 : 200,
+    });
   };
 }
 
@@ -281,11 +305,18 @@ function compose(
   inner: MiddlewareHandler,
   outer: MiddlewareHandler,
 ): MiddlewareHandler {
-  return async (c, next) => {
-    await inner(c, async () => {
-      await outer(c, next);
-    });
-  };
+  // Hono's Next type is () => Promise<void>, but outer middleware may return
+  // Response (short-circuit). The cast through `unknown` acknowledges this
+  // is an intentional type divergence — the runtime behavior is correct.
+  return (c, next) =>
+    inner(
+      c,
+      () =>
+        (outer as unknown as (
+          c: Parameters<MiddlewareHandler>[0],
+          n: () => Promise<void>,
+        ) => Promise<void>)(c, next),
+    );
 }
 
 /**
@@ -329,7 +360,7 @@ async function renderPage(
   let component: unknown = page ?? (() => c.text("OK"));
 
   for (const layoutPath of [...layoutChain].reverse()) {
-    const layoutMod: RouteModule = await import(`file://${layoutPath}`);
+    const layoutMod = await loadLayoutModule(layoutPath);
     const layoutFn = layoutMod.default as
       | ((props: Record<string, unknown>) => unknown)
       | undefined;
@@ -356,4 +387,13 @@ async function renderPage(
   if (typeof result === "string") return c.html(result);
   // result is a JSX element - use c.render to convert to HTML
   return c.render(result as unknown as string);
+}
+
+/** Load a layout module with module-level caching. */
+async function loadLayoutModule(layoutPath: string): Promise<RouteModule> {
+  const cached = layoutModuleCache.get(layoutPath);
+  if (cached) return cached;
+  const mod: RouteModule = await import(`file://${layoutPath}`);
+  layoutModuleCache.set(layoutPath, mod);
+  return mod;
 }
