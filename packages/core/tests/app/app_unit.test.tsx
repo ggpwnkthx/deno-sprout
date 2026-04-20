@@ -1,4 +1,3 @@
-// @jsxImportSource @hono/hono
 import { assertEquals } from "@std/assert";
 import { App } from "@ggpwnkthx/sprout-core/app";
 import { define } from "@ggpwnkthx/sprout-core/lib/define";

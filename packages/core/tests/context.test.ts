@@ -1,4 +1,3 @@
-// @jsxImportSource @hono/hono
 import { assertEquals } from "@std/assert";
 import type {
   Context,

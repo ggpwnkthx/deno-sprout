@@ -1,4 +1,3 @@
-// @jsxImportSource @hono/hono
 import { assertEquals, assertStrictEquals } from "@std/assert";
 import {
   defineLayout,
