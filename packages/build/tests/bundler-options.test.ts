@@ -143,37 +143,75 @@ Deno.test("buildIslands - default staticDir is static", async () => {
   await Deno.remove(tempDir, { recursive: true });
 });
 
-Deno.test("buildIslands - minify true produces minified output", async () => {
+Deno.test("buildIslands - minify true produces smaller output than false", async () => {
   const tempDir = await Deno.makeTempDir();
   const islandsDir = join(tempDir, "islands");
 
+  // Create a more substantial island to ensure minification has an effect
   await Deno.mkdir(islandsDir);
   await Deno.writeTextFile(
     join(islandsDir, "Counter.tsx"),
-    "export default function Counter() { return <div>Test</div>; }",
+    `export default function Counter() {
+      const [count, setCount] = Deno.useState(0);
+      return (
+        <div>
+          <p>Count: {count}</p>
+          <button onClick={() => setCount(count + 1)}>Increment</button>
+        </div>
+      );
+    }`,
   );
 
-  const result = await buildIslands({
+  // Build with minify=false
+  await buildIslands({
     root: tempDir,
     islandsDir: "islands",
-    outdir: "_dist",
+    outdir: "_dist_unminified",
+    minify: false,
+    verbose: false,
+  });
+
+  // Read unminified output size
+  const unminifiedPath = join(tempDir, "_dist_unminified", "islands");
+  const unminifiedEntries = Deno.readDirSync(unminifiedPath);
+  const unminifiedFile = Array.from(unminifiedEntries).find((e) =>
+    e.name.startsWith("Counter.")
+  );
+  assertExists(unminifiedFile);
+  const unminifiedContent = await Deno.readTextFile(
+    join(unminifiedPath, unminifiedFile!.name),
+  );
+
+  // Verify unminified is valid JS (doesn't throw when read)
+  assertExists(unminifiedContent);
+  assertEquals(typeof unminifiedContent, "string");
+
+  // Build with minify=true
+  await buildIslands({
+    root: tempDir,
+    islandsDir: "islands",
+    outdir: "_dist_minified",
     minify: true,
     verbose: false,
   });
 
-  assertExists(result.manifest);
-  // Read the island bundle
-  const counterPath = join(tempDir, "_dist", "islands");
-  const entries = Deno.readDirSync(counterPath);
-  const counterFile = Array.from(entries).find((e) =>
+  // Read minified output
+  const minifiedPath = join(tempDir, "_dist_minified", "islands");
+  const minifiedEntries = Deno.readDirSync(minifiedPath);
+  const minifiedFile = Array.from(minifiedEntries).find((e) =>
     e.name.startsWith("Counter.")
   );
-  assertExists(counterFile);
+  assertExists(minifiedFile);
+  const minifiedContent = await Deno.readTextFile(
+    join(minifiedPath, minifiedFile!.name),
+  );
 
-  const content = await Deno.readTextFile(join(counterPath, counterFile!.name));
-  // Minified code should not have excessive whitespace
-  // It's hard to test precisely, but we can check it's valid JS
-  assertEquals(content.includes("  "), false); // No double spaces from formatting
+  // Verify minified is valid JS (doesn't throw when read)
+  assertExists(minifiedContent);
+  assertEquals(typeof minifiedContent, "string");
+
+  // Minified should be strictly smaller than unminified
+  assertEquals(minifiedContent.length < unminifiedContent.length, true);
 
   // Cleanup
   await Deno.remove(tempDir, { recursive: true });

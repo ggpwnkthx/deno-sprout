@@ -1,5 +1,6 @@
 // manifest_test.ts - Tests for manifest functions
 import { assertEquals, assertExists, assertStringIncludes } from "@std/assert";
+import { join } from "@std/path";
 import {
   buildManifest,
   contentHash,
@@ -65,6 +66,48 @@ Deno.test("readManifest - returns null when file absent", async () => {
   const result = await readManifest("/nonexistent/path");
 
   assertEquals(result, null);
+});
+
+Deno.test("readManifest - throws on malformed JSON", async () => {
+  const tempDir = await Deno.makeTempDir();
+  const manifestPath = join(tempDir, "manifest.json");
+
+  await Deno.writeTextFile(manifestPath, "{ invalid json");
+
+  let threw = false;
+  let errorMessage = "";
+  try {
+    await readManifest(tempDir);
+  } catch (err) {
+    threw = true;
+    errorMessage = err instanceof Error ? err.message : String(err);
+  }
+
+  assertEquals(threw, true);
+  assertStringIncludes(errorMessage, "JSON");
+
+  await Deno.remove(tempDir, { recursive: true });
+});
+
+Deno.test("readManifest - throws on non-manifest JSON", async () => {
+  const tempDir = await Deno.makeTempDir();
+  const manifestPath = join(tempDir, "manifest.json");
+
+  // Write JSON that is valid but doesn't match IslandManifest shape
+  // IslandManifest requires `islands` (Record<string, string>) and `hydrate` (string)
+  await Deno.writeTextFile(manifestPath, '{"wrong": "structure"}');
+
+  // readManifest doesn't validate structure, so it returns the parsed object
+  // However, the returned object won't have 'islands' or 'hydrate' properties
+  const result = await readManifest(tempDir);
+
+  // The result is not null (file was found and parsed)
+  assertExists(result);
+  // But it won't have the expected manifest structure
+  assertEquals(result!.islands, undefined);
+  assertEquals(result!.hydrate, undefined);
+
+  await Deno.remove(tempDir, { recursive: true });
 });
 
 Deno.test("generateAssetManifest - is an alias for buildManifest", async () => {

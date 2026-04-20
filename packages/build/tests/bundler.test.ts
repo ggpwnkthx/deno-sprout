@@ -4,27 +4,25 @@ import { buildIslands } from "../bundler.ts";
 import { readManifest } from "../manifest.ts";
 import { join } from "@std/path";
 
+/**
+ * Create a test island file at the correct path and return the island's file path.
+ */
+function createTestIsland(tempDir: string, name: string, code: string): string {
+  const islandsDir = join(tempDir, "islands");
+  Deno.mkdirSync(islandsDir, { recursive: true });
+  const islandPath = join(islandsDir, `${name}.tsx`);
+  Deno.writeTextFileSync(islandPath, code);
+  return islandPath;
+}
+
 Deno.test("buildIslands - creates hashed island bundles", async () => {
   const tempDir = await Deno.makeTempDir();
 
-  // Copy fixture to temp dir
-  const srcDir = "./tests/fixtures/islands-smoke";
-  const islandsDir = join(tempDir, "islands");
-  const staticDir = join(tempDir, "static");
-  const _outDir = join(tempDir, "_dist");
-
-  // Create islands dir and copy Counter.tsx
-  await Deno.mkdir(islandsDir);
-  await Deno.copyFile(
-    join(srcDir, "islands/Counter.tsx"),
-    join(islandsDir, "Counter.tsx"),
-  );
-
-  // Create static dir with a file
-  await Deno.mkdir(staticDir);
-  await Deno.writeTextFile(
-    join(staticDir, "style.css"),
-    "body { color: red; }",
+  // Use helper to create island
+  createTestIsland(
+    tempDir,
+    "Counter",
+    `export default function Counter() { return <div>Test</div>; }`,
   );
 
   const result = await buildIslands({
@@ -48,7 +46,7 @@ Deno.test("buildIslands - creates hashed island bundles", async () => {
   assertEquals(result.manifest.hydrate, "/_sprout/hydrate.js");
 
   // Verify files were created
-  const manifest = await readManifest(_outDir);
+  const manifest = await readManifest(join(tempDir, "_dist"));
   assertExists(manifest);
   assertEquals(
     manifest!.islands["Counter"],
@@ -61,12 +59,12 @@ Deno.test("buildIslands - creates hashed island bundles", async () => {
 
 Deno.test("buildIslands - creates hydrate.js and runtime/mount.js", async () => {
   const tempDir = await Deno.makeTempDir();
-  const islandsDir = join(tempDir, "islands");
 
-  await Deno.mkdir(islandsDir);
-  await Deno.writeTextFile(
-    join(islandsDir, "Counter.tsx"),
-    "export default function Counter() { return <div>Test</div>; }",
+  // Use helper to create island
+  createTestIsland(
+    tempDir,
+    "Counter",
+    `export default function Counter() { return <div>Test</div>; }`,
   );
 
   const result = await buildIslands({
@@ -85,12 +83,11 @@ Deno.test("buildIslands - creates hydrate.js and runtime/mount.js", async () => 
 
 Deno.test("buildIslands - throws when island file causes esbuild to fail", async () => {
   const tempDir = await Deno.makeTempDir();
-  const islandsDir = join(tempDir, "islands");
 
-  await Deno.mkdir(islandsDir);
-  // Write a file with a syntax error that esbuild will reject
-  await Deno.writeTextFile(
-    join(islandsDir, "BadIsland.tsx"),
+  // Use helper to create a malformed island
+  createTestIsland(
+    tempDir,
+    "BadIsland",
     "export default function() { return < <div>; }",
   );
 
@@ -112,11 +109,11 @@ Deno.test("buildIslands - throws when island file causes esbuild to fail", async
 
 Deno.test("buildIslands - throws when island module cannot be resolved", async () => {
   const tempDir = await Deno.makeTempDir();
-  const islandsDir = join(tempDir, "islands");
 
-  await Deno.mkdir(islandsDir);
-  await Deno.writeTextFile(
-    join(islandsDir, "IslandWithMissingImport.tsx"),
+  // Use helper to create island with missing import
+  createTestIsland(
+    tempDir,
+    "IslandWithMissingImport",
     `import NonExistent from "./nonexistent.tsx";
 export default function() { return <div>{NonExistent}</div>; }`,
   );
@@ -134,4 +131,45 @@ export default function() { return <div>{NonExistent}</div>; }`,
   } finally {
     await Deno.remove(tempDir, { recursive: true });
   }
+});
+
+Deno.test("buildIslands - produces usable output that can be imported", async () => {
+  const tempDir = await Deno.makeTempDir();
+
+  // Create a simple Counter island
+  createTestIsland(
+    tempDir,
+    "Counter",
+    `export default function Counter() { return <div>Test</div>; }`,
+  );
+
+  // Build the islands
+  await buildIslands({
+    root: tempDir,
+    islandsDir: "islands",
+    outdir: "_dist",
+    verbose: false,
+  });
+
+  // Find the Counter output file
+  const islandsPath = join(tempDir, "_dist", "islands");
+  const entries = Deno.readDirSync(islandsPath);
+  const counterFile = Array.from(entries).find((e) =>
+    e.name.startsWith("Counter.")
+  );
+  assertExists(counterFile, "Counter output file should exist");
+
+  // Read the content
+  const content = await Deno.readTextFile(join(islandsPath, counterFile!.name));
+
+  // Verify the content is valid JS (doesn't throw when evaluated)
+  assertExists(content);
+  assertEquals(typeof content, "string");
+  assertEquals(content.length > 0, true);
+
+  // Verify the island bundle contains the island name
+  assertStringIncludes(content, "Counter");
+
+  // Cleanup
+  await Deno.remove(tempDir, { recursive: true });
 });

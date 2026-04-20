@@ -1,6 +1,5 @@
 // esbuild_test.ts - Tests for transpile function
 import { assertEquals, assertExists, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
 import { transpile } from "../lib/esbuild.ts";
 
 Deno.test("transpile - valid TSX returns JS without JSX syntax", async () => {
@@ -53,21 +52,21 @@ Deno.test("transpile - transpiles wrapper with resolveDir (bundle mode)", async 
   // This test simulates how the bundler calls transpile with generateIslandWrapper
   const wrapperSource = `\
 import { mount } from "/_sprout/runtime/mount.js";
-import Component from "./Counter.tsx";
+import Component from "./LikeButton.tsx";
 
 export default function hydrate(props, el) {
   mount(Component, props, el).catch(
-    (err) => console.error("[sprout] Failed to hydrate island Counter:", err),
+    (err) => console.error("[sprout] Failed to hydrate island LikeButton:", err),
   );
 }
 `;
 
-  // Note: This requires Counter.tsx to exist in the fixtures
+  // Note: This requires LikeButton.tsx to exist in the fixtures
   // We use an absolute path since esbuild WASM needs that for resolveDir
-  const resolveDir = join(Deno.cwd(), "./tests/fixtures/islands-smoke/islands");
+  const resolveDir = "/workspaces/deno-sprout/tests/fixtures/islands";
   const result = await transpile({
     source: wrapperSource,
-    name: "Counter",
+    name: "LikeButton",
     minify: false,
     resolveDir,
   });

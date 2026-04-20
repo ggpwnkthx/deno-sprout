@@ -1,5 +1,5 @@
 // routes-manifest_test.ts - Tests for routes manifest generation and loading
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertStringIncludes } from "@std/assert";
 import {
   generateRoutesManifest,
   loadRoutesManifest,
@@ -174,6 +174,41 @@ Deno.test("loadRoutesManifest - preserves layout and middleware chain", async ()
   );
 
   // Cleanup
+  await Deno.remove(tempDir, { recursive: true });
+});
+
+Deno.test("loadRoutesManifest - throws on missing file", async () => {
+  const impossiblePath = "/this/path/definitely/does/not/exist/manifest.json";
+
+  let threw = false;
+  let errorMessage = "";
+  try {
+    await loadRoutesManifest(impossiblePath);
+  } catch (err) {
+    threw = true;
+    errorMessage = err instanceof Error ? err.message : String(err);
+  }
+
+  assertEquals(threw, true);
+  assertStringIncludes(errorMessage, "Module not found");
+});
+
+Deno.test("loadRoutesManifest - throws on malformed JSON", async () => {
+  const tempDir = await Deno.makeTempDir();
+  const manifestPath = join(tempDir, "routes-manifest.json");
+
+  await Deno.writeTextFile(manifestPath, "{ invalid json");
+
+  let threw = false;
+  try {
+    await loadRoutesManifest(manifestPath);
+  } catch (_err) {
+    threw = true;
+    // JSON import with type: "json" throws on malformed JSON
+  }
+
+  assertEquals(threw, true);
+
   await Deno.remove(tempDir, { recursive: true });
 });
 

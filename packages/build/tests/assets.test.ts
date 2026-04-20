@@ -9,13 +9,13 @@ import { join } from "@std/path";
 
 Deno.test("discoverIslands - finds .tsx and .ts files", async () => {
   const islands = await discoverIslands(
-    "./tests/fixtures/islands-smoke/islands",
+    "/workspaces/deno-sprout/tests/fixtures/islands",
   );
 
   assertEquals(islands.length >= 1, true);
-  const counter = islands.find((i) => i.name === "Counter");
-  assertExists(counter);
-  assertEquals(counter!.name, "Counter");
+  const likeButton = islands.find((i) => i.name === "LikeButton");
+  assertExists(likeButton);
+  assertEquals(likeButton!.name, "LikeButton");
 });
 
 Deno.test("discoverIslands - returns empty array for non-existent dir", async () => {
