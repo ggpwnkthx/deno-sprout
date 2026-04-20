@@ -4,9 +4,27 @@ import type { Context } from "@hono/hono/jsx";
 
 // Type definitions for JSX node structure
 interface JsxNode {
-  tag: string;
+  tag: string | ((props: Record<string, unknown>) => unknown);
   props: Record<string, unknown>;
   children?: unknown;
+}
+
+const HTML_TAG_NAMES = new Set([
+  "title",
+  "meta",
+  "link",
+  "script",
+  "style",
+]);
+
+function isHtmlTagNode(child: unknown): child is JsxNode {
+  if (!isValidElement(child)) return false;
+  const node = child as JsxNode;
+  // In Hono's JSX runtime, HTML elements are function nodes with a name
+  // matching a known HTML tag (e.g. "title", "meta"). Components like <Title>
+  // have capitalized names and must be skipped.
+  return typeof node.tag === "function" &&
+    HTML_TAG_NAMES.has(node.tag.name.toLowerCase());
 }
 
 export interface HeadEntry {
@@ -36,11 +54,18 @@ export function createHeadManager(): HeadManagerValue {
   };
 }
 
-function toHeadEntry(child: JsxNode): HeadEntry {
+function toHeadEntry(node: JsxNode): HeadEntry {
+  const children = typeof node.children === "string"
+    ? node.children
+    : typeof node.props?.children === "string"
+    ? node.props.children
+    : undefined;
   return {
-    tag: child.tag as HeadEntry["tag"],
-    attrs: (child.props ?? {}) as Record<string, string>,
-    children: typeof child.children === "string" ? child.children : undefined,
+    tag: typeof node.tag === "function"
+      ? (node.tag.name.toLowerCase() as HeadEntry["tag"])
+      : (node.tag as HeadEntry["tag"]),
+    attrs: (node.props ?? {}) as Record<string, string>,
+    children,
   };
 }
 
@@ -61,8 +86,9 @@ export function Head(props: { children: unknown }): null {
   const arr = Array.isArray(children) ? children : [children];
 
   for (const child of arr) {
-    if (isValidElement(child)) {
-      headManager.add(toHeadEntry(child as JsxNode));
+    if (isHtmlTagNode(child)) {
+      const node = child as JsxNode;
+      headManager.add(toHeadEntry(node));
     }
   }
 

@@ -9,7 +9,8 @@
     "./lib/define": "./lib/define.ts",
     "./lib/layout": "./lib/layout.ts",
     "./lib/middleware": "./lib/middleware.ts",
-    "./lib/head": "./lib/head.ts"
+    "./lib/head": "./lib/head.ts",
+    "./path": "./lib/path.ts"
   },
   "imports": {
     "@hono/hono": "jsr:@hono/hono@^4.12.14",
