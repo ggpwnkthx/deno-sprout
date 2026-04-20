@@ -1,10 +1,7 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@hono/esbuild-transpiler@*": "0.1.4",
-    "jsr:@hono/esbuild-transpiler@0.1.4": "0.1.4",
     "jsr:@hono/esbuild-transpiler@~0.1.4": "0.1.4",
-    "jsr:@hono/hono@*": "4.12.14",
     "jsr:@hono/hono@^4.12.14": "4.12.14",
     "jsr:@hono/hono@^4.8.3": "4.12.14",
     "jsr:@hono/otel@^1.1.1": "1.1.1",
@@ -13,28 +10,25 @@
     "jsr:@hono/zod-validator@~0.7.6": "0.7.6",
     "jsr:@panva/jose@^6.0.11": "6.2.2",
     "jsr:@std/assert@1": "1.0.19",
+    "jsr:@std/assert@^1.0.19": "1.0.19",
     "jsr:@std/cli@1": "1.0.28",
+    "jsr:@std/cli@^1.0.28": "1.0.28",
     "jsr:@std/crypto@1": "1.0.5",
-    "jsr:@std/crypto@1.0.5": "1.0.5",
+    "jsr:@std/crypto@^1.0.5": "1.0.5",
     "jsr:@std/encoding@1": "1.0.10",
-    "jsr:@std/encoding@1.0.0": "1.0.0",
+    "jsr:@std/encoding@^1.0.10": "1.0.10",
     "jsr:@std/fmt@^1.0.9": "1.0.9",
-    "jsr:@std/fs@*": "1.0.23",
     "jsr:@std/fs@1": "1.0.23",
-    "jsr:@std/fs@1.0.0": "1.0.0",
+    "jsr:@std/fs@^1.0.23": "1.0.23",
     "jsr:@std/internal@^1.0.12": "1.0.12",
     "jsr:@std/path@1": "1.1.4",
-    "jsr:@std/path@^1.0.2": "1.1.4",
     "jsr:@std/path@^1.1.4": "1.1.4",
     "npm:@opentelemetry/api@^1.9.0": "1.9.1",
     "npm:@opentelemetry/semantic-conventions@^1.28.0": "1.40.0",
-    "npm:esbuild-wasm@0.19.12": "0.19.12",
     "npm:esbuild-wasm@~0.19.5": "0.19.12",
-    "npm:esbuild@*": "0.24.2",
-    "npm:esbuild@0.19.12": "0.19.12",
     "npm:esbuild@0.24.2": "0.24.2",
     "npm:esbuild@~0.19.9": "0.19.12",
-    "npm:typebox@^1.0.30": "1.1.27",
+    "npm:typebox@^1.0.30": "1.1.28",
     "npm:zod@^4.1.13": "4.3.6"
   },
   "jsr": {
@@ -42,7 +36,7 @@
       "integrity": "4a280f715acd8f4d29b45a50404cbfee5618f2fe4925c177c67a3297a2d29e5e",
       "dependencies": [
         "jsr:@hono/hono@^4.8.3",
-        "npm:esbuild-wasm@~0.19.5",
+        "npm:esbuild-wasm",
         "npm:esbuild@~0.19.9"
       ]
     },
@@ -97,20 +91,11 @@
     "@std/crypto@1.0.5": {
       "integrity": "0dcfbb319fe0bba1bd3af904ceb4f948cde1b92979ec1614528380ed308a3b40"
     },
-    "@std/encoding@1.0.0": {
-      "integrity": "3cabf87b3eadb69126b42998188c87155238ceef805af3f241acca00ddb0cbb2"
-    },
     "@std/encoding@1.0.10": {
       "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
     },
     "@std/fmt@1.0.9": {
       "integrity": "2487343e8899fb2be5d0e3d35013e54477ada198854e52dd05ed0422eddcabe0"
-    },
-    "@std/fs@1.0.0": {
-      "integrity": "d72e4a125af7168d717a2ed1dca77a728b422b0d138fd20579e3fa41a77da943",
-      "dependencies": [
-        "jsr:@std/path@^1.0.2"
-      ]
     },
     "@std/fs@1.0.23": {
       "integrity": "3ecbae4ce4fee03b180fa710caff36bb5adb66631c46a6460aaad49515565a37",
@@ -442,30 +427,18 @@
       "scripts": true,
       "bin": true
     },
-    "typebox@1.1.27": {
-      "integrity": "sha512-0G7OIrG890WbiRwExAgfvM/1uKVP4HcjGxEprJ+WrCXIH0nnTASB2zKO59cx4RMUm4r2SuZfDpX+ZLcATt2ehA=="
+    "typebox@1.1.28": {
+      "integrity": "sha512-OqHTHRfBpQHWPipoeFVkNgxKjjXhGY49UgekFrOuaC9O59/Hws8KHjGa1AUfNYnxWSfuNRkTB81FAL/QbTWFrg=="
     },
     "zod@4.3.6": {
       "integrity": "sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg=="
     }
   },
   "remote": {
-    "https://cdn.jsdelivr.net/npm/esbuild-wasm@0.19.12/esbuild.wasm": "359e0258957beabcc866e72a519278a4786b809a2c0e695a7fde3c1e8a14ef13",
-    "https://cdn.jsdelivr.net/npm/esbuild@0.19.12/lib/main.js": "ce6c5f7410e032f633d2d7241df7c6f4e13399e7e9ca4aa84f2c794654bbc678",
     "https://deno.land/x/denoflate@1.2.1/mod.ts": "f5628e44b80b3d80ed525afa2ba0f12408e3849db817d47a883b801f9ce69dd6",
     "https://deno.land/x/denoflate@1.2.1/pkg/denoflate.js": "b9f9ad9457d3f12f28b1fb35c555f57443427f74decb403113d67364e4f2caf4",
     "https://deno.land/x/denoflate@1.2.1/pkg/denoflate_bg.wasm.js": "d581956245407a2115a3d7e8d85a9641c032940a8e810acbd59ca86afd34d44d",
-    "https://deno.land/x/esbuild@v0.25.0/mod.js": "0a1cbaa89f99043e836de256455f609583bb626482396c74f4eabf7df07529bc",
-    "https://deno.land/x/esbuild@v0.28.0/mod.js": "ed5c47ee39cdee835df395b26a35259bc16757a07c91acac5825dcbf5e39281b",
-    "https://deno.land/x/esbuild@v0.28.0/wasm.js": "4f5f327ec93cb92bcc3ad465388e0a6efc087ecccdccfdee5cbaa841bc3b9818",
-    "https://esm.sh/esbuild-wasm@0.24.0": "7f883fe78041db24669a2f04cf7a38a82aa1e636071af9b26ad0e36085bb4de1",
-    "https://esm.sh/esbuild-wasm@0.24.0/denonext/esbuild-wasm.mjs": "9e641809d2ececcdc294c77ff3c6d4bd35a127ae04c7b138fd7f413063f6d606",
-    "https://esm.sh/esbuild-wasm@0.24.2": "7efe84b7ffc59ae39118c92cfffb2c6898734d28a78c13747418fe19c2ecbdba",
-    "https://esm.sh/esbuild-wasm@0.24.2/denonext/esbuild-wasm.mjs": "d7573a740950bc860f07856f0d304538da727104ce0a71fa315c2f2ca1c472e8",
-    "https://esm.sh/esbuild@0.19.12": "7d5d004e1922f67004d79b3ce185ffc9febb1230b59df8eea0d50fd6419d6ce5",
-    "https://esm.sh/esbuild@0.19.12/denonext/esbuild.mjs": "acf438999a857374c0f2578b4cf36799970b8cda1cd74ea1ba4c2053e02196c4",
-    "https://unpkg.com/esbuild-wasm@0.19.12/esbuild.wasm": "359e0258957beabcc866e72a519278a4786b809a2c0e695a7fde3c1e8a14ef13",
-    "https://unpkg.com/esbuild@0.19.12/lib/main.js": "ce6c5f7410e032f633d2d7241df7c6f4e13399e7e9ca4aa84f2c794654bbc678"
+    "https://deno.land/x/esbuild@v0.28.0/mod.js": "ed5c47ee39cdee835df395b26a35259bc16757a07c91acac5825dcbf5e39281b"
   },
   "workspace": {
     "dependencies": [
@@ -475,12 +448,12 @@
       "jsr:@hono/session@0.1",
       "jsr:@hono/typebox-validator@^1.1.0",
       "jsr:@hono/zod-validator@~0.7.6",
-      "jsr:@std/assert@1",
-      "jsr:@std/cli@1",
-      "jsr:@std/crypto@1",
-      "jsr:@std/encoding@1",
-      "jsr:@std/fs@1",
-      "jsr:@std/path@1"
+      "jsr:@std/assert@^1.0.19",
+      "jsr:@std/cli@^1.0.28",
+      "jsr:@std/crypto@^1.0.5",
+      "jsr:@std/encoding@^1.0.10",
+      "jsr:@std/fs@^1.0.23",
+      "jsr:@std/path@^1.1.4"
     ],
     "members": {
       "packages/build": {
