@@ -1,5 +1,5 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
-import { createContext, useContext } from "@ggpwnkthx/sprout-jsx/lib/context";
+import { createContext, useContext } from "@ggpwnkthx/sprout-jsx/hooks";
 import { Hono } from "@hono/hono";
 import { createJsxRenderer } from "@ggpwnkthx/sprout-jsx/renderer";
 

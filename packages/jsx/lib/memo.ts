@@ -1,78 +1,131 @@
-// lib/memo.ts - Memoization helper
-// Uses a WeakMap keyed by the original function so memoized results are
-// cached per-function without leaking memory when the function is GC'd.
-
+/**
+ * Memoization helper that caches the results of the given function.
+ *
+ * Uses a per-function cache capped at **256 entries** with LRU eviction.
+ * When the cap is reached, the least recently used entry is removed before
+ * adding a new one, preventing unbounded memory growth regardless of argument
+ * cardinality.
+ *
+ * ## Cache key construction
+ *
+ * Arguments are serialized into a string key. Primitive values are JSON-encoded
+ * directly. Functions are assigned a stable integer identity via a per-function
+ * counter so that the same function reference always produces the same key —
+ * avoiding {@link JSON.stringify}'s silent collision where `()=>{}` and
+ * `()=>1` both serialize to the same string. Non-plain objects (e.g., class
+ * instances with a non-`Object` prototype) cause the cache to be bypassed for
+ * that call entirely.
+ *
+ * ## Error handling
+ *
+ * Errors are **never** cached. Because errors are thrown rather than returned,
+ * a cached {@link Error} object would be returned as a plain value instead of
+ * propagating as a thrown exception. The underlying function is therefore
+ * re-invoked on every subsequent call with the same arguments whenever the
+ * previous call threw.
+ *
+ * @param fn - The function to memoize. Must be a pure function for correct
+ *   results, as the same inputs are assumed to always produce the same output.
+ * @returns A memoized version of `fn` with the same signature.
+ *
+ * @example
+ * ```ts
+ * const expensive = memo(function compute(x: number): number {
+ *   return x * x;
+ * });
+ *
+ * expensive(5); // computed
+ * expensive(5); // cached
+ * ```
+ *
+ * @example
+ * Passing class instances or non-plain objects bypasses the cache:
+ * ```ts
+ * const fn = memo(function (instance: MyClass): string {
+ *   return instance.toString();
+ * });
+ * fn(new MyClass()); // always computed (prototype !== Object.prototype)
+ * ```
+ */
 export function memo<T extends (...args: unknown[]) => unknown>(fn: T): T {
-  // Per-memoized-function identity counter for function arguments.
-  // Uses a regular Map since we need to store primitive IDs (numbers).
-  // This is per-memoized-function, so it lives as long as the returned
-  // memoized function (and the original fn, via closure).
+  const MAX_CACHE_SIZE = 256;
+
+  const MAX_FN_IDS_SIZE = 1024;
+
+  // Assigns a stable integer identity to each function argument.
+  // Uses a regular Map (not WeakMap) so we can track entry count and
+  // periodically reset fnCount to prevent unbounded growth.
   const fnIds = new Map<(...args: unknown[]) => unknown, number>();
-  // Cache: fn → (serialized-key → result)
-  const cache = new WeakMap<T, Map<string, unknown>>();
-  // Counter for assigning stable integer identities to function arguments.
   let fnCount = 0;
 
+  // Per-fn cache: Map<cacheKey, result>.
+  // Map preserves insertion order; delete + re-set moves a key to the end (LRU).
+  const fnCache = new Map<string, unknown>();
+
   return function (this: unknown, ...args: unknown[]): unknown {
-    // Build a cache key from the arguments. Functions get a stable integer
-    // identity via fnIds so that the same function reference always produces
-    // the same key (avoiding JSON.stringify's silent collision where
-    // `()=>{}` and `()=>1` both serialize to the same key). Non-plain
-    // objects or JSON.stringify failures cause skipCache=true, bypassing
-    // the cache entirely for this call.
+    // --- Build cache key ---------------------------------------------------
+    const parts: string[] = ["["];
     let skipCache = false;
-    let key = "[";
     for (let i = 0; i < args.length; i++) {
       const v = args[i];
       if (typeof v === "function") {
-        // Cast to the narrower function type that matches fnIds' key type,
-        // since TypeScript's typeof narrowing gives the broad Function type.
         const fnArg = v as (...args: unknown[]) => unknown;
         if (!fnIds.has(fnArg)) {
+          // Periodically reset to prevent fnCount growing unboundedly when
+          // many distinct function references are used as memo arguments.
+          if (fnIds.size >= MAX_FN_IDS_SIZE) {
+            fnIds.clear();
+            fnCount = 0;
+          }
           fnIds.set(fnArg, fnCount++);
         }
-        key += JSON.stringify(["fn", fnIds.get(fnArg)!]);
+        parts.push(JSON.stringify(["fn", fnIds.get(fnArg)!]));
       } else if (
-        v !== null && typeof v === "object" &&
+        v !== null &&
+        typeof v === "object" &&
         Object.getPrototypeOf(v) !== Object.prototype &&
         Object.getPrototypeOf(v) !== null
       ) {
+        // Non-plain objects bypass the cache to avoid prototype soup collisions.
         skipCache = true;
+        break;
       } else {
         try {
-          key += JSON.stringify(v);
+          parts.push(JSON.stringify(v));
         } catch {
           skipCache = true;
+          break;
         }
       }
-      if (i < args.length - 1) key += ",";
+      if (i < args.length - 1) parts.push(",");
     }
-    key += "]";
+    parts.push("]");
+    const key = parts.join("");
 
-    let fnCache: Map<string, unknown> | undefined;
-
-    if (!skipCache) {
-      if (!cache.has(fn)) {
-        fnCache = new Map<string, unknown>();
-        cache.set(fn, fnCache);
-      } else {
-        fnCache = cache.get(fn)!;
-      }
-
-      if (fnCache.has(key)) {
-        return fnCache.get(key);
-      }
+    // --- Cache lookup (LRU: move to end if present) -----------------------
+    // Only check the cache when it's non-empty to avoid an unnecessary Map
+    // lookup on every cold-start call when the cache is empty.
+    if (!skipCache && fnCache.size > 0 && fnCache.has(key)) {
+      const cached = fnCache.get(key);
+      // Move to end of insertion order (most recently used).
+      fnCache.delete(key);
+      fnCache.set(key, cached!);
+      return cached;
     }
 
+    // --- Compute -----------------------------------------------------------
     const result = fn.apply(this, args);
 
-    // Only cache successful results. Errors are never cached because they are
-    // thrown (not returned), so a cached Error object would be returned as a
-    // plain value instead of propagating as a thrown exception. This ensures
-    // `fn.apply` is invoked on every subsequent call with the same arguments.
+    // --- Cache write -------------------------------------------------------
     if (!skipCache && !(result instanceof Error)) {
-      fnCache?.set(key, result);
+      if (fnCache.size >= MAX_CACHE_SIZE) {
+        // Evict least recently used (first key in insertion order).
+        const oldest = fnCache.keys().next().value as string | undefined;
+        if (oldest) fnCache.delete(oldest);
+      }
+      fnCache.set(key, result);
     }
+
     return result;
-  } as unknown as T;
+  } as T;
 }

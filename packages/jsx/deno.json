@@ -7,7 +7,6 @@
     "./components": "./components.ts",
     "./streaming": "./streaming.ts",
     "./hooks": "./hooks.ts",
-    "./lib/context": "./lib/context.ts",
     "./lib/memo": "./lib/memo.ts"
   },
   "imports": {
