@@ -16,6 +16,11 @@ export interface DevBundlerOptions {
 // Map from island name, "hydrate", or "mount" → compiled JS text
 const cache = new Map<string, string>();
 
+/** Clear the bundler cache. Exported for use in tests. */
+export function clearBundlerCache(): void {
+  cache.clear();
+}
+
 /**
  * Returns a Hono middleware that handles:
  *   GET /_sprout/hydrate.js
@@ -42,14 +47,27 @@ export function devIslandBundler(options: DevBundlerOptions): {
     if (path === "/_sprout/hydrate.js") {
       let code = cache.get("hydrate");
       if (!code) {
-        const source = await Deno.readTextFile(options.runtimePath);
-        const result = await transpile({
-          source,
-          name: "hydrate",
-          minify: false,
-        });
-        code = result.code;
-        cache.set("hydrate", code);
+        try {
+          const source = await Deno.readTextFile(options.runtimePath);
+          const result = await transpile({
+            source,
+            name: "hydrate",
+            minify: false,
+          });
+          code = result.code;
+          cache.set("hydrate", code);
+        } catch (err) {
+          if (err instanceof Deno.errors.NotFound) {
+            return c.json(
+              { error: "island_not_found", message: "Runtime file not found" },
+              404,
+            );
+          }
+          return c.json(
+            { error: "internal_error", message: "Failed to load runtime" },
+            500,
+          );
+        }
       }
       return c.text(code, 200, { "Content-Type": "application/javascript" });
     }
@@ -58,30 +76,66 @@ export function devIslandBundler(options: DevBundlerOptions): {
     if (path === "/_sprout/runtime/mount.js") {
       let code = cache.get("mount");
       if (!code) {
-        const source = await Deno.readTextFile(options.mountPath);
-        const result = await transpile({
-          source,
-          name: "mount",
-          minify: false,
-        });
-        code = result.code;
-        cache.set("mount", code);
+        try {
+          const source = await Deno.readTextFile(options.mountPath);
+          const result = await transpile({
+            source,
+            name: "mount",
+            minify: false,
+          });
+          code = result.code;
+          cache.set("mount", code);
+        } catch (err) {
+          if (err instanceof Deno.errors.NotFound) {
+            return c.json(
+              { error: "island_not_found", message: "Mount file not found" },
+              404,
+            );
+          }
+          return c.json(
+            { error: "internal_error", message: "Failed to load mount" },
+            500,
+          );
+        }
       }
       return c.text(code, 200, { "Content-Type": "application/javascript" });
     }
 
     // Handle /_sprout/islands/:name.js
-    const islandsMatch = path.match(/^\/_sprout\/islands\/(.+)\.js$/);
+    // Only accept island names made of safe characters — no path separators.
+    // This prevents semantic misuse (island names should not contain /) and
+    // ensures the file path stays within islandsDir.
+    const islandsMatch = path.match(
+      /^\/_sprout\/islands\/([a-zA-Z0-9_-]+)\.js$/,
+    );
     if (islandsMatch) {
       const name = islandsMatch[1];
       let code = cache.get(name);
       if (!code) {
-        // Check if the island file exists
         const islandPath = join(options.islandsDir, `${name}.tsx`);
+        let stat: Deno.FileInfo;
         try {
-          await Deno.stat(islandPath);
-        } catch {
-          return c.text(`Island "${name}" not found`, 404);
+          stat = await Deno.stat(islandPath);
+        } catch (err) {
+          if (err instanceof Deno.errors.NotFound) {
+            return c.json(
+              {
+                error: "island_not_found",
+                message: `Island "${name}" not found`,
+              },
+              404,
+            );
+          }
+          return c.json(
+            { error: "internal_error", message: "Failed to stat island" },
+            500,
+          );
+        }
+        if (!stat.isFile) {
+          return c.json(
+            { error: "island_not_found", message: `"${name}" is not a file` },
+            404,
+          );
         }
 
         const wrapperSource = generateIslandWrapper(name);

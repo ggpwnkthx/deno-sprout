@@ -1,6 +1,6 @@
-// hmr_test.ts - Tests for HMR functions
+// hmr/classify.ts - classifyFsEvent unit tests
 import { assertEquals, assertExists } from "@std/assert";
-import { classifyFsEvent, createHmrHandler, watchFiles } from "../hmr.ts";
+import { classifyFsEvent } from "../../hmr.ts";
 
 Deno.test("classifyFsEvent - CSS file returns css-update", () => {
   const event = {
@@ -45,10 +45,38 @@ Deno.test("classifyFsEvent - island .ts returns island-update", () => {
   assertEquals(result!.type, "island-update");
 });
 
+Deno.test("classifyFsEvent - .ts file inside /islands/lib/ returns island-update", () => {
+  const event = {
+    kind: "modify",
+    paths: ["/path/to/islands/lib/helpers.ts"],
+    paths2: [],
+    flag: null,
+  } as unknown as Deno.FsEvent;
+
+  const result = classifyFsEvent(event, "/path/to");
+
+  assertExists(result);
+  assertEquals(result!.type, "island-update");
+});
+
 Deno.test("classifyFsEvent - route file returns reload", () => {
   const event = {
     kind: "modify",
     paths: ["/path/to/routes/index.tsx"],
+    paths2: [],
+    flag: null,
+  } as unknown as Deno.FsEvent;
+
+  const result = classifyFsEvent(event, "/path/to");
+
+  assertExists(result);
+  assertEquals(result!.type, "reload");
+});
+
+Deno.test("classifyFsEvent - .tsx not in islands returns reload", () => {
+  const event = {
+    kind: "modify",
+    paths: ["/path/to/components/Button.tsx"],
     paths2: [],
     flag: null,
   } as unknown as Deno.FsEvent;
@@ -72,17 +100,33 @@ Deno.test("classifyFsEvent - empty paths returns null", () => {
   assertEquals(result, null);
 });
 
-Deno.test("createHmrHandler - returns handler and broadcast function", () => {
-  const { handler, broadcast } = createHmrHandler();
+Deno.test("classifyFsEvent - non-island, non-CSS file returns reload", () => {
+  const event = {
+    kind: "modify",
+    paths: ["/path/to/file.tsx"],
+    paths2: [],
+    flag: null,
+  } as unknown as Deno.FsEvent;
 
-  assertEquals(typeof handler, "function");
-  assertEquals(typeof broadcast, "function");
+  const result = classifyFsEvent(event, "/path/to");
+  assertExists(result);
+  assertEquals(result!.type, "reload");
 });
 
-Deno.test("watchFiles - returns close function", () => {
-  // Use a non-existent directory to avoid file system side effects
-  const result = watchFiles(["/nonexistent/path"], () => {});
+Deno.test("classifyFsEvent - uses first path when multiple are present", () => {
+  const event = {
+    kind: "modify",
+    paths: [
+      "/path/to/routes/index.tsx",
+      "/path/to/islands/Counter.tsx",
+    ],
+    paths2: [],
+    flag: null,
+  } as unknown as Deno.FsEvent;
 
-  assertEquals(typeof result.close, "function");
-  result.close();
+  const result = classifyFsEvent(event, "/path/to");
+
+  assertExists(result);
+  // First path is the route file, so type is "reload"
+  assertEquals(result!.type, "reload");
 });

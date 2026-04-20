@@ -2,13 +2,17 @@
 import { App } from "@ggpwnkthx/sprout-core/app";
 import { createHmrHandler, watchFiles } from "./hmr.ts";
 import { devIslandBundler } from "./lib/bundler.ts";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import type { MiddlewareHandler } from "@hono/hono";
 
-// Derive the monorepo root from this file's location: packages/dev/server.ts
-// This file is at /workspaces/deno-sprout/packages/dev/server.ts
-// so the monorepo root is /workspaces/deno-sprout
-const MONOREPO_ROOT = "/workspaces/deno-sprout";
+// Derive the monorepo root from this file's location.
+// server.ts lives at packages/dev/server.ts — three dirname levels up reaches the
+// monorepo root (../../.. from packages/dev/server.ts → monorepo root).
+// import.meta.url is a file:// URL on Deno; strip the prefix so dirname operates on a
+// native filesystem path.
+const MONOREPO_ROOT = dirname(
+  dirname(dirname(import.meta.url.replace(/^file:\/\//, ""))),
+);
 
 export interface DevServerOptions {
   /** Project root. Default: Deno.cwd() */
@@ -21,7 +25,8 @@ export interface DevServerOptions {
 const HMR_SCRIPT = `<script type="module">
 const ws = new WebSocket("ws://"+location.host+"/_sprout/hmr");
 ws.addEventListener("message", (e) => {
-  const ev = JSON.parse(e.data);
+  let ev;
+  try { ev = JSON.parse(e.data); } catch { return; }
   if (ev.type === "css-update") {
     document.querySelectorAll('link[rel="stylesheet"]').forEach(l => {
       const u = new URL(l.href); u.searchParams.set("_t", Date.now()); l.href = u;
@@ -32,8 +37,14 @@ ws.addEventListener("message", (e) => {
 
 /**
  * Middleware that injects HMR client script into HTML responses.
+ * Exported for unit testing.
+ *
+ * Note: This reads the entire response body into memory via c.res.text() and
+ * rebuilds it as a new Response. This buffers the full HTML payload — it is
+ * intentional for the dev-server use case but must NOT be used in production
+ * paths where streaming or large-page performance matters.
  */
-function hmrInjector(): MiddlewareHandler {
+export function hmrInjector(): MiddlewareHandler {
   return async (c, next) => {
     await next();
     const ct = c.res.headers.get("Content-Type") ?? "";

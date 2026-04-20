@@ -9,9 +9,22 @@ export interface HmrEvent {
   path: string;
 }
 
+/** Maximum number of concurrent WebSocket HMR clients. */
+const MAX_CLIENTS = 100;
+
+/** WebSocket client contract. */
+export interface HmrClient {
+  send(msg: string): void;
+  close(): void;
+}
+
 // Track connected WebSocket clients - module-level singleton
-// deno-lint-ignore no-explicit-any
-const clients = new Set<any>();
+const clients = new Set<HmrClient>();
+
+/** Clear all tracked WebSocket clients. Exported for use in tests. */
+export function clearClients(): void {
+  clients.clear();
+}
 
 /**
  * Start watching `dirs` with Deno.watchFs.
@@ -123,8 +136,10 @@ export function createHmrHandler(): {
 } {
   // Handler for the WebSocket upgrade
   const wsHandler = defineWebSocketHelper((_c, events) => {
-    // events should have send and close
-    clients.add(events);
+    if (clients.size >= MAX_CLIENTS) {
+      return new Response("Service Unavailable", { status: 503 });
+    }
+    clients.add(events as unknown as HmrClient);
 
     return new Response(null, { status: 101 }); // Switching Protocols
   });
@@ -135,7 +150,9 @@ export function createHmrHandler(): {
       try {
         client.send(message);
       } catch {
-        // Client may have closed, remove it
+        // Any error on send indicates the client is gone — remove it and continue.
+        // This is the correct behavior for WebSocket disconnect (DOMException with
+        // INVALID_STATE_ERR / code 1006) and for test mocks that throw plain Error.
         clients.delete(client);
       }
     }
