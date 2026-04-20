@@ -3,7 +3,7 @@
 
 export { batch, computed, effect, signal } from "./signals.ts";
 export type { EffectHandle, ReadonlySignal, Signal } from "./signals.ts";
-export { Island } from "./hydrator.ts";
+export { Island, simpleHash } from "./hydrator.ts";
 export type { HydrationStrategy, IslandProps } from "./hydrator.ts";
 export { deserializeProps, serializeProps } from "./serializer.ts";
 export { useComputed, useEffect, useSignal } from "./hooks.ts";

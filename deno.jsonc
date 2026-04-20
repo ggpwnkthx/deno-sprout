@@ -36,8 +36,12 @@
     "scope": "@ggpwnkthx",
     "registry": "https://jsr.io"
   },
+  "lint": {
+    "exclude": [
+      "./.*"
+    ]
+  },
   "exclude": [
-    ".opencode",
-    "tmp"
+    "./.*"
   ]
 }
