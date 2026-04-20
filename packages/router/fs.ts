@@ -13,8 +13,13 @@ import type { RouteConfig } from "./config.ts";
 // Re-export for consumers
 export type { RouteConfig, RouteManifestEntry, RoutesManifest };
 
+// app: Hono<any> — fsRoutes calls app.use()/app.on()/app.notFound() which are
+// all typed via Hono's own generics; using any here bridges the type gap between
+// App (Hono<{ Variables: AppContextVariables }>) and the unconstrained Hono
+// defaults, without forcing App to expose its Variables to router callers.
 export interface FsRoutesOptions {
-  app: Hono;
+  // deno-lint-ignore no-explicit-any
+  app: Hono<any>;
   /** Routes directory (default: "./routes"). */
   dir?: string;
   /** Called for each page route after handlers are registered. */
@@ -43,8 +48,29 @@ export interface RouteModule {
 
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"] as const;
 
-/** Module-level cache for layout files: path → loaded module. */
-const layoutModuleCache = new Map<string, RouteModule>();
+/** Simple bounded cache: insertion-order eviction when capacity is reached. */
+class BoundedCache<K, V> {
+  #map = new Map<K, V>();
+  #capacity: number;
+  constructor(capacity: number) {
+    this.#capacity = capacity;
+  }
+  get(key: K): V | undefined {
+    return this.#map.get(key);
+  }
+  set(key: K, value: V): void {
+    if (this.#map.size >= this.#capacity && !this.#map.has(key)) {
+      const firstKey = this.#map.keys().next().value;
+      if (firstKey !== undefined) this.#map.delete(firstKey);
+    }
+    this.#map.set(key, value);
+  }
+}
+
+// Module-level cache for layout files: path → loaded module.
+// Bounded to 64 entries to prevent memory growth during long-running
+// dev servers with many unique layout files.
+const layoutModuleCache = new BoundedCache<string, RouteModule>(64);
 
 export async function fsRoutes(options: FsRoutesOptions): Promise<void> {
   const { app, dir = "./routes" } = options;
@@ -127,10 +153,13 @@ async function registerRoutes(
     await registerRoute(app, file, routesDir, onPageEntries);
   }
 
-  // Fire onPage callback once per page route
+  // Fire onPage callback once per page route, awaiting each to ensure
+  // all async work (including composeLayouts) completes before fsRoutes
+  // returns — prevents the SmartRouter matcher from being built before
+  // all this.use() calls in App.init() are done.
   if (onPage) {
     for (const entry of onPageEntries) {
-      onPage({
+      await onPage({
         app,
         pattern: entry.pattern,
         layoutChain: entry.layoutChain,
@@ -281,6 +310,17 @@ function resolvePattern(
   return (config?.routeOverride ?? file.pattern) || "/";
 }
 
+/**
+ * Convert a raw handler function to a MiddlewareHandler.
+ *
+ * Return value determines the HTTP response:
+ * - Response instance → returned as-is
+ * - undefined/void  → 204 No Content (empty body, no page render)
+ * - any other value  → 200 OK, body is String(value)
+ *
+ * This allows route handlers to return raw data (serialized JSON, plain text)
+ * without wrapping in Response, while explicit undefined signals "skip page render."
+ */
 function asHandler(fn: unknown): MiddlewareHandler {
   return async (c) => {
     const handlerFn = fn as (
@@ -301,13 +341,26 @@ function asMiddleware(fn: unknown): MiddlewareHandler {
   return fn as MiddlewareHandler;
 }
 
+/**
+ * Compose two middleware handlers into one.
+ *
+ * The inner handler runs first. If it returns a Response (short-circuit),
+ * the outer handler is never called. Otherwise, `next()` is called to
+ * dispatch to the outer handler, and its response is returned.
+ *
+ * Type note: Hono's `MiddlewareHandler` allows `next: () => Promise<void>`
+ * to be called and return, while the outer middleware itself may short-circuit
+ * by returning `Response | Promise<Response>`. The type system requires a cast
+ * through `unknown` to reconcile the declared `() => Promise<void>` signature
+ * of `next` with the actual `() => Promise<Response>` behavior at runtime.
+ * This is the same pattern Hono uses internally in its own compose utility.
+ * The `as unknown as MiddlewareHandler` cast acknowledges that the resolved
+ * return type differs from the declared return type without suppressing errors.
+ */
 function compose(
   inner: MiddlewareHandler,
   outer: MiddlewareHandler,
 ): MiddlewareHandler {
-  // Hono's Next type is () => Promise<void>, but outer middleware may return
-  // Response (short-circuit). The cast through `unknown` acknowledges this
-  // is an intentional type divergence — the runtime behavior is correct.
   return (c, next) =>
     inner(
       c,
