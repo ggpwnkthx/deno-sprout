@@ -2,6 +2,7 @@
 import { serveStatic } from "@hono/hono/deno";
 import type { MiddlewareHandler } from "@hono/hono";
 import { extname, join } from "@std/path";
+import { isContainedPath } from "@ggpwnkthx/sprout-core/path";
 
 export interface StaticFilesOptions {
   /** Filesystem directory to serve files from. Default: "./static" */
@@ -42,8 +43,12 @@ export interface SproutAssetsOptions {
  */
 export function sproutAssets(options?: SproutAssetsOptions): MiddlewareHandler {
   const distDir = (options ?? {}).distDir ?? "./_dist";
-  return async (c) => {
+  return async (c, next) => {
     const path = c.req.path;
+    // Only handle /_sprout/* paths; pass through to next middleware otherwise
+    if (!path.startsWith("/_sprout")) {
+      return next();
+    }
     // Strip the /_sprout prefix to get the relative file path
     const relPath = path.replace(/^\/_sprout/, "") || "/";
 
@@ -66,8 +71,8 @@ export function sproutAssets(options?: SproutAssetsOptions): MiddlewareHandler {
       return c.text("404 Not Found", 404);
     }
 
-    const separator = Deno.build.os === "windows" ? "\\" : "/";
-    if (!absPath.startsWith(distDirReal + separator)) {
+    const sep = Deno.build.os === "windows" ? "\\" : "/";
+    if (!(await isContainedPath(absPath, distDirReal, sep))) {
       return c.text("404 Not Found", 404);
     }
 
@@ -102,11 +107,22 @@ export function sproutAssets(options?: SproutAssetsOptions): MiddlewareHandler {
       ? "application/wasm"
       : "application/octet-stream";
 
+    // Open the file as a resource; readable stream is automatically
+    // closed when the response is consumed. Avoids buffering the
+    // full file in heap memory for large assets.
+    let file: Deno.FsFile;
+    try {
+      file = await Deno.open(absPath, { read: true });
+    } catch {
+      return c.text("404 Not Found", 404);
+    }
+
     const headers = new Headers();
     headers.set("Cache-Control", cacheControl);
     headers.set("Content-Type", contentType);
 
-    const body = await Deno.readFile(absPath);
-    return new Response(body, { status: 200, headers });
+    // Transfer the readable stream; Deno closes the handle when the
+    // stream is exhausted or aborted.
+    return new Response(file.readable, { status: 200, headers });
   };
 }
