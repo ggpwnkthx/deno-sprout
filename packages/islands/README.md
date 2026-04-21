@@ -160,7 +160,6 @@ with matching build output.
 
 A few parts still look early-stage:
 
-- `isIsland(...)` is currently a stub,
 - `validateProps(...)` is intentionally loose,
 - dispose behavior in `mount(...)` is currently a no-op,
 - and the runtime is optimized for simplicity, not completeness.

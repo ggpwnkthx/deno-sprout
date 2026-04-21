@@ -74,3 +74,10 @@ Deno.test("generateIslandWrapper: hydrate call passes Component, props, and el",
   const re = /mount\s*\(\s*Component\s*,\s*props\s*,\s*el\s*\)/;
   assertEquals(re.test(output), true);
 });
+
+Deno.test("generateIslandWrapper: custom mountUrl is reflected in generated import", () => {
+  const output = generateIslandWrapper("Counter", {
+    mountUrl: "/custom/runtime/mount.js",
+  });
+  assertEquals(output.includes('from "/custom/runtime/mount.js"'), true);
+});

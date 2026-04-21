@@ -40,10 +40,11 @@ Deno.test(
 // ---------------------------------------------------------------------------
 
 Deno.test("decodeProps: throws on invalid base64", () => {
-  // atob throws DOMException in Deno for invalid base64 input
+  // atob throws DOMException; decodeProps wraps it as TypeError
   assertThrows(
     () => decodeProps("not-valid-base64!!!"),
-    DOMException,
+    TypeError,
+    "Invalid base64 in data-props",
   );
 });
 

@@ -7,5 +7,7 @@ export { Island, simpleHash } from "./hydrator.ts";
 export type { HydrationStrategy, IslandProps } from "./hydrator.ts";
 export { deserializeProps, serializeProps } from "./serializer.ts";
 export { useComputed, useEffect, useSignal } from "./hooks.ts";
-export { mount } from "./lib/mount.ts";
 export { generateIslandWrapper } from "./lib/wrapper-template.ts";
+export { mount } from "./lib/mount.ts";
+export { HydrationError, IslandErrorEvent } from "./lib/mount.ts";
+export type { IslandErrorDetail } from "./lib/mount.ts";
