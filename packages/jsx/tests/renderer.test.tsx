@@ -1,6 +1,12 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
 import { Hono } from "@hono/hono";
-import { createJsxRenderer, Fragment, memo } from "../renderer.ts";
+import {
+  createJsxRenderer,
+  Fragment,
+  InvalidLayoutError,
+  InvalidLayoutRenderableError,
+  memo,
+} from "../renderer.ts";
 import type { LayoutComponent } from "@ggpwnkthx/sprout-core/types";
 import { defineLayout } from "@ggpwnkthx/sprout-core/lib/layout";
 
@@ -111,6 +117,47 @@ Deno.test(
 
     const res = await app.request("/");
     assertEquals(res.status, 200);
+  },
+);
+
+Deno.test(
+  "createJsxRenderer throws InvalidLayoutRenderableError when layout returns a non-renderable value",
+  async () => {
+    const app = new Hono();
+    // Layout that returns a plain number — not a HtmlEscapedString or Promise.
+    // Cast through unknown to bypass TypeScript's LayoutComponent return-type check,
+    // allowing us to test the runtime guard.
+    const brokenLayout =
+      ((_children: { children: unknown }) => 42) as unknown as LayoutComponent;
+
+    app.use(createJsxRenderer(brokenLayout));
+    app.get("/", (c) => c.render(<h1>test</h1>));
+
+    const res = await app.request("/");
+    // Hono catches the error thrown by createJsxRenderer and returns a 500.
+    assertEquals(res.status, 500);
+  },
+);
+
+Deno.test(
+  "createJsxRenderer throws InvalidLayoutError when layout is not a function",
+  () => {
+    assertThrows(
+      () => {
+        // @ts-expect-error — intentionally passing a non-function layout
+        createJsxRenderer("not a layout");
+      },
+      InvalidLayoutError,
+    );
+  },
+);
+
+Deno.test(
+  "InvalidLayoutRenderableError is a named TypeError subclass",
+  () => {
+    const err = new InvalidLayoutRenderableError();
+    assertEquals(err.name, "InvalidLayoutRenderableError");
+    assertEquals(err instanceof TypeError, true);
   },
 );
 

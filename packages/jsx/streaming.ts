@@ -64,6 +64,42 @@ export function renderToReadableStream(
 }
 
 /**
+ * Consumes a readable stream of UTF-8 bytes and returns the full text content.
+ *
+ * This is a fully buffering operation — the entire stream is accumulated in
+ * memory before resolving. For large streams this can consume significant heap.
+ *
+ * @param stream - The readable byte stream to consume.
+ * @returns The decoded UTF-8 string from all chunks.
+ */
+async function streamToString(
+  stream: ReadableStream<Uint8Array>,
+): Promise<string> {
+  const reader = stream.getReader();
+  const chunks: string[] = [];
+  const decoder = new TextDecoder();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      // Use stream mode for all chunks except the last to avoid corrupting
+      // multi-byte UTF-8 sequences that span chunk boundaries.
+      chunks.push(decoder.decode(value, { stream: true }));
+    }
+    // Flush any remaining buffered bytes in the decoder.
+    chunks.push(decoder.decode());
+  } finally {
+    // Cancel the stream to abort any in-flight upstream work, then release
+    // the reader lock so the stream can be garbage collected.
+    reader.cancel().catch(() => {
+      /* ignore — cancel rejects if the stream already closed normally */
+    });
+    reader.releaseLock();
+  }
+  return chunks.join("");
+}
+
+/**
  * Renders a JSX component to a plain HTML string by consuming the byte stream.
  *
  * This function converts the async {@link renderToReadableStream} output into a
@@ -123,26 +159,5 @@ export async function renderToString(
   const stream = honoRenderToReadableStream(
     renderable as Parameters<typeof honoRenderToReadableStream>[0],
   );
-  const reader = stream.getReader();
-  const chunks: string[] = [];
-  const decoder = new TextDecoder();
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      // Use stream mode for all chunks except the last to avoid corrupting
-      // multi-byte UTF-8 sequences that span chunk boundaries.
-      chunks.push(decoder.decode(value, { stream: true }));
-    }
-    // Flush any remaining buffered bytes in the decoder.
-    chunks.push(decoder.decode());
-  } finally {
-    // Cancel the stream to abort any in-flight upstream work, then release
-    // the reader lock so the stream can be garbage collected.
-    reader.cancel().catch(() => {
-      /* ignore — cancel rejects if the stream already closed normally */
-    });
-    reader.releaseLock();
-  }
-  return chunks.join("");
+  return await streamToString(stream);
 }

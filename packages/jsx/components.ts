@@ -4,6 +4,11 @@ import type { Child } from "@hono/hono/jsx";
  * Component type representing a function that receives props and returns JSX
  * children.
  *
+ * Supports both synchronous and async components — the return type `Child`
+ * covers `HtmlEscapedString` (sync) and `Promise<HtmlEscapedString>` (async)
+ * implicitly. For streaming rendering, use {@link renderToReadableStream} or
+ * {@link renderToString} rather than calling `FC` components directly.
+ *
  * @template P - The props type for the component. Defaults to a generic object
  *   record to allow any property shape.
  */

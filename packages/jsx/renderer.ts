@@ -6,9 +6,27 @@
  */
 import { jsxRenderer as honoJsxRenderer } from "@hono/hono/jsx-renderer";
 import type { HtmlEscapedString } from "@hono/hono/utils/html";
+import type { Child } from "@hono/hono/jsx";
 import { Fragment, memo } from "@hono/hono/jsx";
 import type { MiddlewareHandler } from "@hono/hono";
 import type { LayoutComponent } from "@ggpwnkthx/sprout-core/types";
+
+/**
+ * Returns `true` if `value` is a Hono `HtmlEscapedString`.
+ *
+ * Used to validate layout return values before passing them to Hono's renderer,
+ * which only accepts `HtmlEscapedString` or `Promise<HtmlEscapedString>`.
+ */
+function isHtmlEscapedString(
+  value: Child,
+): value is HtmlEscapedString {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "isEscaped" in value &&
+    (value as unknown as { isEscaped: boolean }).isEscaped === true
+  );
+}
 
 /**
  * Error thrown when {@link createJsxRenderer} is called with an invalid layout.
@@ -20,6 +38,20 @@ export class InvalidLayoutError extends TypeError {
         "got non-function value",
     );
     this.name = "InvalidLayoutError";
+  }
+}
+
+/**
+ * Error thrown when a layout function returns a value that cannot be rendered
+ * by Hono's JSX renderer.
+ */
+export class InvalidLayoutRenderableError extends TypeError {
+  constructor() {
+    super(
+      "createJsxRenderer: layout returned a non-renderable value. " +
+        "Layout must return HtmlEscapedString or Promise<HtmlEscapedString>.",
+    );
+    this.name = "InvalidLayoutRenderableError";
   }
 }
 
@@ -64,10 +96,13 @@ export function createJsxRenderer(
   return honoJsxRenderer(
     ({ children }): HtmlEscapedString | Promise<HtmlEscapedString> => {
       if (layout) {
-        // The layout is typed to return Child, which Hono's renderer accepts.
-        // We trust the LayoutComponent contract here; Hono will throw at
-        // render time if the return value is not renderable.
-        return layout({ children }) as HtmlEscapedString;
+        const result = layout({ children });
+        // Validate before passing to Hono's renderer, which only accepts
+        // HtmlEscapedString or Promise<HtmlEscapedString>.
+        if (isHtmlEscapedString(result)) {
+          return result;
+        }
+        throw new InvalidLayoutRenderableError();
       }
       return children as HtmlEscapedString;
     },
