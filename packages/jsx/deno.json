@@ -7,15 +7,17 @@
     "./components": "./components.ts",
     "./streaming": "./streaming.ts",
     "./hooks": "./hooks.ts",
+    "./jsx-runtime": "./jsx-runtime.ts",
     "./lib/memo": "./lib/memo.ts"
   },
   "imports": {
-    "@hono/hono": "jsr:@hono/hono@^4.12.14"
+    "@hono/hono": "jsr:@hono/hono@^4.12.14",
+    "@std/assert": "jsr:@std/assert@^1"
   },
   "compilerOptions": {
     "strict": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "@hono/hono/jsx"
+    "jsxImportSource": "@ggpwnkthx/sprout-jsx"
   },
   "publish": {
     "scope": "@ggpwnkthx",

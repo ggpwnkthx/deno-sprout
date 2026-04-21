@@ -15,21 +15,12 @@
   },
   "imports": {
     "@hono/hono": "jsr:@hono/hono@^4.12.14",
-    "@ggpwnkthx/sprout-islands": "jsr:@ggpwnkthx/sprout-islands@^0.1.0",
-    "@ggpwnkthx/sprout-jsx": "jsr:@ggpwnkthx/sprout-jsx@^0.1.0",
-    "@ggpwnkthx/sprout-jsx/renderer": "jsr:@ggpwnkthx/sprout-jsx@^0.1.0/renderer",
-    "@ggpwnkthx/sprout-router": "jsr:@ggpwnkthx/sprout-router@^0.1.0",
-    "@ggpwnkthx/sprout-router/fs": "jsr:@ggpwnkthx/sprout-router@^0.1.0/fs",
-    "@ggpwnkthx/sprout-static": "jsr:@ggpwnkthx/sprout-static@^0.1.0",
-    "@ggpwnkthx/sprout-static/server": "jsr:@ggpwnkthx/sprout-static@^0.1.0/server",
-    "@ggpwnkthx/sprout-static/deploy-assets": "jsr:@ggpwnkthx/sprout-static@^0.1.0/deploy-assets",
-    "@std/fs": "jsr:@std/fs@^1.0.0",
-    "@std/path": "jsr:@std/path@^1.0.0"
+    "@std/path": "jsr:@std/path@^1"
   },
   "compilerOptions": {
     "strict": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "@hono/hono/jsx"
+    "jsxImportSource": "@ggpwnkthx/sprout-jsx"
   },
   "publish": {
     "scope": "@ggpwnkthx",

@@ -7,21 +7,13 @@
     "./build": "./build.ts",
     "./init": "./init.ts"
   },
-  "imports": {
-    "@ggpwnkthx/sprout-core": "jsr:@ggpwnkthx/sprout-core@^0.1.0",
-    "@ggpwnkthx/sprout-router": "jsr:@ggpwnkthx/sprout-router@^0.1.0",
-    "@ggpwnkthx/sprout-jsx": "jsr:@ggpwnkthx/sprout-jsx@^0.1.0",
-    "@ggpwnkthx/sprout-islands": "jsr:@ggpwnkthx/sprout-islands@^0.1.0",
-    "@ggpwnkthx/sprout-static": "jsr:@ggpwnkthx/sprout-static@^0.1.0",
-    "@ggpwnkthx/sprout-dev": "jsr:@ggpwnkthx/sprout-dev@^0.1.0",
-    "@ggpwnkthx/sprout-build": "jsr:@ggpwnkthx/sprout-build@^0.1.0",
-    "@ggpwnkthx/sprout-init": "jsr:@ggpwnkthx/sprout-init@^0.1.0"
-  },
   "publish": {
     "scope": "@ggpwnkthx",
     "registry": "https://jsr.io"
   },
-  "include": ["./*.ts"],
+  "include": [
+    "./*.ts"
+  ],
   "compilerOptions": {
     "strict": true,
     "jsx": "react-jsx",
