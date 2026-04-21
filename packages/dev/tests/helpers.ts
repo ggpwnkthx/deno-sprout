@@ -6,11 +6,18 @@ export { withTempDir, writeFile, writeIsland, writeRoute } from "./write.ts";
 
 /**
  * Create a dev server and clean up its HMR watcher when done.
+ *
+ * The watcher is retrieved from the module's internal WeakMap rather than
+ * via a property on App.
  */
 export async function createServerAndClose(root: string): Promise<App> {
   const app = await createDevServer({ root });
-  const watcher = (app as unknown as { _hmrWatcher?: { close: () => void } })
-    ._hmrWatcher;
+  // Import lazily to avoid a circular dependency at the top level.
+  // watcherMap is defined in server.ts and is only needed for test cleanup.
+  const watcherMap = (await import("../server.ts") as unknown as {
+    watcherMap: WeakMap<App, { close: () => void }>;
+  }).watcherMap;
+  const watcher = watcherMap.get(app);
   if (watcher) {
     watcher.close();
   }

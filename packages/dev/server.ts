@@ -1,24 +1,32 @@
-// server.ts - Development server with HMR
+/**
+ * Development server with HMR support.
+ *
+ * This module wires together the Sprout core `App`, the island bundler
+ * middleware, the HMR WebSocket handler, and the file watcher into a single
+ * development-time Hono application.
+ *
+ * @module
+ */
 import { App } from "@ggpwnkthx/sprout-core/app";
 import { createHmrHandler, watchFiles } from "./hmr.ts";
 import { devIslandBundler } from "./lib/bundler.ts";
 import { dirname, join } from "@std/path";
 import type { MiddlewareHandler } from "@hono/hono";
 
+// WeakMap from App → its watcher close function.
+// Avoids mutating App with a private property; the watcher lifetime is managed
+// externally and the entry disappears when the App is garbage-collected.
+// Exported so tests can retrieve the watcher to close it after use.
+export const watcherMap: WeakMap<App, { close: () => void }> = new WeakMap();
+
 // Derive the monorepo root from this file's location.
-// server.ts lives at packages/dev/server.ts — three dirname levels up reaches the
-// monorepo root (../../.. from packages/dev/server.ts → monorepo root).
-// import.meta.url is a file:// URL on Deno; strip the prefix so dirname operates on a
-// native filesystem path.
 const MONOREPO_ROOT = dirname(
-  dirname(dirname(import.meta.url.replace(/^file:\/\//, ""))),
+  dirname(dirname(new URL(import.meta.url).pathname)),
 );
 
 export interface DevServerOptions {
-  /** Project root. Default: Deno.cwd() */
+  /** Project root directory. Defaults to `Deno.cwd()`. */
   root?: string;
-  /** HTTP port. Default: 8000 */
-  port?: number;
 }
 
 // HMR script injected into HTML pages
@@ -59,14 +67,32 @@ export function hmrInjector(): MiddlewareHandler {
 }
 
 /**
- * Create a Hono app configured for development:
- *   - All Phase 1 routing and JSX rendering
- *   - On-the-fly island bundling at /_sprout/islands/*.js
- *   - HMR WebSocket at /_sprout/hmr
- *   - HMR script injected into every HTML response
- *   - File watcher that broadcasts changes to connected browsers
+ * Development server with HMR support.
  *
- * Returns the Hono app (not a running server - caller calls Deno.serve).
+ * Creates a Hono app configured for a Sprout development workflow:
+ *
+ * - Phase 1 routing and JSX rendering (via `@ggpwnkthx/sprout-core` `App`)
+ * - On-the-fly island bundling at `/_sprout/islands/{name}.js`
+ * - Hydration runtime at `/_sprout/hydrate.js`
+ * - Mount runtime at `/_sprout/runtime/mount.js`
+ * - HMR WebSocket at `/_sprout/hmr`
+ * - HMR client script injected into every HTML response
+ * - File watcher that broadcasts FS change events to connected browsers
+ *
+ * The returned `App` is not yet running — the caller is responsible for
+ * passing it to `Deno.serve` or an equivalent HTTP server.
+ *
+ * @example
+ * ```ts
+ * import { createDevServer } from "./server.ts";
+ *
+ * const app = await createDevServer({ root: "./my-app" });
+ * Deno.serve(app.fetch);
+ * ```
+ *
+ * @param options - Optional configuration for the dev server.
+ * @param options.root - Project root directory. Defaults to `Deno.cwd()`.
+ * @returns A configured `App` instance, ready to be served.
  */
 export async function createDevServer(
   options?: DevServerOptions,
@@ -117,7 +143,9 @@ export async function createDevServer(
   const { handler: wsHandler, broadcast } = createHmrHandler();
 
   // Register HMR WebSocket handler
-  app.get("/_sprout/hmr", wsHandler as MiddlewareHandler);
+  // SAFETY: cast through unknown is required because Hono's WebSocket route
+  // accepts a handler whose return type is not identical to MiddlewareHandler.
+  app.get("/_sprout/hmr", wsHandler as unknown as MiddlewareHandler);
 
   // Register HMR injector BEFORE init so it runs as global middleware
   // (registered after route handlers, it would run after them and miss the response)
@@ -128,22 +156,18 @@ export async function createDevServer(
 
   // Start file watcher
   const watcher = watchFiles([routesDir, islandsDir, staticDir], (event) => {
-    // Invalidate cache for island changes
-    if (event.type === "island-update" || event.type === "reload") {
-      // For reload events, we need to invalidate all island caches
-      // since any file could affect the route
+    // Invalidate cache for island changes and reload events.
+    // CSS changes do not require cache invalidation.
+    if (event.type !== "css-update") {
       invalidate(event.path);
-    } else if (event.type === "css-update") {
-      // CSS changes don't require cache invalidation
     }
 
     // Broadcast to all connected WebSocket clients
     broadcast(event);
   });
 
-  // Store watcher reference so it can be closed if needed
-  (app as unknown as { _hmrWatcher?: { close: () => void } })._hmrWatcher =
-    watcher;
+  // Store watcher reference in the WeakMap so it can be closed if needed.
+  watcherMap.set(app, watcher);
 
   return app;
 }

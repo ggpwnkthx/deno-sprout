@@ -1,4 +1,18 @@
-// lib/bundler.ts - On-the-fly island bundler middleware
+/**
+ * On-the-fly island bundler middleware for Sprout dev server.
+ *
+ * Intercepts requests at dev-time paths and transpiles island components
+ * using esbuild. All results are cached in memory per file-change epoch;
+ * the cache is invalidated by calling the returned `invalidate()` function
+ * when source files change.
+ *
+ * Handled paths:
+ * - `/_sprout/hydrate.js` — transpiled hydration runtime
+ * - `/_sprout/runtime/mount.js` — transpiled mount runtime
+ * - `/_sprout/islands/{name}.js` — bundled island component + wrapper
+ *
+ * @module
+ */
 import { transpile } from "@ggpwnkthx/sprout-build/lib/esbuild";
 import { generateIslandWrapper } from "@ggpwnkthx/sprout-islands/lib/wrapper-template";
 import type { MiddlewareHandler } from "@hono/hono";
@@ -16,9 +30,79 @@ export interface DevBundlerOptions {
 // Map from island name, "hydrate", or "mount" → compiled JS text
 const cache = new Map<string, string>();
 
+/**
+ * Reverse index: absolute island file path → cache key.
+ * Used by `invalidate()` to look up the cache key from a changed file path
+ * without needing fragile regex extraction of island names.
+ */
+const islandPathToKey = new Map<string, string>();
+
 /** Clear the bundler cache. Exported for use in tests. */
 export function clearBundlerCache(): void {
   cache.clear();
+  islandPathToKey.clear();
+}
+
+/**
+ * Error shape returned by the island bundler middleware.
+ *
+ * All error responses from this module conform to this shape.
+ */
+export interface BundlerError {
+  error: string;
+  message: string;
+}
+
+/**
+ * Attempt to load and transpile a file from `filePath`, storing the result
+ * under `key` in the module-level `cache`.
+ *
+ * @param key - Cache key (e.g. `"hydrate"`, `"mount"`, or an island name).
+ * @param filePath - Absolute path to the source file.
+ * @param transpileOpts - Options forwarded to `transpile` (except `source`).
+ * @param notFoundLabel - Error code for the 404 response body.
+ * @param notFoundMessage - Human-readable message for the 404 response body.
+ * @param c - Hono context (provides json() and text()).
+ * @returns A Hono `Response` on error; `null` on cache hit or successful
+ *   transpile (caller reads from `cache`).
+ */
+async function transpileCached(
+  key: string,
+  filePath: string,
+  transpileOpts: { name: string },
+  notFoundLabel: string,
+  notFoundMessage: string,
+  c: {
+    json(data: unknown, status?: number): unknown;
+    text(
+      body: string,
+      status?: number,
+      headers?: Record<string, string>,
+    ): unknown;
+  },
+): Promise<Response | null> {
+  const cached = cache.get(key);
+  if (cached !== undefined) return null;
+
+  try {
+    const source = await Deno.readTextFile(filePath);
+    const result = await transpile({ source, ...transpileOpts });
+    cache.set(key, result.code);
+    return null;
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) {
+      return c.json(
+        { error: notFoundLabel, message: notFoundMessage },
+        404,
+      ) as Response;
+    }
+    // Deno.readTextFile throws PermissionDenied, NotCapable, etc.
+    // Treat all unexpected errors as internal errors.
+    return c.json(
+      { error: "internal_error", message: "Failed to load bundle source" },
+      500,
+    ) as Response;
+  }
 }
 
 /**
@@ -45,60 +129,34 @@ export function devIslandBundler(options: DevBundlerOptions): {
 
     // Handle /_sprout/hydrate.js
     if (path === "/_sprout/hydrate.js") {
-      let code = cache.get("hydrate");
-      if (!code) {
-        try {
-          const source = await Deno.readTextFile(options.runtimePath);
-          const result = await transpile({
-            source,
-            name: "hydrate",
-            minify: false,
-          });
-          code = result.code;
-          cache.set("hydrate", code);
-        } catch (err) {
-          if (err instanceof Deno.errors.NotFound) {
-            return c.json(
-              { error: "island_not_found", message: "Runtime file not found" },
-              404,
-            );
-          }
-          return c.json(
-            { error: "internal_error", message: "Failed to load runtime" },
-            500,
-          );
-        }
-      }
-      return c.text(code, 200, { "Content-Type": "application/javascript" });
+      const err = await transpileCached(
+        "hydrate",
+        options.runtimePath,
+        { name: "hydrate" },
+        "island_not_found",
+        "Runtime file not found",
+        c,
+      );
+      if (err) return err;
+      return c.text(cache.get("hydrate")!, 200, {
+        "Content-Type": "application/javascript",
+      });
     }
 
     // Handle /_sprout/runtime/mount.js
     if (path === "/_sprout/runtime/mount.js") {
-      let code = cache.get("mount");
-      if (!code) {
-        try {
-          const source = await Deno.readTextFile(options.mountPath);
-          const result = await transpile({
-            source,
-            name: "mount",
-            minify: false,
-          });
-          code = result.code;
-          cache.set("mount", code);
-        } catch (err) {
-          if (err instanceof Deno.errors.NotFound) {
-            return c.json(
-              { error: "island_not_found", message: "Mount file not found" },
-              404,
-            );
-          }
-          return c.json(
-            { error: "internal_error", message: "Failed to load mount" },
-            500,
-          );
-        }
-      }
-      return c.text(code, 200, { "Content-Type": "application/javascript" });
+      const err = await transpileCached(
+        "mount",
+        options.mountPath,
+        { name: "mount" },
+        "island_not_found",
+        "Mount file not found",
+        c,
+      );
+      if (err) return err;
+      return c.text(cache.get("mount")!, 200, {
+        "Content-Type": "application/javascript",
+      });
     }
 
     // Handle /_sprout/islands/:name.js
@@ -110,70 +168,106 @@ export function devIslandBundler(options: DevBundlerOptions): {
     );
     if (islandsMatch) {
       const name = islandsMatch[1];
-      let code = cache.get(name);
-      if (!code) {
-        const islandPath = join(options.islandsDir, `${name}.tsx`);
-        let stat: Deno.FileInfo;
-        try {
-          stat = await Deno.stat(islandPath);
-        } catch (err) {
-          if (err instanceof Deno.errors.NotFound) {
-            return c.json(
-              {
-                error: "island_not_found",
-                message: `Island "${name}" not found`,
-              },
-              404,
-            );
-          }
+      const cached = cache.get(name);
+      if (cached !== undefined) {
+        return c.text(cached, 200, {
+          "Content-Type": "application/javascript",
+        });
+      }
+
+      const islandPath = join(options.islandsDir, `${name}.tsx`);
+      let stat: Deno.FileInfo;
+      try {
+        stat = await Deno.stat(islandPath);
+      } catch (err) {
+        if (err instanceof Deno.errors.NotFound) {
           return c.json(
-            { error: "internal_error", message: "Failed to stat island" },
-            500,
-          );
-        }
-        if (!stat.isFile) {
-          return c.json(
-            { error: "island_not_found", message: `"${name}" is not a file` },
+            {
+              error: "island_not_found",
+              message: `Island "${name}" not found`,
+            },
             404,
           );
         }
-
-        const wrapperSource = generateIslandWrapper(name);
-        const result = await transpile({
-          source: wrapperSource,
-          name,
-          minify: false,
-          resolveDir: options.islandsDir,
-        });
-        code = result.code;
-        cache.set(name, code);
+        return c.json(
+          { error: "internal_error", message: "Failed to stat island" },
+          500,
+        );
       }
-      return c.text(code, 200, { "Content-Type": "application/javascript" });
+      if (!stat.isFile) {
+        return c.json(
+          { error: "island_not_found", message: `"${name}" is not a file` },
+          404,
+        );
+      }
+
+      const wrapperSource = generateIslandWrapper(name);
+      const result = await transpile({
+        source: wrapperSource,
+        name,
+        minify: false,
+        resolveDir: options.islandsDir,
+      });
+      // Register the path→key mapping so invalidate() can find the key
+      // from the file path without doing fragile regex extraction.
+      islandPathToKey.set(islandPath, name);
+      cache.set(name, result.code);
+      return c.text(result.code, 200, {
+        "Content-Type": "application/javascript",
+      });
     }
 
     await next();
   };
 
+  /**
+   * Invalidate cached transpilation results when a source file changes.
+   *
+   * The reverse index `islandPathToKey` is consulted first so that any
+   * absolute file path can be invalidated without knowing its cache key.
+   * For paths not in the index, island name is extracted via regex as a
+   * fallback (handles hot-reload via HMR where the path may not be registered).
+   *
+   * Special keys:
+   * - `.../islands/lib/runtime.ts`  → invalidates `"hydrate"`
+   * - `.../islands/lib/mount.ts`    → invalidates `"mount"`
+   *
+   * Paths that do not match any cache key are silently ignored.
+   */
   function invalidate(filePath: string): void {
-    // Extract the island name from the file path
-    // e.g. "/path/to/islands/Counter.tsx" → "Counter"
-    // e.g. "/path/to/islands/lib/runtime.ts" → "hydrate"
-    // e.g. "/path/to/islands/lib/mount.ts" → "mount"
-
     if (
       filePath.endsWith("/lib/runtime.ts") ||
       filePath.endsWith("lib/runtime.ts")
     ) {
       cache.delete("hydrate");
     } else if (
-      filePath.endsWith("/lib/mount.ts") || filePath.endsWith("lib/mount.ts")
+      filePath.endsWith("/lib/mount.ts") ||
+      filePath.endsWith("lib/mount.ts")
     ) {
       cache.delete("mount");
     } else {
-      // It's an island file - extract name
-      const match = filePath.match(/islands\/([^/]+)\.tsx?$/);
-      if (match) {
-        cache.delete(match[1]);
+      // Try the reverse index first (exact match for registered island paths).
+      const key = islandPathToKey.get(filePath);
+      if (key !== undefined) {
+        cache.delete(key);
+        islandPathToKey.delete(filePath);
+      } else {
+        // Fallback: extract island name via regex.
+        // Handles cases where the path was not pre-registered (e.g. HMR
+        // fires before the island was ever served, or path differs from registration).
+        const match = filePath.match(/islands\/([^.\\/]+)\.tsx?$/);
+        if (match) {
+          cache.delete(match[1]);
+          // Also clean any islandPathToKey entry whose path ends with the
+          // matched filename, to prevent the index from accumulating stale entries
+          // over long dev sessions.
+          for (const [path, k] of islandPathToKey) {
+            if (k === match[1]) {
+              islandPathToKey.delete(path);
+              break;
+            }
+          }
+        }
       }
     }
   }
