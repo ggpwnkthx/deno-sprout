@@ -84,7 +84,7 @@ Deno.test("define.layout returns the same component", () => {
 });
 
 Deno.test("define.middleware returns the same handler", () => {
-  const handler: Handler = (c) => c.text("ok");
+  const handler: MiddlewareHandler = (_c, next) => next();
   const result = define.middleware(handler);
   assertStrictEquals(result, handler);
 });
@@ -92,12 +92,11 @@ Deno.test("define.middleware returns the same handler", () => {
 Deno.test("define.middleware applied via Hono app sets header", async () => {
   const app = new Hono();
   // define.middleware returns the same handler; test the runtime behavior
-  // by using a properly typed MiddlewareHandler
   const rawHandler: MiddlewareHandler = (c, next) => {
     c.header("X-Middleware", "works");
     return next();
   };
-  const mw = define.middleware(rawHandler as unknown as Handler);
+  const mw = define.middleware(rawHandler);
   // Apply via app.use with the MiddlewareHandler type
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   app.use("*", mw as unknown as Parameters<typeof app.use>[1]);

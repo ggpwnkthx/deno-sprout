@@ -4,14 +4,14 @@ import { createJsxRenderer } from "@ggpwnkthx/sprout-jsx/renderer";
 import { fsRoutes, fsRoutesFromManifest } from "@ggpwnkthx/sprout-router/fs";
 import { sproutAssets, staticFiles } from "@ggpwnkthx/sprout-static/server";
 import { deployIslandAssets } from "@ggpwnkthx/sprout-static/deploy-assets";
-import { loadManifest } from "./lib/manifest.ts";
+import { isRoutesManifest, loadManifest } from "./lib/manifest.ts";
 import type { IslandManifest } from "./lib/manifest.ts";
-import { isContainedPath } from "./lib/path.ts";
-import { join, resolve, toFileUrl } from "@std/path";
-import type { LayoutComponent } from "./types.ts";
-import type { RouteModule } from "@ggpwnkthx/sprout-router/fs";
-import type { Child } from "@hono/hono/jsx";
-import type { RoutesManifest } from "./types.ts";
+import { isContainedPath, SEP } from "./lib/path.ts";
+import { composeLayouts } from "./lib/layout.ts";
+import { tryImport } from "./lib/import.ts";
+import { appError, AppErrorCode } from "./error.ts";
+import { join, resolve } from "@std/path";
+import type { LayoutComponent, RoutesManifest } from "./types.ts";
 
 /**
  * App context variables — extends Hono's base context with framework fields.
@@ -21,17 +21,56 @@ interface AppContextVariables {
   islandManifest?: IslandManifest | null;
 }
 
+/**
+ * `true` when running on Deno Deploy, `false` otherwise.
+ * Use this flag to conditionalize behavior between local development
+ * and production deployments (e.g. different middleware or data sources).
+ */
 export const isDeploy: boolean = typeof Deno !== "undefined" &&
   Deno.env.get("DENO_DEPLOYMENT_ID") !== undefined;
 
+/**
+ * Options for constructing a new `App` instance.
+ */
 export interface AppOptions {
+  /**
+   * Root directory of the project. All user-supplied paths (`routesDir`,
+   * `staticDir`, `distDir`) are resolved relative to this directory and
+   * containment-checked against it. Defaults to `Deno.cwd()`.
+   */
   root?: string;
+  /**
+   * Directory containing route files, relative to `root`. Defaults to `"routes"`.
+   */
   routesDir?: string;
+  /**
+   * Directory serving static files, relative to `root`. Defaults to `"static"`.
+   */
   staticDir?: string;
+  /**
+   * Build output directory, relative to `root`. The island manifest is loaded
+   * from here. Defaults to `"_dist"`.
+   */
   distDir?: string;
+  /**
+   * Root layout component applied to every route. Receives a `children` prop
+   * containing the matched route's rendered output. Defaults to a passthrough
+   * that renders `children` directly.
+   */
   rootLayout?: LayoutComponent;
 }
 
+/**
+ * The main application class, extended from Hono with JSX rendering,
+ * file-based routing, and static asset support.
+ *
+ * Initialize with `await app.init()` before passing to a server.
+ *
+ * @example
+ * const app = new App({ root: "./my-project" });
+ * await app.init();
+ * export default app;
+ */
 export class App extends Hono<{ Variables: AppContextVariables }> {
   readonly #appOptions: Required<AppOptions>;
   #islandManifest: Record<string, string> | null = null;
@@ -59,25 +98,39 @@ export class App extends Hono<{ Variables: AppContextVariables }> {
     return this.#islandManifest;
   }
 
+  /** OS path separator, derived once. */
+  get #sep(): string {
+    return SEP;
+  }
+
   async #initLocal(): Promise<this> {
-    // Resolve and validate paths: all user-supplied paths are joined with root
-    // and then containment-checked against root via realPath. This prevents
-    // misconfiguration where a path like "../../other" escapes the project.
+    const sep = this.#sep;
     const rootReal = await Deno.realPath(this.#appOptions.root);
-    const sep = Deno.build.os === "windows" ? "\\" : "/";
 
     const resolvedRoutesDir = join(
       this.#appOptions.root,
       this.#appOptions.routesDir,
     );
-    // routesDir must exist at init time — fail fast if it doesn't
-    const resolvedRoutesDirReal = await Deno.realPath(resolvedRoutesDir);
-    // Allow exact match (routesDir === root) or child path (starts with root + sep)
-    if (
-      !(await isContainedPath(resolvedRoutesDirReal, rootReal, sep))
-    ) {
-      throw new Error(
+    let resolvedRoutesDirReal: string;
+    try {
+      resolvedRoutesDirReal = await Deno.realPath(resolvedRoutesDir);
+    } catch (e) {
+      if (e instanceof Deno.errors.NotFound) {
+        throw appError(
+          AppErrorCode.ROUTES_DIR_NOT_FOUND,
+          `routesDir "${resolvedRoutesDir}" does not exist or is not readable`,
+          resolvedRoutesDir,
+          500,
+        );
+      }
+      throw e;
+    }
+    if (!(await isContainedPath(resolvedRoutesDirReal, rootReal, sep))) {
+      throw appError(
+        AppErrorCode.ROUTES_DIR_ESCAPED,
         `routesDir "${resolvedRoutesDir}" escaped project root "${rootReal}"`,
+        resolvedRoutesDir,
+        403,
       );
     }
 
@@ -85,18 +138,18 @@ export class App extends Hono<{ Variables: AppContextVariables }> {
     this.use(sproutAssets({ distDir: this.#appOptions.distDir }));
 
     // Validate staticDir containment — must be within root, fail fast if escaped.
-    // The staticDir option is passed as-is to staticFiles (it resolves relative to cwd).
     const resolvedStaticDir = join(
       this.#appOptions.root,
       this.#appOptions.staticDir,
     );
     try {
       const resolvedStaticDirReal = await Deno.realPath(resolvedStaticDir);
-      if (
-        !(await isContainedPath(resolvedStaticDirReal, rootReal, sep))
-      ) {
-        throw new Error(
+      if (!(await isContainedPath(resolvedStaticDirReal, rootReal, sep))) {
+        throw appError(
+          AppErrorCode.STATIC_DIR_ESCAPED,
           `staticDir "${resolvedStaticDir}" escaped project root "${rootReal}"`,
+          resolvedStaticDir,
+          403,
         );
       }
     } catch (e) {
@@ -104,33 +157,28 @@ export class App extends Hono<{ Variables: AppContextVariables }> {
     }
     this.use(staticFiles({ root: this.#appOptions.staticDir }));
 
-    // Try to load island manifest from distDir
+    // Validate distDir containment only if the directory exists.
     const resolvedDistDir = join(
       this.#appOptions.root,
       this.#appOptions.distDir,
     );
-    // Validate distDir containment only if the directory exists.
-    // If it doesn't exist yet (pre-build), loadManifest() will return null gracefully.
     try {
       const resolvedDistDirReal = await Deno.realPath(resolvedDistDir);
-      // Allow exact match (distDir === root) or child path (starts with root + sep)
-      if (
-        !(await isContainedPath(resolvedDistDirReal, rootReal, sep))
-      ) {
-        throw new Error(
+      if (!(await isContainedPath(resolvedDistDirReal, rootReal, sep))) {
+        throw appError(
+          AppErrorCode.DIST_DIR_ESCAPED,
           `distDir "${resolvedDistDir}" escaped project root "${rootReal}"`,
+          resolvedDistDir,
+          403,
         );
       }
     } catch (e) {
-      if (
-        !(e instanceof Deno.errors.NotFound)
-      ) throw e; // re-throw unexpected errors (permission, etc.)
+      if (!(e instanceof Deno.errors.NotFound)) throw e;
     }
     const manifest = await loadManifest(resolvedDistDir);
     if (manifest?.islands) {
       this.#islandManifest = manifest.islands;
     }
-    // Expose manifest on context for all routes (layouts may read it)
     if (manifest) {
       this.use((c, next) => {
         c.set("islandManifest", manifest);
@@ -141,12 +189,23 @@ export class App extends Hono<{ Variables: AppContextVariables }> {
       app: this,
       dir: resolvedRoutesDir,
       onPage: async ({ pattern, layoutChain, module: _module }) => {
-        const layout = await composeLayouts(
-          layoutChain,
-          this.#appOptions.rootLayout,
-          rootReal,
-          sep,
-        );
+        let layout: LayoutComponent;
+        try {
+          layout = await composeLayouts(
+            layoutChain,
+            this.#appOptions.rootLayout,
+            rootReal,
+            sep,
+            AbortSignal.timeout(5000),
+          );
+        } catch (e) {
+          throw appError(
+            AppErrorCode.MODULE_TIMEOUT,
+            `Layout chain import timed out for pattern "${pattern}"`,
+            e instanceof Error ? e.message : String(e),
+            500,
+          );
+        }
         this.use(pattern, createJsxRenderer(layout));
       },
     });
@@ -170,14 +229,24 @@ export class App extends Hono<{ Variables: AppContextVariables }> {
   }
 
   async #initDeploy(): Promise<this> {
-    // Resolve root to its realPath for containment validation of layout chains
+    const sep = this.#sep;
     const rootReal = await Deno.realPath(this.#appOptions.root);
-    const sep = Deno.build.os === "windows" ? "\\" : "/";
 
     const [routesManifest, islandManifest] = await Promise.all([
       import(/* @import */ `./dist/routes.json`, { with: { type: "json" } }),
       import(/* @import */ `./dist/manifest.json`, { with: { type: "json" } }),
     ]);
+
+    const rawRoutes = (routesManifest as { default?: unknown }).default;
+    if (!isRoutesManifest(rawRoutes)) {
+      throw appError(
+        AppErrorCode.MANIFEST_LOAD_FAILED,
+        "routes.json does not match the expected RoutesManifest shape",
+        "isRoutesManifest guard failed",
+        500,
+      );
+    }
+
     this.mount(
       "/_sprout",
       deployIslandAssets({ islandManifest }) as unknown as (
@@ -186,123 +255,29 @@ export class App extends Hono<{ Variables: AppContextVariables }> {
     );
     await fsRoutesFromManifest({
       app: this,
-      manifest: routesManifest as RoutesManifest,
+      manifest: rawRoutes as RoutesManifest,
       onPage: async ({ pattern, layoutChain }) => {
-        const layout = await composeLayouts(
-          layoutChain,
-          this.#appOptions.rootLayout,
-          rootReal,
-          sep,
-        );
+        let layout: LayoutComponent;
+        try {
+          layout = await composeLayouts(
+            layoutChain,
+            this.#appOptions.rootLayout,
+            rootReal,
+            sep,
+            AbortSignal.timeout(5000),
+          );
+        } catch (e) {
+          throw appError(
+            AppErrorCode.MODULE_TIMEOUT,
+            `Layout chain import timed out for pattern "${pattern}"`,
+            e instanceof Error ? e.message : String(e),
+            500,
+          );
+        }
         this.use(pattern, createJsxRenderer(layout));
       },
     });
     this.notFound((c) => c.text("404 Not Found", 404));
     return this;
-  }
-}
-
-const IDENTITY_LAYOUT: LayoutComponent = ({ children }) => <>{children}</>;
-
-/**
- * Resolve a layout chain into a single LayoutComponent.
- *
- * Layouts whose realPath cannot be resolved (file deleted, permission denied)
- * or whose realPath escapes `rootReal` are silently skipped. This is intentional
- * for deploy-mode manifests: fail-open prevents a broken layout file from crashing
- * the entire request; the page renders without the unavailable layout wrapper.
- *
- * When `rootReal` is not provided, only ".." segment filtering is applied —
- * absolute paths like "/etc/passwd" are NOT rejected. Callers must ensure
- * manifests originate from a trusted build step.
- */
-async function composeLayouts(
-  layoutChain: string[],
-  fallbackLayout?: LayoutComponent,
-  rootReal?: string,
-  sep?: string,
-): Promise<LayoutComponent> {
-  if (layoutChain.length === 0) {
-    return fallbackLayout ?? IDENTITY_LAYOUT;
-  }
-
-  // Validate each layout path before importing. If rootReal is provided,
-  // the resolved path must be within rootReal. This prevents a malicious
-  // manifest from injecting layout files outside the project tree.
-  const validPaths: string[] = [];
-  for (const filePath of layoutChain) {
-    if (rootReal && sep) {
-      try {
-        const absReal = await Deno.realPath(filePath);
-        if (
-          absReal !== rootReal &&
-          !absReal.startsWith(rootReal + sep)
-        ) {
-          continue; // escaped — skip this layout
-        }
-        validPaths.push(absReal);
-      } catch {
-        continue; // path doesn't exist or unreadable — skip
-      }
-    } else {
-      // No root provided: reject ".." segments as a safety fallback
-      if (filePath.includes("..")) continue;
-      validPaths.push(filePath);
-    }
-  }
-
-  const modules = await Promise.all(
-    validPaths.map((filePath) => import(String(toFileUrl(filePath)))),
-  );
-  return modules.reduceRight<LayoutComponent>(
-    (inner, mod) => {
-      const modLayout = (mod as RouteModule).default as (
-        props: Record<string, unknown>,
-      ) => Child;
-      if (!modLayout) return inner;
-      return ({ children }) => modLayout({ children });
-    },
-    fallbackLayout ?? IDENTITY_LAYOUT,
-  );
-}
-
-/**
- * Attempt to import a route module (e.g. _404.tsx).
- * Returns null if: the file does not exist, the path escapes routesDirReal,
- * or the module has no default export.
- * Re-throws on unexpected errors (permission denied, symlink loops, etc.)
- * — these indicate configuration problems, not missing files.
- */
-async function tryImport(
-  filePath: string,
-  routesDirReal?: string,
-  sep?: string,
-): Promise<Record<string, unknown> | null> {
-  try {
-    // Containment check: if routesDirReal is provided, the resolved path must
-    // be within it. This prevents a planted symlink at _404.tsx from importing
-    // files outside the routes directory.
-    if (routesDirReal && sep) {
-      const absReal = await Deno.realPath(filePath);
-      if (
-        absReal !== routesDirReal &&
-        !absReal.startsWith(routesDirReal + sep)
-      ) {
-        return null; // escaped — skip custom 404 handler
-      }
-    }
-    await Deno.stat(filePath);
-    return await import(String(toFileUrl(filePath))) as Record<
-      string,
-      unknown
-    >;
-  } catch (e) {
-    if (
-      e instanceof Deno.errors.NotFound ||
-      e instanceof TypeError // Module not found
-    ) {
-      return null;
-    }
-    throw e;
   }
 }

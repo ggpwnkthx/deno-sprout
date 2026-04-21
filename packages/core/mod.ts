@@ -2,6 +2,7 @@
 // Core framework - App, routing, layouts, and middleware
 
 export { App, type AppOptions, isDeploy } from "./app.tsx";
+export { AppError, appError, AppErrorCode, AppErrorStatus } from "./error.ts";
 export type { Context, MiddlewareHandler } from "./context.ts";
 export type {
   DataLoader,

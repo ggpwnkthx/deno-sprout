@@ -5,6 +5,7 @@
     ".": "./mod.ts",
     "./app": "./app.tsx",
     "./context": "./context.ts",
+    "./error": "./error.ts",
     "./types": "./types.ts",
     "./lib/define": "./lib/define.ts",
     "./lib/layout": "./lib/layout.ts",

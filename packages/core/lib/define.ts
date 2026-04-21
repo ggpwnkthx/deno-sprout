@@ -6,6 +6,7 @@ import type {
   LayoutComponent,
   PageComponent,
 } from "../types.ts";
+import type { MiddlewareHandler } from "../context.ts";
 
 /**
  * Type-narrowing helpers for route files.
@@ -17,12 +18,36 @@ import type {
  * These helpers serve as documentation markers in route files, making it
  * explicit which exports are pages, loaders, handlers, etc.
  *
- * @example
- * // Identity at runtime — no wrapping or validation occurs:
- * const page = define.page(component);
+ * @example Basic page definition
+ * ```tsx
+ * const page = define.page<{ title: string }>(function BlogPost({ data }) {
+ *   return <h1>{data.title}</h1>;
+ * });
+ * export { page };
+ * ```
  *
- * // Generic type parameter for documentation intent only:
- * const dataPage = define.page<{ slug: string }>(component);
+ * @example Single-handler shorthand (GET by default)
+ * ```tsx
+ * export const handlers = define.handlers(async (c) => {
+ *   return c.json({ ok: true });
+ * });
+ * ```
+ *
+ * @example Explicit method map
+ * ```tsx
+ * export const handlers = define.handlers({
+ *   GET: async (c) => c.text("hello"),
+ *   POST: async (c) => { await save(c); return c.text("saved", 201); },
+ * });
+ * ```
+ *
+ * @example Layout with marker
+ * ```tsx
+ * const layout = define.layout(function MyLayout({ children }) {
+ *   return <div class="wrapper">{children}</div>;
+ * });
+ * export { layout };
+ * ```
  */
 
 interface DefineExports {
@@ -35,7 +60,7 @@ interface DefineExports {
   /** Type-narrow a layout component. */
   layout(component: LayoutComponent): LayoutComponent;
   /** Type-narrow a middleware handler. */
-  middleware(handler: Handler): Handler;
+  middleware(handler: MiddlewareHandler): MiddlewareHandler;
 }
 
 export const define: DefineExports = {
@@ -57,7 +82,7 @@ export const define: DefineExports = {
   layout(component: LayoutComponent): LayoutComponent {
     return component;
   },
-  middleware(handler: Handler): Handler {
+  middleware(handler: MiddlewareHandler): MiddlewareHandler {
     return handler;
   },
 };
