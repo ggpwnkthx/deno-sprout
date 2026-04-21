@@ -21,6 +21,7 @@
     "scope": "@ggpwnkthx",
     "registry": "https://jsr.io"
   },
+  "include": ["./*.ts"],
   "compilerOptions": {
     "strict": true,
     "jsx": "react-jsx",
