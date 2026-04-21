@@ -1,6 +1,12 @@
 // _shared/fixtures.ts - Shared test fixture factories for @ggpwnkthx/sprout-dev
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { clearBundlerCache } from "../../lib/bundler.ts";
+
+// Derive the monorepo root from this file's location.
+// File is at packages/dev/tests/_shared/fixtures.ts (5 levels deep), so we need 5 dirname calls.
+const MONOREPO_ROOT = dirname(
+  dirname(dirname(dirname(dirname(new URL(import.meta.url).pathname)))),
+);
 
 /**
  * Build a minimal fixture for bundler tests.
@@ -15,14 +21,14 @@ export async function buildBundlerFixture(): Promise<{
   clearBundlerCache();
 
   const runtimePath = join(
-    Deno.cwd(),
+    MONOREPO_ROOT,
     "packages",
     "islands",
     "lib",
     "runtime.ts",
   );
   const mountPath = join(
-    Deno.cwd(),
+    MONOREPO_ROOT,
     "packages",
     "islands",
     "lib",

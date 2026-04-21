@@ -32,7 +32,7 @@
  */
 
 /// <reference lib="dom" />
-import { IslandErrorEvent } from "./mount.ts";
+import { IslandErrorEvent, validateProps } from "./stringify.ts";
 
 /**
  * Map from island name to its loaded module factory.
@@ -122,6 +122,15 @@ async function hydrateOne(el: Element): Promise<void> {
   }
 
   const props = decodeProps(propsEncoded);
+  if (!validateProps(props)) {
+    const err = new TypeError(
+      "Malformed data-props: expected a non-null object",
+    );
+    el.dispatchEvent(
+      new IslandErrorEvent({ error: err, island: name ?? "unknown" }),
+    );
+    return;
+  }
   await module.default(props, el);
 }
 

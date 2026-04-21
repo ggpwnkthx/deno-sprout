@@ -14,49 +14,15 @@
  */
 
 /// <reference lib="dom" />
-import { renderToString } from "@hono/hono/jsx/dom/server";
 import type { FC } from "@hono/hono/jsx";
-import { validateProps } from "./props.ts";
-
-/**
- * Error thrown when island hydration fails.
- */
-export class HydrationError extends Error {
-  constructor(
-    message: string,
-    public reason?: unknown,
-  ) {
-    super(message);
-    this.name = "HydrationError";
-  }
-}
-
-/**
- * Detail payload for the `island-error` CustomEvent.
- *
- * @example
- * ```ts
- * document.addEventListener("island-error", (e: IslandErrorEvent) => {
- *   console.error(e.detail.island, e.detail.error.message);
- * });
- * ```
- */
-export interface IslandErrorDetail {
-  /** The error that caused the hydration failure. */
-  error: Error;
-  /** The island name, or `"unknown"` if the name could not be determined. */
-  island: string;
-}
-
-/**
- * Typed custom event dispatched on an island element when hydration fails.
- * Extends `CustomEvent` with the {@link IslandErrorDetail} detail type.
- */
-export class IslandErrorEvent extends CustomEvent<IslandErrorDetail> {
-  constructor(detail: IslandErrorDetail) {
-    super("island-error", { detail, bubbles: true });
-  }
-}
+import {
+  getIslandName,
+  HydrationError,
+  IslandErrorEvent,
+  RenderError,
+  renderToString,
+  validateProps,
+} from "./stringify.ts";
 
 /**
  * Dispatches an `island-error` event on `el` if it supports `dispatchEvent`.
@@ -70,16 +36,6 @@ function dispatchIslandError(
   if (typeof el.dispatchEvent === "function") {
     el.dispatchEvent(new IslandErrorEvent({ error, island }));
   }
-}
-
-/**
- * Safely extracts the island name from an element for error reporting.
- * Returns `"unknown"` when the attribute is unavailable or absent.
- * Guards against plain object mocks used in tests.
- */
-function getIslandName(el: Element): string {
-  if (typeof el.getAttribute !== "function") return "unknown";
-  return el.getAttribute("data-island") ?? "unknown";
 }
 
 /**
@@ -107,29 +63,31 @@ function getIslandName(el: Element): string {
  * @param Component  The island's JSX functional component.
  * @param props      Deserialised props from the `data-props` attribute.
  * @param el         The container element (`[data-island]` div).
- * @returns A dispose function. Currently a no-op; reserved for future
+ * @returns A dispose function. Currently a no-op, reserved for future
  *          cleanup of effects registered by the component.
  */
-export async function mount<P extends Record<string, unknown>>(
+export function mount<P extends Record<string, unknown>>(
   Component: FC<P>,
   props: P,
   el: Element,
-): Promise<() => void> {
+): () => void {
   if (!validateProps(props)) {
     const err = new HydrationError("Invalid props: expected a non-null object");
     dispatchIslandError(el, getIslandName(el), err);
     return () => {};
   }
   try {
-    const html = await renderToString(Component(props));
+    const html = renderToString(Component(props));
     el.innerHTML = html;
   } catch (err) {
-    const error = new HydrationError(
-      `[sprout] Failed to hydrate island: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
-      err,
-    );
+    const error = err instanceof RenderError
+      ? new HydrationError(`[sprout] Render error: ${err.message}`, err.reason)
+      : new HydrationError(
+        `[sprout] Failed to hydrate island: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        err,
+      );
     dispatchIslandError(el, getIslandName(el), error);
   }
   return () => {}; // TODO(v0.2.0): implement real dispose with effect cleanup

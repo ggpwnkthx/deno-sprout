@@ -153,13 +153,16 @@ export function watchFiles(
 
   return {
     close() {
+      // Close all watchers first. This causes the for-await loop to break,
+      // discarding any in-flight events. Then cancel any pending debounce
+      // timers so no queued callbacks fire after close().
+      for (const watcher of watchers) {
+        watcher.close();
+      }
       for (const timer of debounceTimers.values()) {
         clearTimeout(timer);
       }
       debounceTimers.clear();
-      for (const watcher of watchers) {
-        watcher.close();
-      }
     },
   };
 }

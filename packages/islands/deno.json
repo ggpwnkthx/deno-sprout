@@ -7,9 +7,9 @@
     "./hydrator": "./hydrator.ts",
     "./serializer": "./serializer.ts",
     "./hooks": "./hooks.ts",
-    "./lib/props": "./lib/props.ts",
     "./lib/mount": "./lib/mount.ts",
     "./lib/runtime": "./lib/runtime.ts",
+    "./lib/stringify": "./lib/stringify.ts",
     "./lib/wrapper-template": "./lib/wrapper-template.ts"
   },
   "imports": {

@@ -16,7 +16,7 @@
 import { transpile } from "@ggpwnkthx/sprout-build/lib/esbuild";
 import { generateIslandWrapper } from "@ggpwnkthx/sprout-islands/lib/wrapper-template";
 import type { MiddlewareHandler } from "@hono/hono";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 
 export interface DevBundlerOptions {
   /** Absolute path to the islands/ directory. */
@@ -60,6 +60,7 @@ export interface BundlerError {
  * @param key - Cache key (e.g. `"hydrate"`, `"mount"`, or an island name).
  * @param filePath - Absolute path to the source file.
  * @param transpileOpts - Options forwarded to `transpile` (except `source`).
+ *   May include `resolveDir` to enable bundling of sibling imports.
  * @param notFoundLabel - Error code for the 404 response body.
  * @param notFoundMessage - Human-readable message for the 404 response body.
  * @param c - Hono context (provides json() and text()).
@@ -69,7 +70,7 @@ export interface BundlerError {
 async function transpileCached(
   key: string,
   filePath: string,
-  transpileOpts: { name: string },
+  transpileOpts: { name: string; resolveDir?: string },
   notFoundLabel: string,
   notFoundMessage: string,
   c: {
@@ -132,7 +133,7 @@ export function devIslandBundler(options: DevBundlerOptions): {
       const err = await transpileCached(
         "hydrate",
         options.runtimePath,
-        { name: "hydrate" },
+        { name: "hydrate", resolveDir: dirname(options.runtimePath) },
         "island_not_found",
         "Runtime file not found",
         c,
@@ -148,7 +149,7 @@ export function devIslandBundler(options: DevBundlerOptions): {
       const err = await transpileCached(
         "mount",
         options.mountPath,
-        { name: "mount" },
+        { name: "mount", resolveDir: dirname(options.mountPath) },
         "island_not_found",
         "Mount file not found",
         c,
@@ -242,7 +243,9 @@ export function devIslandBundler(options: DevBundlerOptions): {
       cache.delete("hydrate");
     } else if (
       filePath.endsWith("/lib/mount.ts") ||
-      filePath.endsWith("lib/mount.ts")
+      filePath.endsWith("lib/mount.ts") ||
+      filePath.endsWith("/lib/stringify.ts") ||
+      filePath.endsWith("lib/stringify.ts")
     ) {
       cache.delete("mount");
     } else {

@@ -1,6 +1,6 @@
 // props_test.ts - Tests for validateProps helper
 import { assertEquals } from "@std/assert";
-import { validateProps } from "../lib/props.ts";
+import { validateProps } from "../lib/stringify.ts";
 
 Deno.test("validateProps: returns true for plain object", () => {
   assertEquals(validateProps({ a: 1, b: 2 }), true);

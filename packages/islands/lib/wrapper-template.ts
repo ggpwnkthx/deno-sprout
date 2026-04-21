@@ -47,14 +47,19 @@ export function generateIslandWrapper(
   const mountUrl = opts.mountUrl ?? DEFAULT_MOUNT_URL;
   return `\
 import { mount } from "${mountUrl}";
+import { IslandErrorEvent } from "${mountUrl}";
 import Component from "./${name}.tsx";
 
 export default function hydrate(props, el) {
-  mount(Component, props, el).catch((err) => {
+  // mount() is synchronous but may throw if the component is called with
+  // invalid props (HydrationError is dispatched on el in that case). Wrap in
+  // Promise.resolve() so .catch() is guaranteed to fire, and also catch any
+  // unexpected synchronous errors that the mount try/catch does not cover.
+  Promise.resolve(mount(Component, props, el)).catch((err) => {
     console.error("[sprout] Failed to hydrate island ${name}:", err);
-    el.dispatchEvent(new CustomEvent("island-error", {
-      detail: { error: err, island: "${name}" },
-      bubbles: true,
+    el.dispatchEvent(new IslandErrorEvent({
+      error: err instanceof Error ? err : new Error(String(err)),
+      island: "${name}",
     }));
   });
 }
