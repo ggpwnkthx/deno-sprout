@@ -1,4 +1,47 @@
 // bundler.ts - Production bundler
+/**
+ * @ggpwnkthx/sprout-build – Production build and bundling for Sprout.
+ *
+ * ## Overview
+ *
+ * This package orchestrates the full production build for a Sprout application:
+ * - Discovers interactive island components from the `islands/` directory.
+ * - Transpiles and bundles each island using esbuild, wrapping them with the
+ *   island runtime contract.
+ * - Emits a content-hashed island bundle per entry point (enabling long-term
+ * caching).
+ * - Writes the shared hydration runtime (`hydrate.js`) and mount helper
+ *   (`runtime/mount.js`), both kept unhashed so they are always revalidated.
+ * - Copies static assets verbatim into `_dist/static/`.
+ * - Produces a machine-readable `manifest.json` that maps island names to their
+ *   hashed bundle URLs.
+ *
+ * ## Build output layout
+ *
+ * ```
+ * _dist/
+ *   islands/
+ *     Counter.ab1c2d3e.js   ← content-hashed island bundle
+ *     Timer.f5e6d7c8b.js
+ *   static/
+ *     …files copied verbatim…
+ *   runtime/
+ *     mount.js              ← always revalidated, never hashed
+ *   hydrate.js              ← always revalidated, never hashed
+ *   manifest.json
+ * ```
+ *
+ * ## Relationship to other sprout packages
+ *
+ * - **@ggpwnkthx/sprout-islands** provides the `generateIslandWrapper()` template
+ *   used here to wrap every island bundle.
+ * - **@ggpwnkthx/sprout-core** consumes the generated `manifest.json` at runtime
+ *   to resolve island bundle URLs and register FS routes.
+ * - **@ggpwnkthx/sprout-dev** runs a development server that sidesteps this
+ *   package entirely; islands are served unminified and without hashes in dev.
+ *
+ * @module
+ */
 import {
   copyStaticAssets,
   discoverIslands,
@@ -14,43 +57,144 @@ import {
 import { generateIslandWrapper } from "@ggpwnkthx/sprout-islands/lib/wrapper-template";
 import { join } from "@std/path";
 
+/**
+ * Options that control the behaviour of {@link buildIslands}.
+ *
+ * @example
+ * ```ts
+ * await buildIslands({
+ *   root: Deno.cwd(),
+ *   islandsDir: "islands",
+ *   staticDir: "static",
+ *   outdir: "_dist",
+ *   minify: true,
+ *   verbose: true,
+ * });
+ * ```
+ */
 export interface BuildOptions {
-  /** Project root. Default: Deno.cwd() */
+  /**
+   * The project root directory. All other paths are resolved relative to this.
+   * Defaults to `Deno.cwd()` when omitted.
+   */
   root?: string;
-  /** Islands source directory relative to root. Default: "islands" */
+  /**
+   * Directory containing island `.ts` / `.tsx` source files, resolved relative
+   * to `root`. Defaults to `"islands"`.
+   */
   islandsDir?: string;
-  /** Static files source directory relative to root. Default: "static" */
+  /**
+   * Directory containing static assets to copy verbatim into `_dist/static/`,
+   * resolved relative to `root`. Defaults to `"static"`. May be absent; the
+   * build skips this step gracefully if the directory does not exist.
+   */
   staticDir?: string;
-  /** Output directory relative to root. Default: "_dist" */
+  /**
+   * Output directory for all build artefacts, resolved relative to `root`.
+   * Defaults to `"_dist"`. Accepts both absolute paths and relative paths.
+   */
   outdir?: string;
-  /** Whether to minify output. Default: true */
+  /**
+   * Whether to minify the generated island bundles with esbuild.
+   * Defaults to `true`. Set to `false` when debugging islands.
+   */
   minify?: boolean;
-  /** Log progress to stdout. Default: true */
+  /**
+   * When `true`, progress messages are written to `stdout` prefixed with
+   * `"[build]"`. Defaults to `true`.
+   */
   verbose?: boolean;
 }
 
+/**
+ * Result of a successful {@link buildIslands} invocation.
+ */
 export interface BuildResult {
-  /** Paths of all written output files (relative to outdir). */
+  /**
+   * An ordered list of all files written to `outdir`, expressed as relative
+   * paths from `outdir`. Example:
+   * ```json
+   * [
+   *   "islands/Counter.ab1c2d3e.js",
+   *   "islands/Timer.f5e6d7c8b.js",
+   *   "hydrate.js",
+   *   "runtime/mount.js",
+   *   "manifest.json"
+   * ]
+   * ```
+   * **Static files are not listed here** because the number of files is
+   * variable; use {@link BuildOptions.staticDir} / the `static/` directory
+   * directly to enumerate them if needed.
+   */
   outputFiles: string[];
-  /** The generated manifest. */
+  /**
+   * The generated {@link IslandManifest}, already written to
+   * `{outdir}/manifest.json`.
+   */
   manifest: IslandManifest;
-  /** Build duration in milliseconds. */
+  /**
+   * Wall-clock elapsed time for the entire {@link buildIslands} call, in
+   * integer milliseconds.
+   */
   durationMs: number;
 }
 
 /**
- * Full production build:
- *   1. Discover all islands in islandsDir
- *   2. For each island:
- *        a. Call `generateIslandWrapper(island.name)` to get the wrapper source text.
- *        b. Pass the wrapper source to `transpile({ source, name, minify, resolveDir })`.
- *        c. Content-hash each output
- *   3. Write to outdir/islands/
- *   4. Bundle lib/runtime.ts to outdir/hydrate.js
- *   5. Bundle lib/mount.ts to outdir/runtime/mount.js
- *   6. Copy static assets
- *   7. Write manifest.json
- *   8. Return BuildResult
+ * Run the full production build for all islands in a project.
+ *
+ * ## What happens (in order)
+ *
+ * 1. **Discovery** – walk `islandsDir` (default: `islands/`) recursively and
+ *    collect every `.ts` / `.tsx` file. Each file corresponds to one island; its
+ *    base name (e.g. `Counter` from `Counter.tsx`) is the island identifier used
+ *    throughout the build and at runtime.
+ *
+ * 2. **Per-island transpilation** – for each discovered island:
+ *    a. Obtain the wrapper source from
+ *       {@link https://jsr.io/@ggpwnkthx/sprout-islands `@ggpwnkthx/sprout-islands`}'s
+ *       `generateIslandWrapper(island.name)`. The wrapper injects the island's
+ *       exported component into the page shell and sets up the `data-island`
+ *       attribute contract.
+ *    b. Run the wrapper source through esbuild with `bundle: true`, JSX set to
+ *       `automatic` with `jsxImportSource: "@hono/hono"`, and all relative
+ *       imports resolved from `islandsDir`. This produces a single self-contained
+ *       ESM bundle with Hono JSX calls inlined.
+ *    c. Content-hash the bundle bytes (first 8 hex chars of SHA-256) and write
+ *       the bundle to `_dist/islands/{Name}.{hash}.js`.
+ *
+ * 3. **Runtime bundles** – two always-unhashed files are written so browsers
+ *    revalidate them on every request (enabling server-side cache-control
+ *    strategies that rely on stable URLs):
+ *    - `hydrate.js` – the island hydration entry point. Reads all
+ *      `[data-island]` elements, respects `data-strategy` (`"immediate"`,
+ *      `"visible"`, `"idle"`), fetches the appropriate island bundle, decodes
+ *      the `data-props` attribute, and calls the island's default export.
+ *    - `runtime/mount.js` – a helper used by islands that need server-side
+ *      rendering of their initial HTML (via `renderToString` from
+ *      `@hono/hono/jsx/dom/server`).
+ *
+ * 4. **Static assets** – every file under `staticDir` is copied verbatim into
+ *    `_dist/static/`, preserving directory structure.
+ *
+ * 5. **Manifest** – an {@link IslandManifest} is serialised to
+ *    `{outdir}/manifest.json`. It maps each island name to its content-hashed
+ *    bundle URL and records the `hydrate.js` path.
+ *
+ * ## Example
+ *
+ * ```ts
+ * import { buildIslands } from "@ggpwnkthx/sprout-build";
+ *
+ * const result = await buildIslands({ verbose: true });
+ * console.log(`Done in ${result.durationMs}ms`);
+ * console.log(result.outputFiles);
+ * console.log(result.manifest);
+ * ```
+ *
+ * @param options – optional {@link BuildOptions}. All fields are optional and
+ *   have sensible defaults.
+ * @returns A {@link BuildResult} containing the list of written files, the
+ *   generated manifest, and wall-clock elapsed time.
  */
 export async function buildIslands(
   options?: BuildOptions,
@@ -135,8 +279,24 @@ export async function buildIslands(
 }
 
 /**
- * Build the hydration runtime from packages/islands/lib/runtime.ts.
- * Output: {outdir}/hydrate.js (not content-hashed - always revalidated).
+ * Write the island hydration runtime to `{outdir}/hydrate.js`.
+ *
+ * The hydration runtime is intentionally **not** content-hashed:
+ * - It is a small, stable contract that changes rarely.
+ * - Keeping its URL fixed allows aggressive `Cache-Control` policies on the
+ *   server while still enabling island bundle hashes to be updated independently.
+ *
+ * The generated file exports the public `hydrateAll()` async function which is
+ * called once by the page shell after `DOMContentLoaded`. It:
+ * - Queries all `[data-island]` elements.
+ * - Reads `data-strategy` (`"immediate"`, `"visible"`, `"idle"`) per element.
+ * - Fetches the corresponding island bundle from `/_sprout/islands/{name}.js`.
+ * - Decodes the `data-props` attribute (base64 → Uint8Array → JSON).
+ * - Calls the island's default export as `default(props, containerElement)`.
+ *
+ * @param outdir – output directory resolved as in {@link BuildOptions.outdir}
+ * @see {@link https://jsr.io/@ggpwnkthx/sprout-islands `@ggpwnkthx/sprout-islands`}
+ *   for the island wrapper contract.
  */
 export async function buildRuntime(outdir: string): Promise<void> {
   // Read the runtime source from the islands package
@@ -263,8 +423,26 @@ export async function hydrateAll(): Promise<void> {
 }
 
 /**
- * Build the mount helper from packages/islands/lib/mount.ts.
- * Output: {outdir}/runtime/mount.js (not content-hashed - always revalidated).
+ * Write the island mount helper to `{outdir}/runtime/mount.js`.
+ *
+ * The mount helper is intentionally **not** content-hashed (same reasoning as
+ * {@link buildRuntime}). It is loaded by island bundles that require server-side
+ * rendering of their initial HTML.
+ *
+ * The generated file exports an async `mount(Component, props, el)` function that:
+ * 1. Calls `Component(props)` to produce a Hono JSX node.
+ * 2. Serialises it to an HTML string via `renderToString` from
+ *    `@hono/hono/jsx/dom/server`.
+ * 3. Sets `el.innerHTML` once.
+ * 4. Returns a no-op dispose function (reserved for future cleanup of
+ *    component-registered effects).
+ *
+ * > **Note on the rendering model (v0.1.0):** Hono's JSX runtime is
+ * > string-serialisation-first with no DOM reconciler. Island components that
+ * > need reactivity must manage DOM mutations imperatively via `useEffect` +
+ * > direct DOM calls. Signal-driven incremental updates are a Phase 5 item.
+ *
+ * @param outdir – output directory resolved as in {@link BuildOptions.outdir}
  */
 export async function buildMount(outdir: string): Promise<void> {
   const mountSource = `
