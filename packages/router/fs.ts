@@ -35,14 +35,13 @@ export interface FsRoutesOptions {
   /** Routes directory (default: "./routes"). */
   dir?: string;
   /** Called for each page route after handlers are registered. */
-  onPage?: (opts: PageRouteOptions) => void;
+  onPage?: (opts: PageRouteOptions) => void | Promise<void>;
 }
 
 /**
  * Callback options passed to `onPage` for each registered page route.
  */
 export interface PageRouteOptions {
-  app: Hono;
   pattern: string;
   layoutChain: string[];
   middlewareChain: string[];
@@ -68,14 +67,14 @@ export interface RouteModule {
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"] as const;
 
 // Module-level cache for layout files: path → loaded module.
-// Bounded to 64 entries to prevent memory growth during long-running
+// Bounded to 512 entries to prevent memory growth during long-running
 // dev servers with many unique layout files.
-const layoutModuleCache = new BoundedCache<string, RouteModule>(64);
+const layoutModuleCache = new BoundedCache<string, RouteModule>(512);
 
 // Module-level cache for middleware files: path → loaded module.
-// Shares the same 64-entry capacity as layoutModuleCache, preventing
+// Shares the same 512-entry capacity as layoutModuleCache, preventing
 // repeated per-route imports of shared files.
-const middlewareModuleCache = new BoundedCache<string, RouteModule>(64);
+const middlewareModuleCache = new BoundedCache<string, RouteModule>(512);
 
 /**
  * Registers all route files from a directory as Hono handlers.
@@ -143,21 +142,117 @@ export async function fsRoutesFromManifest(
 ): Promise<void> {
   const { app, manifest, onPage } = options;
   if (!manifest || typeof manifest !== "object") {
-    throw new InvalidManifest("manifest");
+    throw new InvalidManifest("manifest", "object", typeof manifest);
   }
   if (!Array.isArray(manifest.routes)) {
-    throw new InvalidManifest("manifest.routes");
+    throw new InvalidManifest(
+      "manifest.routes",
+      "array",
+      Array.isArray(manifest.routes) ? "unknown" : typeof manifest.routes,
+    );
   }
-  const files = manifest.routes.map((entry) => ({
-    filePath: entry.filePath,
-    pattern: entry.pattern,
-    isApi: entry.isApi,
-    isReserved: false,
-    skipInheritedLayouts: entry.skipInheritedLayouts,
-    routeOverride: entry.routeOverride,
-    layoutChain: entry.layoutChain ?? [],
-    middlewareChain: entry.middlewareChain ?? [],
-  }));
+  const files: RouteFileLike[] = [];
+  for (const entry of manifest.routes) {
+    if (typeof entry.filePath !== "string" || !entry.filePath) {
+      throw new InvalidManifest(
+        "routes[].filePath",
+        "non-empty string",
+        entry.filePath ? typeof entry.filePath : "undefined",
+      );
+    }
+    if (
+      entry.filePath.includes("..") ||
+      entry.filePath.startsWith("../") ||
+      entry.filePath.startsWith("/..")
+    ) {
+      throw new RouteOutsideDirectory(
+        entry.filePath,
+        "<manifest>",
+        entry.pattern,
+      );
+    }
+    if (!Array.isArray(entry.layoutChain)) {
+      throw new InvalidManifest(
+        "routes[].layoutChain",
+        "array",
+        Array.isArray(entry.layoutChain) ? "unknown" : typeof entry.layoutChain,
+      );
+    }
+    if (!Array.isArray(entry.middlewareChain)) {
+      throw new InvalidManifest(
+        "routes[].middlewareChain",
+        "array",
+        Array.isArray(entry.middlewareChain)
+          ? "unknown"
+          : typeof entry.middlewareChain,
+      );
+    }
+    for (
+      const [chain, field] of [
+        [entry.layoutChain, "routes[].layoutChain"],
+        [entry.middlewareChain, "routes[].middlewareChain"],
+      ] as const
+    ) {
+      for (let i = 0; i < chain.length; i++) {
+        if (typeof chain[i] !== "string") {
+          throw new InvalidManifest(
+            `${field}[${i}]`,
+            "string",
+            typeof chain[i],
+          );
+        }
+      }
+    }
+    if (
+      typeof entry.pattern !== "string" ||
+      entry.pattern.includes("..") ||
+      entry.pattern.startsWith("../")
+    ) {
+      throw new InvalidManifest(
+        "routes[].pattern",
+        "string",
+        typeof entry.pattern,
+      );
+    }
+    if (entry.routeOverride !== undefined) {
+      if (
+        typeof entry.routeOverride !== "string" ||
+        entry.routeOverride.includes("..") ||
+        entry.routeOverride.startsWith("../") ||
+        entry.routeOverride.startsWith("/..")
+      ) {
+        throw new InvalidManifest(
+          "routes[].routeOverride",
+          "string",
+          typeof entry.routeOverride,
+        );
+      }
+    }
+    if (typeof entry.isApi !== "boolean") {
+      throw new InvalidManifest(
+        "routes[].isApi",
+        "boolean",
+        typeof entry.isApi,
+      );
+    }
+    if (typeof entry.skipInheritedLayouts !== "boolean") {
+      throw new InvalidManifest(
+        "routes[].skipInheritedLayouts",
+        "boolean",
+        typeof entry.skipInheritedLayouts,
+      );
+    }
+    files.push({
+      filePath: entry.filePath,
+      pattern: entry.pattern,
+      isApi: entry.isApi,
+      isReserved: false,
+      skipInheritedLayouts: entry.skipInheritedLayouts,
+      routeOverride: entry.routeOverride,
+      layoutChain: entry.layoutChain,
+      middlewareChain: entry.middlewareChain,
+    });
+  }
   await registerRoutes(app, files, "", { app, onPage });
 }
 
@@ -199,8 +294,10 @@ async function registerRoutes(
   // Collect onPage data while registering routes to avoid double-imports
   const onPageEntries: OnPageEntry[] = [];
 
-  // Register reserved handlers first
-  await registerReserved(app, reservedFiles, routesDir);
+  // Register reserved handlers in parallel — each is independent.
+  await Promise.all(
+    reservedFiles.map((file) => registerReservedOne(app, file, routesDir)),
+  );
 
   // Register page and API routes
   // Register page and API routes in parallel.
@@ -219,7 +316,6 @@ async function registerRoutes(
   if (onPage) {
     for (const entry of onPageEntries) {
       await onPage({
-        app,
         pattern: entry.pattern,
         layoutChain: entry.layoutChain,
         middlewareChain: entry.middlewareChain,
@@ -229,61 +325,59 @@ async function registerRoutes(
   }
 }
 
-async function registerReserved(
+async function registerReservedOne(
   app: Hono,
-  reservedFiles: RouteFileLike[],
+  file: RouteFileLike,
   routesDir: string,
 ): Promise<void> {
-  for (const file of reservedFiles) {
-    const fileUrl = `file://${join(routesDir, file.filePath)}`;
-    const mod: RouteModule = await import(fileUrl);
+  const fileUrl = `file://${join(routesDir, file.filePath)}`;
+  const mod: RouteModule = await import(fileUrl);
 
-    switch (file.kind) {
-      case "error": {
-        if (mod.default) {
-          app.onError((err, c) => {
-            console.error(err);
-            const error = err instanceof Error ? err : new Error(String(err));
-            c.status(500);
-            return c.render(
-              (mod.default as (props: Record<string, unknown>) => unknown)({
-                error,
-                url: new URL(c.req.url, "http://localhost"),
-              }) as unknown as string,
-            );
-          });
+  switch (file.kind) {
+    case "error": {
+      if (mod.default) {
+        app.onError((err, c) => {
+          console.error(err);
+          const error = err instanceof Error ? err : new Error(String(err));
+          c.status(500);
+          return c.render(
+            (mod.default as (props: Record<string, unknown>) => unknown)({
+              error,
+              url: new URL(c.req.url, "http://localhost"),
+            }) as unknown as string,
+          );
+        });
+      }
+      break;
+    }
+    case "notFound": {
+      if (mod.default) {
+        app.notFound((c) => {
+          c.status(404);
+          return c.render(
+            (mod.default as (props: Record<string, unknown>) => unknown)({
+              url: new URL(c.req.url, "http://localhost"),
+            }) as unknown as string,
+          );
+        });
+      }
+      break;
+    }
+    case "middleware": {
+      if (mod.default) {
+        if (typeof mod.default !== "function") {
+          throw new MiddlewareNotCallable(
+            join(routesDir, file.filePath),
+            typeof mod.default,
+          );
         }
-        break;
+        app.use("*", asMiddleware(mod.default));
       }
-      case "notFound": {
-        if (mod.default) {
-          app.notFound((c) => {
-            c.status(404);
-            return c.render(
-              (mod.default as (props: Record<string, unknown>) => unknown)({
-                url: new URL(c.req.url, "http://localhost"),
-              }) as unknown as string,
-            );
-          });
-        }
-        break;
-      }
-      case "middleware": {
-        if (mod.default) {
-          if (typeof mod.default !== "function") {
-            throw new MiddlewareNotCallable(
-              join(routesDir, file.filePath),
-              typeof mod.default,
-            );
-          }
-          app.use("*", asMiddleware(mod.default));
-        }
-        break;
-      }
-      case "layout": {
-        // Layouts are resolved per-route via resolveLayoutChain
-        break;
-      }
+      break;
+    }
+    case "layout": {
+      // Layouts are resolved per-route via resolveLayoutChain
+      break;
     }
   }
 }
@@ -345,20 +439,29 @@ async function registerRoute(
     ? layoutChain.slice(1) // skipInheritedLayouts: skip root (first), keep nearest
     : layoutChain;
 
-  // Pre-warm layoutModuleCache for every layout in the chain so that
-  // renderPage (called on every request) finds them already loaded.
-  // routesDir is passed so that loadLayoutModule can validate containment.
-  await Promise.all(resolvedLayouts.map((l) => loadLayoutModule(l, routesDir)));
+  await Promise.all(
+    resolvedLayouts.map((l) =>
+      loadRouteModule(l, layoutModuleCache, routesDir, pattern)
+    ),
+  );
 
   // Pre-warm middleware modules for every middleware in the chain.
   await Promise.all(
-    middlewareChain.map((m) => loadMiddlewareModule(m, routesDir)),
+    middlewareChain.map((m) =>
+      loadRouteModule(m, middlewareModuleCache, routesDir, pattern)
+    ),
   );
 
   // Build the final handler: middleware → handler() → page component
   let finalHandler = resolvePageHandler(mod, resolvedLayouts);
-  for (const mwPath of [...middlewareChain].reverse()) {
-    const mwMod = await loadMiddlewareModule(mwPath, routesDir);
+  const mwMods = await Promise.all(
+    [...middlewareChain].reverse().map((mwPath) =>
+      loadRouteModule(mwPath, middlewareModuleCache, routesDir, pattern)
+    ),
+  );
+  for (let i = 0; i < mwMods.length; i++) {
+    const mwMod = mwMods[i];
+    const mwPath = middlewareChain[middlewareChain.length - 1 - i];
     if (mwMod.default) {
       if (typeof mwMod.default !== "function") {
         throw new MiddlewareNotCallable(mwPath, typeof mwMod.default);
@@ -541,7 +644,7 @@ async function renderPage(
   let component: unknown = page ?? (() => c.text("OK"));
 
   for (const layoutPath of [...layoutChain].reverse()) {
-    const layoutMod = await loadLayoutModule(layoutPath);
+    const layoutMod = await loadRouteModule(layoutPath, layoutModuleCache);
     const layoutFn = layoutMod.default as
       | ((props: Record<string, unknown>) => unknown)
       | undefined;
@@ -570,58 +673,34 @@ async function renderPage(
   return c.render(result as unknown as string);
 }
 
-/** Load a middleware module with module-level caching.
+/**
+ * Load a route-module file (layout or middleware) with module-level caching.
  *
- * The module is cached by absolute path. On cache miss the file's
- * canonical path is verified against `routesDir` before importing.
- * Cached entries are returned without any filesystem access.
- * When `routesDir` is empty (manifest mode), the process cwd is used as
- * the containment boundary.
+ * The module is cached by absolute path. On cache miss the file's canonical
+ * path is verified against `routesDir` before importing. Cached entries are
+ * returned without any filesystem access.
  *
- * @param mwPath - Absolute path to the middleware file.
+ * When `routesDir` is empty (manifest mode), containment validation is skipped
+ * because the manifest is a trusted build artifact.
+ *
+ * @param filePath - Absolute path to the module file.
  * @param routesDir - Canonical routes directory to validate containment against.
+ *                    In manifest mode (empty string), no containment check is performed.
+ * @param cache - The module-level cache to use (layout or middleware).
  */
-async function loadMiddlewareModule(
-  mwPath: string,
+async function loadRouteModule(
+  filePath: string,
+  cache: BoundedCache<string, RouteModule>,
   routesDir?: string,
+  routePattern?: string,
 ): Promise<RouteModule> {
-  const cached = middlewareModuleCache.get(mwPath);
+  const cached = cache.get(filePath);
   if (cached) return cached;
-  // Only validate path on first load (cache miss)
-  const canonPath = await Deno.realPath(mwPath);
-  const guardDir = routesDir || Deno.cwd();
-  if (!canonPath.startsWith(guardDir + "/")) {
-    throw new RouteOutsideDirectory(canonPath, guardDir);
+  const canonPath = await Deno.realPath(filePath);
+  if (routesDir && !canonPath.startsWith(routesDir + "/")) {
+    throw new RouteOutsideDirectory(canonPath, routesDir, routePattern);
   }
-  const mod: RouteModule = await import(`file://${mwPath}`);
-  middlewareModuleCache.set(mwPath, mod);
-  return mod;
-}
-
-/** Load a layout module with module-level caching.
- *
- * The module is cached by absolute path. On cache miss the file's
- * canonical path is verified against `routesDir` before importing.
- * Cached entries are returned without any filesystem access.
- * When `routesDir` is empty (manifest mode), the process cwd is used as
- * the containment boundary.
- *
- * @param layoutPath - Absolute path to the layout file.
- * @param routesDir - Canonical routes directory to validate containment against.
- */
-async function loadLayoutModule(
-  layoutPath: string,
-  routesDir?: string,
-): Promise<RouteModule> {
-  const cached = layoutModuleCache.get(layoutPath);
-  if (cached) return cached;
-  // Only validate path on first load (cache miss)
-  const canonPath = await Deno.realPath(layoutPath);
-  const guardDir = routesDir || Deno.cwd();
-  if (!canonPath.startsWith(guardDir + "/")) {
-    throw new RouteOutsideDirectory(canonPath, guardDir);
-  }
-  const mod: RouteModule = await import(`file://${layoutPath}`);
-  layoutModuleCache.set(layoutPath, mod);
+  const mod: RouteModule = await import(`file://${filePath}`);
+  cache.set(filePath, mod);
   return mod;
 }

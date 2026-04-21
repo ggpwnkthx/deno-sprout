@@ -41,13 +41,17 @@ export class RouteOutsideDirectory extends RouterError {
   /** The canonical routes directory the file should have been inside. */
   routesDir: string;
 
-  constructor(path: string, routesDir: string) {
+  /** The URL pattern of the route that referenced the out-of-bounds file, if known. */
+  routePattern?: string;
+
+  constructor(path: string, routesDir: string, routePattern?: string) {
     super(
       `File is outside routes directory: ${path} (routesDir: ${routesDir})`,
       "ROUTE_OUTSIDE_DIR",
     );
     this.path = path;
     this.routesDir = routesDir;
+    this.routePattern = routePattern;
   }
 }
 
@@ -124,12 +128,21 @@ export class InvalidManifest extends RouterError {
   /** The property that is missing or invalid. */
   field: string;
 
-  constructor(field: string) {
-    super(
-      `Invalid manifest: "${field}" is missing or invalid`,
-      "INVALID_MANIFEST",
-      500,
-    );
+  /** The type that was expected (e.g. "string", "array"). */
+  expectedType?: string;
+
+  /** The type that was actually received, if available. */
+  receivedType?: string;
+
+  constructor(field: string, expectedType?: string, receivedType?: string) {
+    const msg = expectedType
+      ? `Invalid manifest: "${field}" is missing or invalid (expected ${expectedType}${
+        receivedType ? `, got ${receivedType}` : ""
+      })`
+      : `Invalid manifest: "${field}" is missing or invalid`;
+    super(msg, "INVALID_MANIFEST", 500);
     this.field = field;
+    this.expectedType = expectedType;
+    this.receivedType = receivedType;
   }
 }

@@ -344,18 +344,29 @@ Deno.test("fsRoutesFromManifest with malformed manifest fields handled gracefull
     );
 
     const app = new Hono();
-    await fsRoutesFromManifest({
-      app,
-      manifest: badManifest as unknown as RoutesManifest,
-      onPage: ({ pattern }) => {
-        const layout: LayoutComponent = ({ children }) => children;
-        app.use(pattern, createJsxRenderer(layout));
-      },
-    });
-
-    const res = await app.request("/");
-    assertEquals(res.status, 200);
-    assertStringIncludes(await res.text(), "<p>home</p>");
+    let threw = false;
+    try {
+      await fsRoutesFromManifest({
+        app,
+        manifest: badManifest as unknown as RoutesManifest,
+        onPage: ({ pattern }) => {
+          const layout: LayoutComponent = ({ children }) => children;
+          app.use(pattern, createJsxRenderer(layout));
+        },
+      });
+    } catch (e) {
+      if (
+        e instanceof TypeError &&
+        String(e.message).includes("cannot destructure")
+      ) {
+        threw = true;
+      } else if (e instanceof Error && e.message.includes("Invalid manifest")) {
+        threw = true;
+      } else {
+        throw e;
+      }
+    }
+    assertEquals(threw, true);
   } finally {
     await Deno.remove(tmpDir, { recursive: true });
   }
