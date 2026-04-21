@@ -4,20 +4,49 @@ import type { MiddlewareHandler } from "@hono/hono";
 import { extname, join } from "@std/path";
 import { isContainedPath } from "@ggpwnkthx/sprout-core/path";
 
+/**
+ * Options for {@link staticFiles}.
+ *
+ * @example
+ * ```ts
+ * import { staticFiles } from "@ggpwnkthx/sprout-static";
+ *
+ * // Mount ./public under /static (default)
+ * app.use(staticFiles());
+ *
+ * // Mount a custom directory under a prefix
+ * app.use(staticFiles({ root: "./public", prefix: "/assets" }));
+ * ```
+ */
 export interface StaticFilesOptions {
-  /** Filesystem directory to serve files from. Default: "./static" */
+  /** Filesystem directory to serve files from. Default: `"./static"` */
   root?: string;
   /**
-   * URL path prefix to mount under. Default: "/static"
-   * A request to /static/logo.svg serves `{root}/logo.svg`.
+   * URL path prefix to mount under. Default: `"/static"`
+   *
+   * A request to `/static/logo.svg` serves `{root}/logo.svg`.
    */
   prefix?: string;
 }
 
 /**
- * Serve files from `options.root` under `options.prefix`.
- * Uses @hono/hono's built-in `serveStatic` Deno adapter.
- * Returns 404 via next() if the file is not found.
+ * Serve files from a filesystem directory under a URL prefix.
+ *
+ * Wraps `@hono/hono/deno`'s `serveStatic` Deno adapter.
+ *
+ * **Returns 200** with the file body on success.
+ * **Returns 404** (via `next()`) if the file is not found.
+ * Path traversal attempts are handled by the underlying Hono adapter and return `404`.
+ * Content-Type is set by the Hono adapter based on file extension.
+ *
+ * Requests for a path that does not start with `prefix` are passed
+ * through to the next middleware.
+ *
+ * Files are streamed via `ReadableStream` without buffering the full
+ * payload in memory.
+ *
+ * @param options - Optional configuration. See {@link StaticFilesOptions}.
+ * @returns A Hono middleware handler.
  */
 export function staticFiles(options?: StaticFilesOptions): MiddlewareHandler {
   const opts = options ?? {};
@@ -30,16 +59,67 @@ export function staticFiles(options?: StaticFilesOptions): MiddlewareHandler {
   });
 }
 
+/**
+ * Options for {@link sproutAssets}.
+ *
+ * @example
+ * ```ts
+ * import { sproutAssets } from "@ggpwnkthx/sprout-static";
+ *
+ * app.use(sproutAssets({ distDir: "./_dist" }));
+ * ```
+ */
 export interface SproutAssetsOptions {
-  /** Directory containing built assets (_dist). Default: "./_dist" */
+  /**
+   * Directory containing built assets (`_dist`). Default: `"./_dist"`
+   *
+   * Expected layout:
+   * ```
+   * _dist/
+   *   hydrate.js
+   *   islands/
+   *     Counter.{hash}.js
+   * ```
+   */
   distDir?: string;
 }
 
 /**
  * Serve built island bundles and the hydration runtime from `distDir`
  * under `/_sprout/`.
- * A request to /_sprout/hydrate.js serves `{distDir}/hydrate.js`.
- * A request to /_sprout/islands/Counter.js serves `{distDir}/islands/Counter.js`.
+ *
+ * - A request to `/_sprout/hydrate.js` serves `{distDir}/hydrate.js`
+ *   with `Cache-Control: no-cache`.
+ * - A request to `/_sprout/islands/Counter.js` serves
+ *   `{distDir}/islands/Counter.js` with
+ *   `Cache-Control: public, max-age=31536000, immutable` (long-lived CDN
+ *   cache for content-hashed island bundles).
+ *
+ * Requests for paths outside `/_sprout/*` are passed through to the next
+ * middleware via `next()`.
+ *
+ * Path traversal attempts (`..`) are rejected with `404`,
+ * returning a plain-text `"404 Not Found"` body. A request that resolves
+ * to a directory also returns `404`.
+ *
+ * Symlink traversal is guarded by resolving both `distDir` and the joined
+ * path to their real paths via `Deno.realPath` and checking containment
+ * with `isContainedPath`.
+ *
+ * Returns `200` with the file as a `ReadableStream` on success.
+ * Content-Type is derived from the file extension:
+ * | Extension | Content-Type                     |
+ * | --------- | -------------------------------- |
+ * | `.js`/`.mjs` | `text/javascript; charset=utf-8` |
+ * | `.css`   | `text/css; charset=utf-8`        |
+ * | `.html`  | `text/html; charset=utf-8`       |
+ * | `.json`  | `application/json; charset=utf-8` |
+ * | `.txt`   | `text/plain; charset=utf-8`      |
+ * | `.wasm`  | `application/wasm`               |
+ * | (other)  | `application/octet-stream`        |
+ *
+ * @param options - Optional configuration. See {@link SproutAssetsOptions}.
+ * @returns A Hono middleware handler.
  */
 export function sproutAssets(options?: SproutAssetsOptions): MiddlewareHandler {
   const distDir = (options ?? {}).distDir ?? "./_dist";
