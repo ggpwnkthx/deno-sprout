@@ -9,7 +9,6 @@ Deno.test("initProject creates project with minimal template", async () => {
     await initProject({
       name: projectPath,
       template: "minimal",
-      yes: true,
     });
 
     // Check deno.json was created
@@ -39,7 +38,6 @@ Deno.test("initProject creates project with blog template", async () => {
     await initProject({
       name: projectPath,
       template: "blog",
-      yes: true,
     });
 
     // Check blog-specific files
@@ -65,7 +63,6 @@ Deno.test("initProject creates project with api template", async () => {
     await initProject({
       name: projectPath,
       template: "api",
-      yes: true,
     });
 
     // Check api-specific files
@@ -88,7 +85,6 @@ Deno.test("initProject throws when directory already exists and is non-empty", a
       await initProject({
         name: tmpDir,
         template: "minimal",
-        yes: true,
       });
     } catch (e) {
       error = e as Error;
@@ -111,7 +107,6 @@ Deno.test("initProject throws when template name is invalid", async () => {
       await initProject({
         name: projectPath,
         template: "invalid-template" as "minimal",
-        yes: true,
       });
     } catch (e) {
       error = e as Error;

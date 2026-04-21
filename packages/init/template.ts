@@ -1,38 +1,207 @@
 // template.ts - Template rendering and project scaffolding
+//
+// Provides the template registry, project scaffolding logic, and backward-
+// compatible render utility for the @ggpwnkthx/sprout-init package.
+
 import { ensureDir } from "@std/fs";
 import { join, resolve } from "@std/path";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+/**
+ * Built-in template names available for new projects.
+ *
+ * - `"minimal"` – A minimal Sprout app with a single route and layout.
+ * - `"blog"`     – A blog with a post index, slug routes, and an interactive island.
+ * - `"api"`      – A REST API with list and item endpoints and full CRUD handlers.
+ */
 export type TemplateName = "minimal" | "blog" | "api";
 
+/**
+ * A file entry to be written into a scaffolded project.
+ *
+ * @example
+ * ```ts
+ * { path: "routes/index.tsx", content: "export default () => <p>Hi</p>;" }
+ * ```
+ */
 export interface ProjectFile {
-  /** Relative path within the new project. */
+  /** Relative path within the new project, using forward slashes as separator. */
   path: string;
-  /** File contents. */
+  /** Raw file contents. May be empty (e.g. for `.gitkeep` files). */
   content: string;
 }
 
+/**
+ * A complete project template, holding metadata and the list of files to write.
+ */
 export interface Template {
+  /** Unique identifier matching a {@link TemplateName}. */
   name: TemplateName;
+  /** Human-readable description shown in CLI help and error messages. */
   description: string;
+  /** Ordered list of files to write. Each forms one file on disk. */
   files: ProjectFile[];
 }
 
-export interface InitOptions {
-  /** Project directory name / path. Prompted interactively if not provided. */
-  name?: string;
-  /** Template to use. Default: "minimal" */
-  template?: TemplateName;
-  /** Suppress prompts - use defaults for all missing options. */
-  yes?: boolean;
+/**
+ * Machine-readable error codes produced by the {@link InitError} hierarchy.
+ *
+ * Allows callers to discriminate error types without string matching on
+ * the message or using `instanceof`.
+ *
+ * @example
+ * ```ts
+ * import { InitError, initProject } from "@ggpwnkthx/sprout-init";
+ * try {
+ *   await initProject({ template: "blog" }); // missing name
+ * } catch (e) {
+ *   if (e instanceof InitError) {
+ *     console.error(`[${e.code}] ${e.message}`);
+ *   }
+ * }
+ * ```
+ */
+export type InitErrorCode =
+  | "MISSING_NAME"
+  | "UNKNOWN_TEMPLATE"
+  | "DIRECTORY_NOT_EMPTY"
+  | "INVALID_FILE_PATH";
+
+/**
+ * Base class for init errors with a machine-readable code.
+ *
+ * Subclasses allow callers to distinguish error categories without
+ * string-matching on the message.
+ */
+export class InitError extends Error {
+  /** A unique identifier for this error category. */
+  readonly code: InitErrorCode;
+
+  constructor(message: string, code: InitErrorCode) {
+    super(message);
+    this.name = this.constructor.name;
+    this.code = code;
+  }
 }
 
-// ── SPROUT_IMPORT (Task 9 - SPROUT_LOCAL) ────────────────────────────────────
+/** Thrown when {@link initProject} is called without a project name. */
+export class MissingNameError extends InitError {
+  /** The name value supplied by the caller (may be an empty string). */
+  readonly nameSupplied: string;
+
+  constructor(name: string) {
+    super("Project name is required. Use --name <name>.", "MISSING_NAME");
+    this.nameSupplied = name;
+  }
+}
+
+/** Thrown when the supplied template name is not a known {@link TemplateName}. */
+export class UnknownTemplateError extends InitError {
+  /** The unknown template name that was supplied. */
+  readonly templateName: string;
+
+  constructor(templateName: string, available: TemplateName[]) {
+    super(
+      `Unknown template "${templateName}". Available: ${available.join(", ")}`,
+      "UNKNOWN_TEMPLATE",
+    );
+    this.templateName = templateName;
+  }
+}
+
+/** Thrown when the target directory already exists and is non-empty. */
+export class DirectoryNotEmptyError extends InitError {
+  /** The path to the directory that caused the conflict. */
+  readonly path: string;
+
+  constructor(path: string) {
+    super(
+      `Directory "${path}" already exists and is not empty.`,
+      "DIRECTORY_NOT_EMPTY",
+    );
+    this.path = path;
+  }
+}
+
+/** Thrown when a template file entry has an invalid (empty or absolute) path. */
+export class InvalidFilePathError extends InitError {
+  /** The invalid path that was rejected. */
+  readonly path: string;
+
+  constructor(path: string) {
+    super(
+      `Invalid file path in template: "${path}". Paths must be non-empty and relative.`,
+      "INVALID_FILE_PATH",
+    );
+    this.path = path;
+    // Validation after assignment: safe to throw InvalidFilePathError now.
+    if (!path || path.startsWith("/") || path.includes("..")) {
+      throw new InvalidFilePathError(path);
+    }
+  }
+}
+
+/**
+ * Options passed to {@link initProject} to control project creation.
+ *
+ * @example
+ * ```ts
+ * await initProject({ name: "my-blog", template: "blog" });
+ * ```
+ */
+export interface InitOptions {
+  /**
+   * Project directory name or relative path.
+   *
+   * If the path does not exist it is created. If it exists and is non-empty
+   * {@link initProject} throws.
+   */
+  name: string;
+  /**
+   * Template to use when scaffolding.
+   *
+   * Defaults to `"minimal"` when not specified.
+   */
+  template?: TemplateName;
+}
+
+// ── SPROUT_IMPORT ─────────────────────────────────────────────────────────────
+//
+// Resolved once at module load time so template file content (which embeds
+// the import specifier as a string) is consistent across the lifetime of the
+// module.  This is intentional: template files are static artefacts and the
+// SPROUT_LOCAL mechanism is a build-time convenience, not a runtime parameter.
 
 const SPROUT_IMPORT = Deno.env.get("SPROUT_LOCAL") === "1"
   ? "../packages/sprout"
   : "jsr:@ggpwnkthx/sprout@^0.1.0";
+
+/**
+ * Returns the import specifier string written into scaffolded `deno.json`
+ * files.  Determined once at module load from the `SPROUT_LOCAL` environment
+ * variable; callers must not rely on this being stable across module reloads.
+ */
+function buildDenoJsonContent(sproutImport: string): string {
+  return JSON.stringify(
+    {
+      imports: {
+        "@ggpwnkthx/sprout": sproutImport,
+      },
+      tasks: {
+        dev: `deno run -A ${sproutImport}/dev`,
+        build: `deno run -A ${sproutImport}/build`,
+        check: "deno check routes/**/*.tsx islands/**/*.tsx main.ts",
+      },
+      compilerOptions: {
+        jsx: "react-jsx",
+        jsxImportSource: "@hono/hono",
+      },
+    },
+    null,
+    2,
+  );
+}
 
 // ── Common shared file content ────────────────────────────────────────────────
 
@@ -86,27 +255,7 @@ const MINIMAL_TEMPLATE: Template = {
   name: "minimal",
   description: "A minimal Sprout application",
   files: [
-    {
-      path: "deno.json",
-      content: JSON.stringify(
-        {
-          imports: {
-            "@ggpwnkthx/sprout": SPROUT_IMPORT,
-          },
-          tasks: {
-            dev: "deno run -A jsr:@ggpwnkthx/sprout/dev",
-            build: "deno run -A jsr:@ggpwnkthx/sprout/build",
-            check: "deno check routes/**/*.tsx islands/**/*.tsx main.ts",
-          },
-          compilerOptions: {
-            jsx: "react-jsx",
-            jsxImportSource: "@hono/hono",
-          },
-        },
-        null,
-        2,
-      ),
-    },
+    { path: "deno.json", content: buildDenoJsonContent(SPROUT_IMPORT) },
     { path: "main.ts", content: MAIN_TS },
     { path: "routes/_layout.tsx", content: ROUTES_LAYOUT_TSX },
     { path: "routes/index.tsx", content: ROUTES_INDEX_TSX },
@@ -244,27 +393,7 @@ const BLOG_TEMPLATE: Template = {
   name: "blog",
   description: "A blog with posts and interactive islands",
   files: [
-    {
-      path: "deno.json",
-      content: JSON.stringify(
-        {
-          imports: {
-            "@ggpwnkthx/sprout": SPROUT_IMPORT,
-          },
-          tasks: {
-            dev: "deno run -A jsr:@ggpwnkthx/sprout/dev",
-            build: "deno run -A jsr:@ggpwnkthx/sprout/build",
-            check: "deno check routes/**/*.tsx islands/**/*.tsx main.ts",
-          },
-          compilerOptions: {
-            jsx: "react-jsx",
-            jsxImportSource: "@hono/hono",
-          },
-        },
-        null,
-        2,
-      ),
-    },
+    { path: "deno.json", content: buildDenoJsonContent(SPROUT_IMPORT) },
     { path: "main.ts", content: MAIN_TS },
     { path: "routes/_layout.tsx", content: ROUTES_LAYOUT_TSX },
     { path: "routes/index.tsx", content: ROUTES_INDEX_TSX },
@@ -333,27 +462,7 @@ const API_TEMPLATE: Template = {
   name: "api",
   description: "A REST API with typed method handlers",
   files: [
-    {
-      path: "deno.json",
-      content: JSON.stringify(
-        {
-          imports: {
-            "@ggpwnkthx/sprout": SPROUT_IMPORT,
-          },
-          tasks: {
-            dev: "deno run -A jsr:@ggpwnkthx/sprout/dev",
-            build: "deno run -A jsr:@ggpwnkthx/sprout/build",
-            check: "deno check routes/**/*.tsx islands/**/*.tsx main.ts",
-          },
-          compilerOptions: {
-            jsx: "react-jsx",
-            jsxImportSource: "@hono/hono",
-          },
-        },
-        null,
-        2,
-      ),
-    },
+    { path: "deno.json", content: buildDenoJsonContent(SPROUT_IMPORT) },
     { path: "main.ts", content: MAIN_TS },
     { path: "routes/_layout.tsx", content: ROUTES_LAYOUT_TSX },
     { path: "routes/index.tsx", content: ROUTES_INDEX_TSX },
@@ -366,43 +475,84 @@ const API_TEMPLATE: Template = {
 
 // ── Template registry ────────────────────────────────────────────────────────
 
+/**
+ * All built-in templates keyed by {@link TemplateName}.
+ *
+ * Use this to inspect available templates programmatically.
+ *
+ * @example
+ * ```ts
+ * import { TEMPLATES } from "@ggpwnkthx/sprout-init/template";
+ * for (const [name, tmpl] of Object.entries(TEMPLATES)) {
+ *   console.log(`${name}: ${tmpl.description}`);
+ * }
+ * ```
+ */
 export const TEMPLATES: Record<TemplateName, Template> = {
   minimal: MINIMAL_TEMPLATE,
   blog: BLOG_TEMPLATE,
   api: API_TEMPLATE,
 };
 
+/** The list of all valid template names, in declaration order. */
+const AVAILABLE_TEMPLATE_NAMES = Object.keys(TEMPLATES) as TemplateName[];
+
+/**
+ * Validates a template name string and returns it narrowed to {@link TemplateName}.
+ *
+ * @throws {@link UnknownTemplateError} if the name is not a known template.
+ */
+export function validateTemplateName(name: string): TemplateName {
+  if (name in TEMPLATES) return name as TemplateName;
+  throw new UnknownTemplateError(name, AVAILABLE_TEMPLATE_NAMES);
+}
+
 // ── Core scaffolding logic ───────────────────────────────────────────────────
 
 /**
- * Scaffold a new Sprout project.
+ * Scaffolds a new Sprout project on disk.
  *
- * Steps:
- *   1. Resolve project name from options
- *   2. Resolve template from options
- *   3. Check if target directory already exists (if exists and non-empty, exit 1)
- *   4. Write all template files to the project directory
- *   5. Print next-steps instructions
+ * Resolves the project name and template from `options`, checks that the
+ * target directory does not already exist or is empty, writes all template
+ * files, and prints next-step instructions to stdout.
+ *
+ * **Errors thrown:**
+ * - {@link MissingNameError} when `options.name` is not provided.
+ * - {@link UnknownTemplateError} when the template name is not a known {@link TemplateName}.
+ * - {@link DirectoryNotEmptyError} when the target directory already exists and is non-empty.
+ * - {@link InvalidFilePathError} when a template file entry has an invalid path.
+ *
+ * @param options - {@link InitOptions} controlling project name and template.
+ *   `name` is required; `template` defaults to `"minimal"`.
+ *
+ * @example
+ * ```ts
+ * import { initProject } from "@ggpwnkthx/sprout-init";
+ *
+ * // Minimal project in ./my-app
+ * await initProject({ name: "my-app" });
+ *
+ * // Blog template
+ * await initProject({ name: "my-blog", template: "blog" });
+ * ```
  */
-export async function initProject(options?: InitOptions): Promise<void> {
+export async function initProject(options: InitOptions): Promise<void> {
   // 1. Resolve project name
-  const name = options?.name;
+  const { name } = options;
 
   if (!name) {
-    throw new Error("Project name is required. Use --name <name>.");
+    throw new MissingNameError(name);
   }
 
   const projectDir = resolve(Deno.cwd(), name);
 
   // 2. Resolve template
-  const templateName: TemplateName = options?.template ?? "minimal";
+  const templateName: TemplateName = options.template ?? "minimal";
   const template = TEMPLATES[templateName];
-
+  // Defensive fallback: validateTemplateName (called by main()) should have
+  // already validated, but direct callers of initProject may skip that check.
   if (!template) {
-    const available = Object.keys(TEMPLATES).join(", ");
-    throw new Error(
-      `Unknown template "${templateName}". Available: ${available}`,
-    );
+    throw new UnknownTemplateError(templateName, AVAILABLE_TEMPLATE_NAMES);
   }
 
   // 3. Check if target directory already exists
@@ -412,23 +562,27 @@ export async function initProject(options?: InitOptions): Promise<void> {
       // Check if directory is non-empty
       const entries = Array.from(Deno.readDirSync(projectDir));
       if (entries.length > 0) {
-        throw new Error(
-          `Directory "${name}" already exists and is not empty.`,
-        );
+        throw new DirectoryNotEmptyError(name);
       }
     }
+    // Path exists but is not a directory — Deno.stat succeeded above but
+    // something changed between the stat and now; treat as non-existent and continue.
   } catch (err) {
-    if (err instanceof Error && err.message.includes("already exists")) {
+    if (err instanceof InitError) throw err;
+    // NotFound means the path does not exist yet — safe to ignore and continue.
+    if (err instanceof Deno.errors.NotFound) {
+      // continue
+    } else {
       throw err;
     }
-    // Directory doesn't exist, which is fine - continue
   }
 
   // 4. Write all template files
   await ensureDir(projectDir);
 
-  let fileCount = 0;
   for (const file of template.files) {
+    // Construction validates; throws InvalidFilePathError if path is invalid
+    new InvalidFilePathError(file.path);
     const filePath = join(projectDir, file.path);
 
     // Ensure parent directory exists
@@ -441,7 +595,6 @@ export async function initProject(options?: InitOptions): Promise<void> {
     } else {
       await Deno.writeTextFile(filePath, file.content);
     }
-    fileCount++;
   }
 
   // 5. Print next-steps instructions
@@ -456,8 +609,15 @@ export async function initProject(options?: InitOptions): Promise<void> {
 // ── Backward-compatible renderTemplate stub ─────────────────────────────────
 
 /**
- * Render a template string with variables substituted.
- * @deprecated Use initProject directly instead.
+ * Returns the input template string unchanged.
+ *
+ * @param template - The template string (placeholder substitution is not performed).
+ * @param _vars   - Ignored. Accepted for API compatibility only.
+ * @returns The input `template` with no modifications.
+ *
+ * @deprecated This function is a no-op stub kept for backward compatibility.
+ *   For new code, use {@link initProject} directly; template files are
+ *   fully static and require no runtime substitution.
  */
 export function renderTemplate(
   template: string,
