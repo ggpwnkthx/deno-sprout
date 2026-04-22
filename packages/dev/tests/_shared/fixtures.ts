@@ -16,6 +16,7 @@ export async function buildBundlerFixture(): Promise<{
   islandsDir: string;
   runtimePath: string;
   mountPath: string;
+  signalsPath: string;
   islandPath: string;
 }> {
   clearBundlerCache();
@@ -34,6 +35,12 @@ export async function buildBundlerFixture(): Promise<{
     "lib",
     "mount.ts",
   );
+  const signalsPath = join(
+    MONOREPO_ROOT,
+    "packages",
+    "islands",
+    "signals.ts",
+  );
 
   const islandsDir = await Deno.makeTempDir({ prefix: "sprout-dev-bundler-" });
   const islandPath = join(islandsDir, "Counter.tsx");
@@ -44,5 +51,5 @@ export async function buildBundlerFixture(): Promise<{
     }`,
   );
 
-  return { islandsDir, runtimePath, mountPath, islandPath };
+  return { islandsDir, runtimePath, mountPath, signalsPath, islandPath };
 }

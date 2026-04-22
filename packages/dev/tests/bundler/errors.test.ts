@@ -12,6 +12,7 @@ Deno.test("runtimePath unreadable — returns typed 404 JSON", async () => {
       islandsDir: fixture.islandsDir,
       runtimePath: "/nonexistent/runtime.ts",
       mountPath: fixture.mountPath,
+      signalsPath: fixture.signalsPath,
     });
 
     const { ctx, body, status } = createBundlerContext("/_sprout/hydrate.js");
@@ -31,6 +32,7 @@ Deno.test("mountPath unreadable — returns typed 404 JSON", async () => {
       islandsDir: fixture.islandsDir,
       runtimePath: fixture.runtimePath,
       mountPath: "/nonexistent/mount.ts",
+      signalsPath: fixture.signalsPath,
     });
 
     const { ctx, body, status } = createBundlerContext(
@@ -52,6 +54,7 @@ Deno.test("malformed island paths fall through to next() — trailing slash", as
       islandsDir: fixture.islandsDir,
       runtimePath: fixture.runtimePath,
       mountPath: fixture.mountPath,
+      signalsPath: fixture.signalsPath,
     });
 
     let nextCalled = false;
@@ -77,6 +80,7 @@ Deno.test("malformed island paths fall through to next() — empty name", async 
       islandsDir: fixture.islandsDir,
       runtimePath: fixture.runtimePath,
       mountPath: fixture.mountPath,
+      signalsPath: fixture.signalsPath,
     });
 
     let nextCalled = false;
@@ -102,6 +106,7 @@ Deno.test("malformed island paths fall through to next() — missing .js extensi
       islandsDir: fixture.islandsDir,
       runtimePath: fixture.runtimePath,
       mountPath: fixture.mountPath,
+      signalsPath: fixture.signalsPath,
     });
 
     let nextCalled = false;

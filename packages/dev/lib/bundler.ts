@@ -23,8 +23,10 @@ export interface DevBundlerOptions {
   islandsDir: string;
   /** Absolute path to the islands/lib/runtime.ts file. */
   runtimePath: string;
-  /** Absolute path to the islands/lib/mount.ts file (PLAN-2 Task 4b). */
+  /** Absolute path to the islands/lib/mount.ts file. */
   mountPath: string;
+  /** Absolute path to the islands/signals.ts file. */
+  signalsPath: string;
 }
 
 // Map from island name, "hydrate", or "mount" → compiled JS text
@@ -160,6 +162,22 @@ export function devIslandBundler(options: DevBundlerOptions): {
       });
     }
 
+    // Handle /_sprout/signals.js
+    if (path === "/_sprout/signals.js") {
+      const err = await transpileCached(
+        "signals",
+        options.signalsPath,
+        { name: "signals", resolveDir: dirname(options.signalsPath) },
+        "signals_not_found",
+        "Signals file not found",
+        c,
+      );
+      if (err) return err;
+      return c.text(cache.get("signals")!, 200, {
+        "Content-Type": "application/javascript",
+      });
+    }
+
     // Handle /_sprout/islands/:name.js
     // Only accept island names made of safe characters — no path separators.
     // This prevents semantic misuse (island names should not contain /) and
@@ -232,6 +250,8 @@ export function devIslandBundler(options: DevBundlerOptions): {
    * Special keys:
    * - `.../islands/lib/runtime.ts`  → invalidates `"hydrate"`
    * - `.../islands/lib/mount.ts`    → invalidates `"mount"`
+   * - `.../islands/lib/stringify.ts` → invalidates `"mount"`
+   * - `.../islands/signals.ts`      → invalidates `"signals"`
    *
    * Paths that do not match any cache key are silently ignored.
    */
@@ -248,6 +268,11 @@ export function devIslandBundler(options: DevBundlerOptions): {
       filePath.endsWith("lib/stringify.ts")
     ) {
       cache.delete("mount");
+    } else if (
+      filePath.endsWith("/signals.ts") ||
+      filePath.endsWith("signals.ts")
+    ) {
+      cache.delete("signals");
     } else {
       // Try the reverse index first (exact match for registered island paths).
       const key = islandPathToKey.get(filePath);

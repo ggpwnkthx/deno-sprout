@@ -126,8 +126,9 @@ async function transpileWithEsbuild(
     baseArgs.push(`--outdir=/tmp`);
   }
 
-  for (const ext of options.external) {
-    baseArgs.push(`--external=${ext}`);
+  const externalArgs = options.external.map((ext) => `--external=${ext}`);
+  for (const ext of externalArgs) {
+    baseArgs.push(ext);
   }
 
   const script = `
@@ -136,6 +137,16 @@ try {
 ${
     options.bundle && options.resolveDir
       ? `
+  // Inline JSR redirect plugin
+  const jsrRedirectPlugin = {
+    name: 'jsr-redirect',
+    setup(build) {
+      build.onResolve({ filter: /^@ggpwnkthx\\/sprout$/ }, (args) => ({
+        path: '/_sprout/signals.js',
+        external: true,
+      }));
+    },
+  };
   const result = await esbuild.build({
     stdin: {
       contents: ${JSON.stringify(source)},
@@ -150,6 +161,7 @@ ${
     minify: ${options.minify},
     write: false,
     external: ${JSON.stringify(options.external)},
+    plugins: [jsrRedirectPlugin],
   });
   const output = result.outputFiles?.[0]?.text ?? '';
   console.log('ESBUILD_OUTPUT:' + output);
@@ -251,7 +263,9 @@ ${
 export function transpile(
   options: TranspileOptions,
 ): Promise<TranspileResult> {
-  // Common external patterns for JSR packages and sprout URL paths
+  // Common external patterns for JSR packages and sprout URL paths.
+  // Note: @ggpwnkthx/sprout* is NOT included here because it requires
+  // resolution via a plugin (to redirect to a browser-resolvable URL).
   const defaultExternal = [
     "@hono/hono*",
     "/_sprout/*",

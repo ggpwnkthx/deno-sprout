@@ -11,6 +11,7 @@ Deno.test("invalidate(island) removes that island from cache and re-transpiles w
       islandsDir: fixture.islandsDir,
       runtimePath: fixture.runtimePath,
       mountPath: fixture.mountPath,
+      signalsPath: fixture.signalsPath,
     });
 
     const makeReq = async (path: string) => {
@@ -49,6 +50,7 @@ Deno.test("invalidate(runtime path) clears hydrate cache entry", async () => {
       islandsDir: fixture.islandsDir,
       runtimePath: fixture.runtimePath,
       mountPath: fixture.mountPath,
+      signalsPath: fixture.signalsPath,
     });
 
     const makeReq = async (path: string) => {
@@ -78,6 +80,7 @@ Deno.test("invalidate(mount path) clears mount cache entry", async () => {
       islandsDir: fixture.islandsDir,
       runtimePath: fixture.runtimePath,
       mountPath: fixture.mountPath,
+      signalsPath: fixture.signalsPath,
     });
 
     const makeReq = async (path: string) => {

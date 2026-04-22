@@ -118,6 +118,12 @@ export async function createDevServer(
     "lib",
     "mount.ts",
   );
+  const signalsPath = join(
+    MONOREPO_ROOT,
+    "packages",
+    "islands",
+    "signals.ts",
+  );
 
   // Create App instance
   const app = new App({
@@ -132,12 +138,14 @@ export async function createDevServer(
     islandsDir,
     runtimePath,
     mountPath,
+    signalsPath,
   });
 
   // Register island bundler before init so /_sprout/islands/*.js is handled
   app.use("/_sprout/islands/:name.js", islandBundler as MiddlewareHandler);
   app.use("/_sprout/hydrate.js", islandBundler as MiddlewareHandler);
   app.use("/_sprout/runtime/mount.js", islandBundler as MiddlewareHandler);
+  app.use("/_sprout/signals.js", islandBundler as MiddlewareHandler);
 
   // Create HMR handler
   const { handler: wsHandler, broadcast } = createHmrHandler();

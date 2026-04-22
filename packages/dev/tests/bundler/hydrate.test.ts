@@ -11,6 +11,7 @@ Deno.test("hydrate - first request populates cache with transpiled runtime", asy
       islandsDir: fixture.islandsDir,
       runtimePath: fixture.runtimePath,
       mountPath: fixture.mountPath,
+      signalsPath: fixture.signalsPath,
     });
 
     const { ctx, body, status } = createBundlerContext("/_sprout/hydrate.js");
@@ -31,6 +32,7 @@ Deno.test("hydrate - second request is served from cache", async () => {
       islandsDir: fixture.islandsDir,
       runtimePath: fixture.runtimePath,
       mountPath: fixture.mountPath,
+      signalsPath: fixture.signalsPath,
     });
 
     const makeReq = async (path: string) => {
@@ -48,6 +50,7 @@ Deno.test("hydrate - second request is served from cache", async () => {
       islandsDir: fixture.islandsDir,
       runtimePath: fixture.runtimePath,
       mountPath: fixture.mountPath,
+      signalsPath: fixture.signalsPath,
     });
     invalidate("/path/to/islands/lib/runtime.ts");
     const second = await makeReq("/_sprout/hydrate.js");

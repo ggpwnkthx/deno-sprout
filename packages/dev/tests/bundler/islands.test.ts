@@ -11,6 +11,7 @@ Deno.test("islands - bundles existing island and includes component name", async
       islandsDir: fixture.islandsDir,
       runtimePath: fixture.runtimePath,
       mountPath: fixture.mountPath,
+      signalsPath: fixture.signalsPath,
     });
 
     const { ctx, body, status } = createBundlerContext(
@@ -34,6 +35,7 @@ Deno.test("islands - returns 404 for non-existent island", async () => {
       islandsDir: fixture.islandsDir,
       runtimePath: fixture.runtimePath,
       mountPath: fixture.mountPath,
+      signalsPath: fixture.signalsPath,
     });
 
     const { ctx, body, status } = createBundlerContext(

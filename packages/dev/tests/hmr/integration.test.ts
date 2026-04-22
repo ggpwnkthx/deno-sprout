@@ -18,6 +18,7 @@ Deno.test("watchFiles island-update triggers invalidate and re-transpiles island
     "runtime.ts",
   );
   const mountPath = join(Deno.cwd(), "packages", "islands", "lib", "mount.ts");
+  const signalsPath = join(Deno.cwd(), "packages", "islands", "signals.ts");
 
   const tmpDir = await Deno.makeTempDir({ prefix: "sprout-integration-" });
   const islandsDir = join(tmpDir, "islands");
@@ -33,6 +34,7 @@ Deno.test("watchFiles island-update triggers invalidate and re-transpiles island
     islandsDir,
     runtimePath,
     mountPath,
+    signalsPath,
   });
 
   const makeRequest = async (path: string) => {
@@ -95,6 +97,7 @@ Deno.test("watchFiles css-update does not bust island cache", async () => {
     "runtime.ts",
   );
   const mountPath = join(Deno.cwd(), "packages", "islands", "lib", "mount.ts");
+  const signalsPath = join(Deno.cwd(), "packages", "islands", "signals.ts");
 
   const tmpDir = await Deno.makeTempDir({ prefix: "sprout-css-noinval-" });
   const islandsDir = join(tmpDir, "islands");
@@ -115,6 +118,7 @@ Deno.test("watchFiles css-update does not bust island cache", async () => {
     islandsDir,
     runtimePath,
     mountPath,
+    signalsPath,
   });
 
   const makeRequest = async (path: string) => {

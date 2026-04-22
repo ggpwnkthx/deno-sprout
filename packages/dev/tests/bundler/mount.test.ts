@@ -11,6 +11,7 @@ Deno.test("mount - responds with transpiled mount module", async () => {
       islandsDir: fixture.islandsDir,
       runtimePath: fixture.runtimePath,
       mountPath: fixture.mountPath,
+      signalsPath: fixture.signalsPath,
     });
 
     const { ctx, body } = createBundlerContext("/_sprout/runtime/mount.js");
@@ -30,6 +31,7 @@ Deno.test("mount - second request served from cache", async () => {
       islandsDir: fixture.islandsDir,
       runtimePath: fixture.runtimePath,
       mountPath: fixture.mountPath,
+      signalsPath: fixture.signalsPath,
     });
 
     const makeReq = async (path: string) => {
@@ -47,6 +49,7 @@ Deno.test("mount - second request served from cache", async () => {
       islandsDir: fixture.islandsDir,
       runtimePath: fixture.runtimePath,
       mountPath: fixture.mountPath,
+      signalsPath: fixture.signalsPath,
     });
     invalidate("/path/to/islands/lib/mount.ts");
     const second = await makeReq("/_sprout/runtime/mount.js");

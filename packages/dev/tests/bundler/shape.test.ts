@@ -11,6 +11,7 @@ Deno.test("devIslandBundler returns middleware and invalidate function", async (
       islandsDir: fixture.islandsDir,
       runtimePath: fixture.runtimePath,
       mountPath: fixture.mountPath,
+      signalsPath: fixture.signalsPath,
     });
     assertEquals(typeof result.middleware, "function");
     assertEquals(typeof result.invalidate, "function");
@@ -26,6 +27,7 @@ Deno.test("devIslandBundler calls next() for unhandled paths", async () => {
       islandsDir: fixture.islandsDir,
       runtimePath: fixture.runtimePath,
       mountPath: fixture.mountPath,
+      signalsPath: fixture.signalsPath,
     });
 
     let nextCalled = false;
