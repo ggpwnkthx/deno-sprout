@@ -1,5 +1,4 @@
 // stringify_test.ts - Tests for stringify.ts utilities
-/// <reference lib="dom" />
 import { assertEquals } from "@std/assert";
 import {
   getIslandName,
@@ -112,7 +111,7 @@ Deno.test("validateProps: returns false for null and primitives", () => {
   assertEquals(validateProps(42), false);
   assertEquals(validateProps("string"), false);
   assertEquals(validateProps(true), false);
-  assertEquals(validateProps(() => {}), false);
+  assertEquals(validateProps(() => { }), false);
 });
 
 Deno.test("getIslandName: returns data-island attribute value", () => {

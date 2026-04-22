@@ -17,7 +17,6 @@
 // NOTE: hydrateVisible, hydrateIdle, hydrateOne are private (not exported) and
 // rely on browser-only APIs. They are integration-tested in a real browser environment.
 //
-/// <reference lib="dom" />
 import { assertEquals, assertThrows } from "@std/assert";
 import { decodeProps } from "../lib/runtime.ts";
 import { encodeBase64 } from "@std/encoding/base64";

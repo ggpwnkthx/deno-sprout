@@ -1,5 +1,4 @@
 // runtime_test.ts - Tests for the browser-side hydration runtime
-/// <reference lib="dom" />
 import { assertEquals, assertThrows } from "@std/assert";
 import { Island } from "../hydrator.ts";
 import type { FC } from "@hono/hono/jsx";
@@ -188,8 +187,7 @@ Deno.test("islandUrl: follows /_sprout/islands/{name}.js pattern", () => {
 
 Deno.test("Integration: SSR props survive the full encode→decode round-trip", () => {
   const Comp: FC<{ name: string; count: number; tags: string[] }> = (p) =>
-    `<div>${p.name}: ${p.count} [${
-      p.tags.join(", ")
+    `<div>${p.name}: ${p.count} [${p.tags.join(", ")
     }]</div>` as unknown as ReturnType<
       FC<{ name: string; count: number; tags: string[] }>
     >;

@@ -13,7 +13,6 @@
  * require manual DOM manipulation via {@link useEffect}.
  */
 
-/// <reference lib="dom" />
 import type { FC } from "@hono/hono/jsx";
 import {
   getIslandName,
@@ -74,7 +73,7 @@ export function mount<P extends Record<string, unknown>>(
   if (!validateProps(props)) {
     const err = new HydrationError("Invalid props: expected a non-null object");
     dispatchIslandError(el, getIslandName(el), err);
-    return () => {};
+    return () => { };
   }
   try {
     const html = renderToString(Component(props));
@@ -83,12 +82,11 @@ export function mount<P extends Record<string, unknown>>(
     const error = err instanceof RenderError
       ? new HydrationError(`[sprout] Render error: ${err.message}`, err.reason)
       : new HydrationError(
-        `[sprout] Failed to hydrate island: ${
-          err instanceof Error ? err.message : String(err)
+        `[sprout] Failed to hydrate island: ${err instanceof Error ? err.message : String(err)
         }`,
         err,
       );
     dispatchIslandError(el, getIslandName(el), error);
   }
-  return () => {}; // TODO(v0.2.0): implement real dispose with effect cleanup
+  return () => { }; // TODO(v0.2.0): implement real dispose with effect cleanup
 }

@@ -1,5 +1,4 @@
 // mount_test.ts - Tests for mount function
-/// <reference lib="dom" />
 import { assertEquals } from "@std/assert";
 import { mount } from "@ggpwnkthx/sprout-islands/lib/mount";
 import type { FC } from "@hono/hono/jsx";

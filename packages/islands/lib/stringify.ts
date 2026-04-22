@@ -7,7 +7,6 @@
  * @module
  */
 
-/// <reference lib="dom" />
 import type { FC } from "@hono/hono/jsx";
 
 /**
