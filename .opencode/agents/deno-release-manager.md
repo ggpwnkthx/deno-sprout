@@ -12,7 +12,7 @@ permission:
     "deno fmt*": allow
     "deno lint*": allow
     "deno check*": allow
-    "deno test*": allow
+    "deno test -A*": allow
   skill:
     "*": deny
     "deno-release-checklist": allow

@@ -17,8 +17,16 @@
   "model": "minimax/MiniMax-M2.7",
   "formatter": {
     "deno-fmt": {
-      "command": ["deno", "fmt", "$FILE"],
-      "extensions": [".ts", ".tsx"]
+      "command": [
+        "deno",
+        "fmt",
+        "$FILE"
+      ],
+      "extensions": [
+        ".ts",
+        ".tsx"
+      ]
     }
-  }
+  },
+  "default_agent": "orchestrate"
 }
