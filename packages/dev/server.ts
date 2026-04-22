@@ -57,11 +57,17 @@ export function hmrInjector(): MiddlewareHandler {
     await next();
     const ct = c.res.headers.get("Content-Type") ?? "";
     if (!ct.includes("text/html")) return;
-    const body = await c.res.text();
+    // Guard against already-consumed body: if upstream middleware already
+    // read c.res (e.g. via .text(), .json(), .arrayBuffer()), bodyUsed is true
+    // and calling clone().text() would throw.
+    if (c.res.bodyUsed) return;
+    const originalRes = c.res;
+    const clone = originalRes.clone();
+    const body = await clone.text();
     if (!body.includes("</body>")) return;
     c.res = new Response(
       body.replace("</body>", `${HMR_SCRIPT}</body>`),
-      { status: c.res.status, headers: c.res.headers },
+      { status: originalRes.status, headers: originalRes.headers },
     );
   };
 }
@@ -157,8 +163,10 @@ export async function createDevServer(
   // deno-lint-ignore no-explicit-any
   app.get("/_sprout/hmr", wsHandler as any);
 
-  // Register HMR injector BEFORE init so it runs as global middleware
-  // (registered after route handlers, it would run after them and miss the response)
+  // Register HMR injector as global middleware. Because app.use() wraps all
+  // route handlers registered before or after it, placing hmrInjector after
+  // init() still allows it to intercept every HTML response — the comment
+  // above claiming "before init" was stale and incorrect.
   app.use(hmrInjector());
 
   // Initialize app (registers routes)

@@ -187,7 +187,8 @@ Deno.test("islandUrl: follows /_sprout/islands/{name}.js pattern", () => {
 
 Deno.test("Integration: SSR props survive the full encode→decode round-trip", () => {
   const Comp: FC<{ name: string; count: number; tags: string[] }> = (p) =>
-    `<div>${p.name}: ${p.count} [${p.tags.join(", ")
+    `<div>${p.name}: ${p.count} [${
+      p.tags.join(", ")
     }]</div>` as unknown as ReturnType<
       FC<{ name: string; count: number; tags: string[] }>
     >;

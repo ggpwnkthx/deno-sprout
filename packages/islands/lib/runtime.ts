@@ -69,7 +69,8 @@ export function decodeProps(encoded: string): unknown {
     binary = atob(encoded);
   } catch (e) {
     throw new TypeError(
-      `Invalid base64 in data-props: ${e instanceof Error ? e.message : String(e)
+      `Invalid base64 in data-props: ${
+        e instanceof Error ? e.message : String(e)
       }`,
     );
   }

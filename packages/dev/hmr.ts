@@ -63,6 +63,13 @@ export const clients: Set<HmrClient> = new Set<HmrClient>();
 
 /** Clear all tracked WebSocket clients. Exported for use in tests. */
 export function clearClients(): void {
+  for (const client of clients) {
+    try {
+      client.close();
+    } catch {
+      // Ignore errors during close — client may already be dead.
+    }
+  }
   clients.clear();
 }
 
@@ -254,7 +261,12 @@ export function createHmrHandler(options?: {
         clientSet.delete(ws as unknown as HmrClient);
       },
     };
-  }) as HmrWsHandler;
+    // SAFETY: upgradeWebSocket returns a handler typed as WebSocketHandler, which
+    // Hono's app.get() does not directly accept as a route handler. The cast to
+    // HmrWsHandler is a type-level lie; at runtime the handler is correctly
+    // resolved by Hono's WebSocket upgrade machinery. The HmrWsHandler interface
+    // describes the handler's effective shape without binding to Hono internals.
+  }) as unknown as HmrWsHandler;
 
   function broadcast(event: HmrEvent) {
     let message: string;

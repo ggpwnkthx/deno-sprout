@@ -12,6 +12,7 @@
     "lint": "deno lint packages/ tests/ examples/",
     "fmt": "deno fmt",
     "ci": "deno task lint && deno task check && deno task test",
+    "browser:e2e": "deno test -A tests/browser.e2e.ts",
     "dev:minimal": "deno task --cwd examples/minimal dev",
     "dev:api": "deno task --cwd examples/api dev",
     "dev:blog": "deno task --cwd examples/blog dev",
@@ -20,7 +21,8 @@
   },
   "imports": {
     "@hono/hono": "jsr:@hono/hono@^4.12.14",
-    "@std/assert": "jsr:@std/assert@^1"
+    "@std/assert": "jsr:@std/assert@^1",
+    "@astral/astral": "jsr:@astral/astral@^0.5.6"
   },
   "compilerOptions": {
     "strict": true,

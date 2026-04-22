@@ -1,4 +1,5 @@
 import type { PageComponent } from "@ggpwnkthx/sprout";
+import LikeButton from "../islands/LikeButton.tsx";
 
 const Home: PageComponent = () => (
   <main>
@@ -6,6 +7,7 @@ const Home: PageComponent = () => (
     <p>
       Edit <code>routes/index.tsx</code> to get started.
     </p>
+    <LikeButton />
   </main>
 );
 
