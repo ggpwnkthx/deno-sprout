@@ -7,7 +7,7 @@
  *
  * @module
  */
-import { defineWebSocketHelper } from "@hono/hono/ws";
+import { upgradeWebSocket } from "@hono/hono/deno";
 
 /**
  * The kind of HMR event emitted when a file changes.
@@ -47,22 +47,19 @@ export interface HmrClient {
 /**
  * Contract for the HMR WebSocket handler returned by `createHmrHandler`.
  *
- * This is a stable local interface that does not depend on `@hono/hono/ws`
- * internals. It describes what `createHmrHandler` returns — a callable that
- * Hono can register as a WebSocket route handler.
- *
- * The `handler` field is compatible with Hono's `app.get(path, handler)` when
- * cast through `MiddlewareHandler` at the registration site.
+ * This is a stable local interface that does not depend on Hono internals.
+ * It describes the handler returned by upgradeWebSocket from jsr:@hono/hono/deno,
+ * compatible with Hono's app.get() registration.
  */
 export interface HmrWsHandler {
-  (
-    c: { res: { status: number; headers: Headers } },
-    events: unknown,
-  ): Promise<Response | void>;
+  (c: {
+    req: { header: (name: string) => string | undefined };
+  }, events: unknown): Promise<unknown>;
 }
 
 // Track connected WebSocket clients - module-level singleton
-const clients = new Set<HmrClient>();
+// Exported for use in tests to directly manipulate the client set.
+export const clients: Set<HmrClient> = new Set<HmrClient>();
 
 /** Clear all tracked WebSocket clients. Exported for use in tests. */
 export function clearClients(): void {
@@ -175,28 +172,29 @@ export function watchFiles(
  * - `islands/*.tsx` or `islands/*.ts` &rarr; `type: "island-update"`
  * - Everything else &rarr; `type: "reload"`
  *
- * The `projectRoot` parameter is currently unused but reserved for future
- * relative-path normalisation.
- *
  * @param fsEvent - Raw filesystem event from `Deno.watchFs`.
- * @param projectRoot - Absolute path of the project root (unused, for future use).
+ * @param _projectRoot - Absolute path of the project root (unused, for future use).
  * @returns An `HmrEvent` describing the change, or `null` if the event had no paths.
  */
 export function classifyFsEvent(
   fsEvent: Deno.FsEvent,
   _projectRoot: string,
 ): HmrEvent | null {
-  // Get the first path from the event
   const path = fsEvent.paths[0];
   if (!path) return null;
 
-  // Classify by file extension
+  // Bound path length to prevent oversized events from propagating to clients.
+  if (path.length > 4096) {
+    console.warn(
+      `[HMR] classifyFsEvent: path too long (${path.length}), skipping`,
+    );
+    return null;
+  }
+
   if (path.endsWith(".css")) {
     return { type: "css-update", path };
   }
 
-  // Classify islands — check for "islands" as a path segment boundary.
-  // Using split prevents false positives from paths like "/not-islands/foo/islands/bar.tsx".
   const segments = path.split("/");
   if (
     segments.includes("islands") &&
@@ -205,7 +203,6 @@ export function classifyFsEvent(
     return { type: "island-update", path };
   }
 
-  // Everything else is a reload
   return { type: "reload", path };
 }
 
@@ -219,46 +216,61 @@ export function classifyFsEvent(
  * The returned `handler` is registered on the `/_sprout/hmr` route via
  * `app.get()`. The `HmrWsHandler` interface describes the shape without
  * binding to Hono internals; at runtime the handler is produced by
- * `defineWebSocketHelper`.
+ * `upgradeWebSocket`.
  *
+ * @param options - Optional configuration.
+ * @param options.clients - A `Set<HmrClient>` to use for tracking connections.
+ *   Defaults to the module-level singleton. Pass a custom set to enable
+ *   isolated unit testing without global state.
  * @returns An object containing:
  *   - `handler` — Hono WebSocket handler to register on the HMR route.
  *   - `broadcast(event)` — call this to send an event to all connected clients.
  */
-export function createHmrHandler(): {
+export function createHmrHandler(options?: {
+  clients?: Set<HmrClient>;
+}): {
   handler: HmrWsHandler;
   broadcast: (event: HmrEvent) => void;
 } {
-  // defineWebSocketHelper wraps the callback to produce a Hono WebSocketHandler.
-  // The returned value is what Hono's WebSocket upgrade mechanism expects;
-  // we cast it to HmrWsHandler via `unknown` at the registration site.
-  const rawHandler = defineWebSocketHelper((_c, events) => {
-    if (clients.size >= MAX_CLIENTS) {
-      return new Response("Service Unavailable", { status: 503 });
-    }
-    // SAFETY: `events` is the WebSocket object passed by defineWebSocketHelper.
-    // HmrClient requires only { send, close }, both supported by the Hono WS
-    // object, so the cast through `unknown` is safe.
-    clients.add(events as unknown as HmrClient);
+  // Use provided clients set if given, otherwise fall back to the module singleton.
+  // Passing a custom set enables isolated unit testing.
+  const clientSet = options?.clients ?? clients;
 
-    return new Response(null, { status: 101 }); // Switching Protocols
-  });
-
-  // The wrapper returns a WebSocketHandler (AsyncHandler) — the actual type
-  // is inferred from defineWebSocketHelper internals. We expose HmrWsHandler
-  // as the stable public shape and cast through unknown at the call site.
-  const handler: HmrWsHandler = rawHandler as unknown as HmrWsHandler;
+  // upgradeWebSocket from @hono/hono/deno returns a handler compatible with app.get.
+  // MAX_CLIENTS is enforced inside onOpen (post-upgrade) because Hono's
+  // upgradeWebSocket factory does not support returning a Response from the
+  // callback to reject the upgrade before it is established. When the limit is
+  // exceeded, the client is closed immediately after connecting.
+  const handler = upgradeWebSocket(() => {
+    return {
+      onOpen(_event, ws) {
+        if (clientSet.size >= MAX_CLIENTS) {
+          ws.close();
+          return;
+        }
+        clientSet.add(ws as unknown as HmrClient);
+      },
+      onClose(ws) {
+        clientSet.delete(ws as unknown as HmrClient);
+      },
+    };
+  }) as HmrWsHandler;
 
   function broadcast(event: HmrEvent) {
-    const message = JSON.stringify(event);
-    for (const client of clients) {
+    let message: string;
+    try {
+      message = JSON.stringify(event);
+    } catch (err) {
+      console.error("[HMR] broadcast: failed to serialize event:", err);
+      return;
+    }
+    for (const client of clientSet) {
       try {
         client.send(message);
       } catch {
-        // Any error on send indicates the client is gone — remove it and continue.
-        // This is the correct behavior for WebSocket disconnect (DOMException with
-        // INVALID_STATE_ERR / code 1006) and for test mocks that throw plain Error.
-        clients.delete(client);
+        // Client disconnected — remove silently. This is the expected path for
+        // a dropped WebSocket connection (e.g., browser closed tab, network reset).
+        clientSet.delete(client);
       }
     }
   }

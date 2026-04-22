@@ -143,9 +143,11 @@ export async function createDevServer(
   const { handler: wsHandler, broadcast } = createHmrHandler();
 
   // Register HMR WebSocket handler
-  // SAFETY: cast through unknown is required because Hono's WebSocket route
-  // accepts a handler whose return type is not identical to MiddlewareHandler.
-  app.get("/_sprout/hmr", wsHandler as unknown as MiddlewareHandler);
+  // SAFETY: upgradeWebSocket returns a handler with ws-specific branding that
+  // Hono's type system doesn't surface on app.get's expected Handler type.
+  // The cast is safe at runtime because Hono resolves the handler correctly.
+  // deno-lint-ignore no-explicit-any
+  app.get("/_sprout/hmr", wsHandler as any);
 
   // Register HMR injector BEFORE init so it runs as global middleware
   // (registered after route handlers, it would run after them and miss the response)

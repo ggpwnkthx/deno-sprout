@@ -146,8 +146,17 @@ Deno.test("createDevServer registers /_sprout/hmr WebSocket endpoint", async () 
   const fixture = await buildFixture();
   try {
     const app = await createServerAndClose(fixture.root);
-    const res = await app.request("/_sprout/hmr");
-    assertEquals(res.status !== 404, true);
+    // Send proper WebSocket upgrade headers so upgradeWebSocket correctly
+    // upgrades the connection. Without these headers, upgradeWebSocket
+    // returns 404 because it checks for the Upgrade header.
+    const res = await app.request("/_sprout/hmr", {
+      headers: {
+        upgrade: "websocket",
+        connection: "upgrade",
+        "sec-websocket-key": "dGhlIHNhbXBsZSBub25jZQ==",
+        "sec-websocket-version": "13",
+      },
+    });
     assertEquals(res.status, 101);
   } finally {
     await Deno.remove(fixture.root, { recursive: true });
