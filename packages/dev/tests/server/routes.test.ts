@@ -93,7 +93,10 @@ Deno.test("createDevServer responds to /_sprout/islands/:name.js with bundled JS
     const app = await createServerAndClose(fixture.root);
     const res = await app.request("/_sprout/islands/Counter.js");
     assertEquals(res.status, 200);
-    assertEquals(res.headers.get("content-type"), "application/javascript");
+    assertEquals(
+      res.headers.get("content-type"),
+      "application/javascript; charset=utf-8",
+    );
     const body = await res.text();
     assertStringIncludes(body, "Counter");
   } finally {
@@ -120,7 +123,10 @@ Deno.test("createDevServer responds to /_sprout/hydrate.js with transpiled runti
     const app = await createServerAndClose(fixture.root);
     const res = await app.request("/_sprout/hydrate.js");
     assertEquals(res.status, 200);
-    assertEquals(res.headers.get("content-type"), "application/javascript");
+    assertEquals(
+      res.headers.get("content-type"),
+      "application/javascript; charset=utf-8",
+    );
     const body = await res.text();
     assertEquals(body.length > 0, true);
   } finally {
@@ -134,7 +140,10 @@ Deno.test("createDevServer responds to /_sprout/runtime/mount.js with transpiled
     const app = await createServerAndClose(fixture.root);
     const res = await app.request("/_sprout/runtime/mount.js");
     assertEquals(res.status, 200);
-    assertEquals(res.headers.get("content-type"), "application/javascript");
+    assertEquals(
+      res.headers.get("content-type"),
+      "application/javascript; charset=utf-8",
+    );
     const body = await res.text();
     assertEquals(body.length > 0, true);
   } finally {
