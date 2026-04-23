@@ -10,7 +10,7 @@ Deno.test("classifyFsEvent - CSS file returns css-update", () => {
     flag: null,
   } as unknown as Deno.FsEvent;
 
-  const result = classifyFsEvent(event, "/path/to");
+  const result = classifyFsEvent(event);
 
   assertExists(result);
   assertEquals(result!.type, "css-update");
@@ -25,7 +25,7 @@ Deno.test("classifyFsEvent - island .tsx returns island-update", () => {
     flag: null,
   } as unknown as Deno.FsEvent;
 
-  const result = classifyFsEvent(event, "/path/to");
+  const result = classifyFsEvent(event);
 
   assertExists(result);
   assertEquals(result!.type, "island-update");
@@ -39,7 +39,7 @@ Deno.test("classifyFsEvent - island .ts returns island-update", () => {
     flag: null,
   } as unknown as Deno.FsEvent;
 
-  const result = classifyFsEvent(event, "/path/to");
+  const result = classifyFsEvent(event);
 
   assertExists(result);
   assertEquals(result!.type, "island-update");
@@ -53,7 +53,7 @@ Deno.test("classifyFsEvent - .ts file inside /islands/lib/ returns island-update
     flag: null,
   } as unknown as Deno.FsEvent;
 
-  const result = classifyFsEvent(event, "/path/to");
+  const result = classifyFsEvent(event);
 
   assertExists(result);
   assertEquals(result!.type, "island-update");
@@ -67,7 +67,7 @@ Deno.test("classifyFsEvent - route file returns reload", () => {
     flag: null,
   } as unknown as Deno.FsEvent;
 
-  const result = classifyFsEvent(event, "/path/to");
+  const result = classifyFsEvent(event);
 
   assertExists(result);
   assertEquals(result!.type, "reload");
@@ -81,7 +81,7 @@ Deno.test("classifyFsEvent - .tsx not in islands returns reload", () => {
     flag: null,
   } as unknown as Deno.FsEvent;
 
-  const result = classifyFsEvent(event, "/path/to");
+  const result = classifyFsEvent(event);
 
   assertExists(result);
   assertEquals(result!.type, "reload");
@@ -95,7 +95,7 @@ Deno.test("classifyFsEvent - empty paths returns null", () => {
     flag: null,
   } as unknown as Deno.FsEvent;
 
-  const result = classifyFsEvent(event, "/path/to");
+  const result = classifyFsEvent(event);
 
   assertEquals(result, null);
 });
@@ -108,7 +108,7 @@ Deno.test("classifyFsEvent - non-island, non-CSS file returns reload", () => {
     flag: null,
   } as unknown as Deno.FsEvent;
 
-  const result = classifyFsEvent(event, "/path/to");
+  const result = classifyFsEvent(event);
   assertExists(result);
   assertEquals(result!.type, "reload");
 });
@@ -124,7 +124,7 @@ Deno.test("classifyFsEvent - uses first path when multiple are present", () => {
     flag: null,
   } as unknown as Deno.FsEvent;
 
-  const result = classifyFsEvent(event, "/path/to");
+  const result = classifyFsEvent(event);
 
   assertExists(result);
   // First path is the route file, so type is "reload"

@@ -40,7 +40,7 @@ Deno.test("watchFiles island-update triggers invalidate and re-transpiles island
   const makeRequest = async (path: string) => {
     let text = "";
     const c = {
-      req: { path },
+      req: { path, method: "GET" },
       text: (t: string) => {
         text = t;
         // deno-lint-ignore no-explicit-any
@@ -124,7 +124,7 @@ Deno.test("watchFiles css-update does not bust island cache", async () => {
   const makeRequest = async (path: string) => {
     let text = "";
     const c = {
-      req: { path },
+      req: { path, method: "GET" },
       text: (t: string) => {
         text = t;
         // deno-lint-ignore no-explicit-any

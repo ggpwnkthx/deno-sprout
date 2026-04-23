@@ -54,7 +54,7 @@ export interface HmrClient {
 export interface HmrWsHandler {
   (c: {
     req: { header: (name: string) => string | undefined };
-  }, events: unknown): Promise<unknown>;
+  }, events: HmrEvent): Promise<unknown>;
 }
 
 // Track connected WebSocket clients - module-level singleton
@@ -143,7 +143,7 @@ export function watchFiles(
           if (event.paths.length === 0) continue;
 
           for (const path of event.paths) {
-            const hmEvent = classifyFsEvent(event, dir);
+            const hmEvent = classifyFsEvent(event);
             if (hmEvent) {
               debounce(path, () => onEvent(hmEvent));
             }
@@ -180,12 +180,10 @@ export function watchFiles(
  * - Everything else &rarr; `type: "reload"`
  *
  * @param fsEvent - Raw filesystem event from `Deno.watchFs`.
- * @param _projectRoot - Absolute path of the project root (unused, for future use).
  * @returns An `HmrEvent` describing the change, or `null` if the event had no paths.
  */
 export function classifyFsEvent(
   fsEvent: Deno.FsEvent,
-  _projectRoot: string,
 ): HmrEvent | null {
   const path = fsEvent.paths[0];
   if (!path) return null;
@@ -202,9 +200,8 @@ export function classifyFsEvent(
     return { type: "css-update", path };
   }
 
-  const segments = path.split("/");
   if (
-    segments.includes("islands") &&
+    path.includes("/islands/") &&
     (path.endsWith(".tsx") || path.endsWith(".ts"))
   ) {
     return { type: "island-update", path };

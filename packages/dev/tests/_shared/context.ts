@@ -8,7 +8,7 @@
  * Provides text() and json() that capture their arguments for assertion.
  */
 export interface BundlerMockContext {
-  req: { path: string };
+  req: { path: string; method?: string };
   text: (body: string, status?: number) => BundlerMockContext;
   json: (data: unknown, status?: number) => BundlerMockContext;
   res: Response;
@@ -37,7 +37,7 @@ export function createBundlerContext(
   let _body = "";
   let _status = 0;
   const ctx = {
-    req: { path },
+    req: { path, method: "GET" },
     text(body: string, s = 200): unknown {
       _body = body;
       _status = s;
