@@ -10,6 +10,17 @@
 const DEFAULT_MOUNT_URL = "/_sprout/runtime/mount.js";
 
 /**
+ * Escape a string for safe use in an HTML attribute value.
+ */
+function escapeAttr(str: string): string {
+  return str.replace(
+    /["<>&]/g,
+    (c) =>
+      c === '"' ? "&quot;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&amp;",
+  );
+}
+
+/**
  * Options for {@link generateIslandWrapper}.
  */
 export interface WrapperOptions {
@@ -45,22 +56,22 @@ export function generateIslandWrapper(
   opts: WrapperOptions = {},
 ): string {
   const mountUrl = opts.mountUrl ?? DEFAULT_MOUNT_URL;
+  const escapedName = escapeAttr(name);
   return `\
 import { mount } from "${mountUrl}";
 import { IslandErrorEvent } from "${mountUrl}";
-import Component from "./${name}.tsx";
+import Component from "./${escapedName}.tsx";
 
 export default function hydrate(props, el) {
-  // mount() is synchronous but may throw if the component is called with
-  // invalid props (HydrationError is dispatched on el in that case). Wrap in
-  // Promise.resolve() so .catch() is guaranteed to fire, and also catch any
-  // unexpected synchronous errors that the mount try/catch does not cover.
   Promise.resolve(mount(Component, props, el)).catch((err) => {
-    console.error("[sprout] Failed to hydrate island ${name}:", err);
-    el.dispatchEvent(new IslandErrorEvent({
-      error: err instanceof Error ? err : new Error(String(err)),
-      island: "${name}",
-    }));
+    console.error("[sprout] Failed to hydrate island ${escapedName}:", err);
+    // Guard mirrors mount.ts:35 — keep in sync if the guard ever changes.
+    if (typeof el.dispatchEvent === "function") {
+      el.dispatchEvent(new IslandErrorEvent({
+        error: err instanceof Error ? err : new Error(String(err)),
+        island: "${escapedName}",
+      }));
+    }
   });
 }
 `;

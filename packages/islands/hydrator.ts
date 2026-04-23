@@ -15,6 +15,7 @@
  */
 
 import type { FC } from "@hono/hono/jsx";
+import type { HtmlEscapedString } from "@hono/hono/utils/html";
 import { serializeProps } from "./serializer.ts";
 import { renderToString } from "@hono/hono/jsx/dom/server";
 
@@ -26,6 +27,22 @@ import { renderToString } from "@hono/hono/jsx/dom/server";
  * - `"idle"`      - Hydrate during browser idle time via requestIdleCallback
  */
 export type HydrationStrategy = "immediate" | "visible" | "idle";
+
+/**
+ * Escape a string for safe use in an HTML attribute value.
+ *
+ * Handles the characters that break attribute context: `"`, `<`, `>`, and `&`.
+ *
+ * @param str - Raw string from an untrusted source (island name or props).
+ * @returns The string with HTML-special characters replaced.
+ */
+function escapeAttr(str: string): string {
+  return str.replace(
+    /["<>&]/g,
+    (c) =>
+      c === '"' ? "&quot;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&amp;",
+  );
+}
 
 /**
  * Props accepted by the {@link Island} SSR wrapper component.
@@ -105,7 +122,7 @@ export interface IslandProps<P extends Record<string, unknown>> {
  */
 export function Island<P extends Record<string, unknown>>(
   props: IslandProps<P>,
-): string {
+): HtmlEscapedString {
   const strategy = props.strategy ?? "immediate";
   const serializedProps = serializeProps(props.props);
   const ssrOutput = renderToString(props.component(props.props as P));
@@ -113,7 +130,11 @@ export function Island<P extends Record<string, unknown>>(
   // Generate a deterministic key from name + props hash
   const key = `${props.name}-${simpleHash(serializedProps)}`;
 
-  return `<div data-island="${props.name}" data-props="${serializedProps}" data-strategy="${strategy}" data-key="${key}">${ssrOutput}</div>`;
+  const html = `<div data-island="${
+    escapeAttr(props.name)
+  }" data-props="${serializedProps}" data-strategy="${strategy}" data-key="${key}">${ssrOutput}</div>`;
+  // Mark as HTML-escaped so Hono's JSX renderer passes it through as raw HTML.
+  return Object.assign(html, { isEscaped: true }) as HtmlEscapedString;
 }
 
 /**

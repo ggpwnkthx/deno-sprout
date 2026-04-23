@@ -38,6 +38,82 @@ function dispatchIslandError(
 }
 
 /**
+ * Map from HTML attribute name (e.g. "onclick") to event name (e.g. "click").
+ * Only those attributes that bind to event listeners are included.
+ */
+const EVENT_ATTR_MAP: Record<string, string> = {
+  onclick: "click",
+  onchange: "change",
+  oninput: "input",
+  onblur: "blur",
+  onfocus: "focus",
+  onkeydown: "keydown",
+  onkeyup: "keyup",
+  onkeypress: "keypress",
+  onmouseenter: "mouseenter",
+  onmouseleave: "mouseleave",
+  onmouseover: "mouseover",
+  onmouseout: "mouseout",
+  ondblclick: "dblclick",
+  onfocusout: "focusout",
+  onload: "load",
+  onerror: "error",
+  onsubmit: "submit",
+};
+
+/**
+ * Re-attach event handlers to elements that were set via innerHTML.
+ *
+ * Hono's JSX string renderer drops all function-valued props (including
+ * event handlers like `onClick={handleClick}`) during HTML serialisation.
+ * innerHTML parsing therefore creates DOM nodes with no event listeners.
+ *
+ * This function parses the rendered HTML, walks the DOM tree, and uses
+ * the original props object to restore event listeners by matching
+ * handler prop names to their corresponding HTML attributes.
+ *
+ * Note: only works for handlers stored as direct prop values. Inline arrow
+ * functions in JSX (e.g. `onClick={() => doSomething()}`) cannot be restored
+ * this way since the function object is not preserved in props. The long-term
+ * fix is a real DOM reconciler.
+ *
+ * @param el    - The container element
+ * @param props - The props passed to the island component
+ */
+function attachEventHandlers(
+  el: Element,
+  props: Record<string, unknown>,
+): void {
+  // Build a map of HTML attribute name → prop key for any function-valued props
+  // that correspond to known event handler names (e.g. onClick → handleClick)
+  const eventAttrToHandlerKey = new Map<string, string>();
+  for (const key of Object.keys(props)) {
+    const lower = key.toLowerCase();
+    if (lower in EVENT_ATTR_MAP && typeof props[key] === "function") {
+      eventAttrToHandlerKey.set(lower, key);
+    }
+  }
+
+  if (eventAttrToHandlerKey.size === 0) return;
+
+  // Walk el's already-parsed children and attach handlers to matching elements
+  const allEls = el.querySelectorAll("*");
+  for (const el2 of allEls) {
+    for (const [htmlAttr, handlerKey] of eventAttrToHandlerKey) {
+      const attrValue = el2.getAttribute(htmlAttr);
+      if (!attrValue) continue;
+      const handler = props[handlerKey];
+      if (typeof handler === "function") {
+        el2.addEventListener(
+          EVENT_ATTR_MAP[htmlAttr],
+          handler as EventListener,
+        );
+      }
+    }
+  }
+}
+
+/**
  * Render a JSX island component into a DOM element using innerHTML.
  *
  * ## Rendering model (0.1.0)
@@ -45,8 +121,9 @@ function dispatchIslandError(
  * Hono's JSX runtime is string-serialisation-first - it has no DOM reconciler.
  * For 0.1.0, island hydration therefore uses a **full innerHTML replacement**:
  *   1. Call `Component(props)` to get a JSX node.
- *   2. Serialise to an HTML string via `renderToString`.
+ *   2. Serialise to an HTML string via `renderToString` (async).
  *   3. Set `el.innerHTML` once.
+ *   4. Re-attach event handlers by parsing the HTML and matching props.
  *
  * Signal-driven incremental DOM updates are **not automatic** in 0.1.0.
  * Island components that need reactivity must manage DOM mutations directly via
@@ -65,19 +142,21 @@ function dispatchIslandError(
  * @returns A dispose function. Currently a no-op, reserved for future
  *          cleanup of effects registered by the component.
  */
-export function mount<P extends Record<string, unknown>>(
+export async function mount<P extends Record<string, unknown>>(
   Component: FC<P>,
   props: P,
   el: Element,
-): () => void {
+): Promise<() => void> {
   if (!validateProps(props)) {
     const err = new HydrationError("Invalid props: expected a non-null object");
     dispatchIslandError(el, getIslandName(el), err);
     return () => {};
   }
   try {
-    const html = renderToString(Component(props));
+    const html = await renderToString(Component(props));
     el.innerHTML = html;
+    // Re-attach event handlers after innerHTML is set
+    attachEventHandlers(el, props as Record<string, unknown>);
   } catch (err) {
     const error = err instanceof RenderError
       ? new HydrationError(`[sprout] Render error: ${err.message}`, err.reason)
