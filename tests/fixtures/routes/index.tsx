@@ -1,5 +1,7 @@
 import type { PageComponent } from "@ggpwnkthx/sprout";
+import { Island } from "@ggpwnkthx/sprout-islands";
 import LikeButton from "../islands/LikeButton.tsx";
+import InteractiveCounter from "../islands/InteractiveCounter.tsx";
 
 const Home: PageComponent = () => (
   <main>
@@ -8,6 +10,11 @@ const Home: PageComponent = () => (
       Edit <code>routes/index.tsx</code> to get started.
     </p>
     <LikeButton />
+    <Island
+      name="InteractiveCounter"
+      component={InteractiveCounter}
+      props={{}}
+    />
   </main>
 );
 

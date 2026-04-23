@@ -10,7 +10,7 @@ const Layout: LayoutComponent = ({ children }) => (
     </head>
     <body>
       {children}
-      <script type="module" src="/_sprout/hydrate.js" />
+      <script type="module" src="/_sprout/hydrate.js"></script>
     </body>
   </html>
 );
