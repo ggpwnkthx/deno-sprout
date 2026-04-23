@@ -8,7 +8,7 @@
     "build": "deno run --allow-net --allow-read --allow-env --allow-write @ggpwnkthx/sprout/build",
     "init": "deno run -Ar @ggpwnkthx/sprout/init",
     "check": "deno check",
-    "test": "deno test -A packages/router/ packages/jsx/ packages/core/ packages/islands/ packages/static/ packages/build/ packages/dev/ packages/init/ tests/e2e.test.ts",
+    "test": "deno test -A packages/router/ packages/jsx/ packages/core/ packages/islands/ packages/static/ packages/build/ packages/dev/ packages/init/",
     "lint": "deno lint packages/ tests/ examples/",
     "fmt": "deno fmt",
     "ci": "deno task lint && deno task check && deno task test",
@@ -17,7 +17,8 @@
     "dev:api": "deno task --cwd examples/api dev",
     "dev:blog": "deno task --cwd examples/blog dev",
     "dev:islands": "deno task --cwd examples/islands dev",
-    "dev:error-handling": "deno task --cwd examples/error-handling dev"
+    "dev:error-handling": "deno task --cwd examples/error-handling dev",
+    "dev:fixtures": "deno run -A tests/dev-fixtures.ts"
   },
   "imports": {
     "@hono/hono": "jsr:@hono/hono@^4.12.14",

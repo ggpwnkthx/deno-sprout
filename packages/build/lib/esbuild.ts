@@ -101,6 +101,21 @@ export interface TranspileResult {
  * Internal transpile using esbuild npm package via Deno.Command.
  * Runs esbuild in a subprocess with proper cleanup to avoid leak detection.
  */
+/**
+ * Redirect map: JSR package specifier → browser-resolvable dev-server URL.
+ *
+ * When a sprout package is imported in an island bundle, esbuild is told to
+ * redirect it to the matching `/_sprout/*` path so the dev server can handle
+ * it. New packages must be added here to get the same treatment.
+ *
+ * @see jsrRedirectPlugin
+ */
+const JSR_REDIRECTS: Record<string, string> = {
+  "@ggpwnkthx/sprout": "/_sprout/signals.js",
+  "@ggpwnkthx/sprout-islands": "/_sprout/hooks.js",
+  "@ggpwnkthx/sprout-jsx": "/_sprout/signals.js",
+};
+
 async function transpileWithEsbuild(
   source: string,
   options: {
@@ -137,14 +152,20 @@ try {
 ${
     options.bundle && options.resolveDir
       ? `
-  // Inline JSR redirect plugin
+// Inline JSR redirect plugin — generated from JSR_REDIRECTS so new packages
+  // only need an entry in the constant above.
+  // Escapes '/' as '\/' so the regex patterns survive being embedded
+  // in a script string where '/' would otherwise terminate the pattern.
   const jsrRedirectPlugin = {
     name: 'jsr-redirect',
     setup(build) {
-      build.onResolve({ filter: /^@ggpwnkthx\\/sprout$/ }, (args) => ({
-        path: '/_sprout/signals.js',
-        external: true,
-      }));
+${
+        Object.entries(JSR_REDIRECTS).map(([pkg, url]) =>
+          `      build.onResolve({ filter: /^${
+            pkg.replace(/\//g, "\\/")
+          }$/, }, () => ({ path: '${url}', external: true }));`
+        ).join("\n")
+      }
     },
   };
   const result = await esbuild.build({

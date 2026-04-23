@@ -18,6 +18,18 @@ import { generateIslandWrapper } from "@ggpwnkthx/sprout-islands/lib/wrapper-tem
 import type { MiddlewareHandler } from "@hono/hono";
 import { dirname, join } from "@std/path";
 
+/** Valid island name pattern — restricts to safe filename characters only. */
+const ISLAND_NAME_REGEX = /^[a-zA-Z0-9_-]+$/;
+
+/**
+ * Strip the leading ^ and trailing $ anchors from a regex source string.
+ * Used to embed a validated pattern inside a larger RegExp without
+ * creating a nested anchor situation.
+ */
+function stripAnchors(pattern: string): string {
+  return pattern.slice(1, -1);
+}
+
 export interface DevBundlerOptions {
   /** Absolute path to the islands/ directory. */
   islandsDir: string;
@@ -27,9 +39,14 @@ export interface DevBundlerOptions {
   mountPath: string;
   /** Absolute path to the islands/signals.ts file. */
   signalsPath: string;
+  /**
+   * Absolute path to the islands/hooks.ts file.
+   * If omitted, defaults to `signalsPath` with filename replaced by `hooks.ts`.
+   */
+  hooksPath?: string;
 }
 
-// Map from island name, "hydrate", or "mount" → compiled JS text
+// Map from island name, "hydrate", "mount", "signals", "hooks" → compiled JS text
 const cache = new Map<string, string>();
 
 /**
@@ -39,10 +56,32 @@ const cache = new Map<string, string>();
  */
 const islandPathToKey = new Map<string, string>();
 
+/**
+ * Secondary index: island cache key → absolute island file path.
+ * Paired with `islandPathToKey` for O(1) invalidation by island name,
+ * avoiding an O(n) scan of `islandPathToKey` in the fallback path.
+ */
+const keyToIslandPath = new Map<string, string>();
+
+/** Maximum island file size (5 MB) to prevent OOM during dev. */
+const MAX_FILE_SIZE = 5_000_000;
+
+/** Transpile timeout in milliseconds — prevents pathological islands from hanging forever. */
+const TRANSPILE_TIMEOUT_MS = 15_000;
+
 /** Clear the bundler cache. Exported for use in tests. */
 export function clearBundlerCache(): void {
   cache.clear();
   islandPathToKey.clear();
+  keyToIslandPath.clear();
+}
+
+/**
+ * Returns true if `path` ends with any of the given suffixes.
+ * Handles both forward-slash and backslash paths (Windows compatibility).
+ */
+function matchesSuffix(path: string, ...suffixes: string[]): boolean {
+  return suffixes.some((s) => path.endsWith(s));
 }
 
 /**
@@ -50,9 +89,55 @@ export function clearBundlerCache(): void {
  *
  * All error responses from this module conform to this shape.
  */
+export type BundlerErrorCode =
+  | "island_not_found"
+  | "internal_error"
+  | "signals_not_found"
+  | "hooks_not_found"
+  | "file_too_large";
+
 export interface BundlerError {
-  error: string;
+  error: BundlerErrorCode;
   message: string;
+  /** Internal error detail, not exposed to client-facing responses. */
+  reason?: string;
+}
+
+/**
+ * Context interface for transpile responses.
+ * Typed instead of `unknown` so callers get a proper `Response` contract.
+ */
+interface TranspileContext {
+  json(data: Omit<BundlerError, "reason">, status?: number): Response;
+  json(data: BundlerError, status?: number): Response;
+  text(
+    body: string,
+    status?: number,
+    headers?: Record<string, string>,
+  ): Response;
+}
+
+/**
+ * Send a JavaScript response from the cache, or return a 500 if missing.
+ *
+ * @param key - Cache key that must be present in `cache`.
+ * @param c - Hono context.
+ * @param notFoundLabel - Error code if the key is missing.
+ * @param notFoundMessage - Human-readable message if the key is missing.
+ */
+function respondJs(
+  key: string,
+  c: TranspileContext,
+  notFoundLabel: BundlerErrorCode,
+  notFoundMessage: string,
+): Response {
+  const code = cache.get(key);
+  if (code === undefined) {
+    return c.json({ error: notFoundLabel, message: notFoundMessage }, 500);
+  }
+  return c.text(code, 200, {
+    "Content-Type": "application/javascript; charset=utf-8",
+  });
 }
 
 /**
@@ -73,38 +158,75 @@ async function transpileCached(
   key: string,
   filePath: string,
   transpileOpts: { name: string; resolveDir?: string },
-  notFoundLabel: string,
+  notFoundLabel: BundlerErrorCode,
   notFoundMessage: string,
-  c: {
-    json(data: unknown, status?: number): unknown;
-    text(
-      body: string,
-      status?: number,
-      headers?: Record<string, string>,
-    ): unknown;
-  },
+  c: TranspileContext,
 ): Promise<Response | null> {
   const cached = cache.get(key);
   if (cached !== undefined) return null;
 
+  let stat: Deno.FileInfo;
   try {
-    const source = await Deno.readTextFile(filePath);
-    const result = await transpile({ source, ...transpileOpts });
-    cache.set(key, result.code);
-    return null;
+    stat = await Deno.stat(filePath);
   } catch (err) {
     if (err instanceof Deno.errors.NotFound) {
       return c.json(
         { error: notFoundLabel, message: notFoundMessage },
         404,
-      ) as Response;
+      );
     }
+    return c.json(
+      { error: "internal_error", message: "Failed to stat bundle source" },
+      500,
+    );
+  }
+
+  if (!stat.isFile) {
+    return c.json(
+      { error: notFoundLabel, message: notFoundMessage },
+      404,
+    );
+  }
+
+  if (stat.size > MAX_FILE_SIZE) {
+    return c.json(
+      { error: "file_too_large", message: "Island file exceeds size limit" },
+      413,
+    );
+  }
+
+  try {
+    const source = await Deno.readTextFile(filePath);
+    let timeoutId: number | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error("transpile timed out")),
+        TRANSPILE_TIMEOUT_MS,
+      );
+    });
+    try {
+      const result = await Promise.race([
+        transpile({ source, ...transpileOpts }),
+        timeout,
+      ]);
+      cache.set(key, result.code);
+      return null;
+    } finally {
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+    }
+  } catch (err) {
     // Deno.readTextFile throws PermissionDenied, NotCapable, etc.
     // Treat all unexpected errors as internal errors.
+    // Log the error so operators have a trail; the client gets a sanitised body.
+    console.error("[sprout] Island transpile failed:", err);
     return c.json(
-      { error: "internal_error", message: "Failed to load bundle source" },
+      {
+        error: "internal_error",
+        message: "Failed to load bundle source",
+        reason: err instanceof Error ? err.message : String(err),
+      },
       500,
-    ) as Response;
+    );
   }
 }
 
@@ -127,6 +249,10 @@ export function devIslandBundler(options: DevBundlerOptions): {
   /** Call this when a source file changes to bust the cache. */
   invalidate(filePath: string): void;
 } {
+  // Derive hooksPath from signalsPath if not provided
+  const hooksPath = options.hooksPath ??
+    options.signalsPath.replace(/[/\\]signals\.ts$/, "/hooks.ts");
+
   const middleware: MiddlewareHandler = async (c, next) => {
     const path = c.req.path;
 
@@ -141,9 +267,7 @@ export function devIslandBundler(options: DevBundlerOptions): {
         c,
       );
       if (err) return err;
-      return c.text(cache.get("hydrate")!, 200, {
-        "Content-Type": "application/javascript",
-      });
+      return respondJs("hydrate", c, "internal_error", "Hydrate cache missing");
     }
 
     // Handle /_sprout/runtime/mount.js
@@ -157,9 +281,7 @@ export function devIslandBundler(options: DevBundlerOptions): {
         c,
       );
       if (err) return err;
-      return c.text(cache.get("mount")!, 200, {
-        "Content-Type": "application/javascript",
-      });
+      return respondJs("mount", c, "internal_error", "Mount cache missing");
     }
 
     // Handle /_sprout/signals.js
@@ -173,28 +295,49 @@ export function devIslandBundler(options: DevBundlerOptions): {
         c,
       );
       if (err) return err;
-      return c.text(cache.get("signals")!, 200, {
-        "Content-Type": "application/javascript",
-      });
+      return respondJs("signals", c, "internal_error", "Signals cache missing");
+    }
+
+    // Handle /_sprout/hooks.js
+    if (path === "/_sprout/hooks.js") {
+      const err = await transpileCached(
+        "hooks",
+        hooksPath,
+        { name: "hooks", resolveDir: dirname(hooksPath) },
+        "hooks_not_found",
+        "Hooks file not found",
+        c,
+      );
+      if (err) return err;
+      return respondJs("hooks", c, "internal_error", "Hooks cache missing");
     }
 
     // Handle /_sprout/islands/:name.js
     // Only accept island names made of safe characters — no path separators.
     // This prevents semantic misuse (island names should not contain /) and
     // ensures the file path stays within islandsDir.
+    if (c.req.method !== "GET") {
+      await next();
+      return;
+    }
     const islandsMatch = path.match(
-      /^\/_sprout\/islands\/([a-zA-Z0-9_-]+)\.js$/,
+      new RegExp(
+        `^/_sprout/islands/(${stripAnchors(ISLAND_NAME_REGEX.source)}).js$`,
+      ),
     );
     if (islandsMatch) {
       const name = islandsMatch[1];
       const cached = cache.get(name);
       if (cached !== undefined) {
         return c.text(cached, 200, {
-          "Content-Type": "application/javascript",
+          "Content-Type": "application/javascript; charset=utf-8",
         });
       }
 
       const islandPath = join(options.islandsDir, `${name}.tsx`);
+
+      // Fast-path existence check before even attempting transpile.
+      // Eliminates redundant cache-then-stat pattern for non-existent islands.
       let stat: Deno.FileInfo;
       try {
         stat = await Deno.stat(islandPath);
@@ -219,6 +362,15 @@ export function devIslandBundler(options: DevBundlerOptions): {
           404,
         );
       }
+      if (stat.size > MAX_FILE_SIZE) {
+        return c.json(
+          {
+            error: "file_too_large",
+            message: "Island file exceeds size limit",
+          },
+          413,
+        );
+      }
 
       const wrapperSource = generateIslandWrapper(name);
       const result = await transpile({
@@ -230,9 +382,10 @@ export function devIslandBundler(options: DevBundlerOptions): {
       // Register the path→key mapping so invalidate() can find the key
       // from the file path without doing fragile regex extraction.
       islandPathToKey.set(islandPath, name);
+      keyToIslandPath.set(name, islandPath);
       cache.set(name, result.code);
       return c.text(result.code, 200, {
-        "Content-Type": "application/javascript",
+        "Content-Type": "application/javascript; charset=utf-8",
       });
     }
 
@@ -252,48 +405,47 @@ export function devIslandBundler(options: DevBundlerOptions): {
    * - `.../islands/lib/mount.ts`    → invalidates `"mount"`
    * - `.../islands/lib/stringify.ts` → invalidates `"mount"`
    * - `.../islands/signals.ts`      → invalidates `"signals"`
+   * - `.../islands/hooks.ts`        → invalidates `"hooks"`
    *
    * Paths that do not match any cache key are silently ignored.
    */
   function invalidate(filePath: string): void {
-    if (
-      filePath.endsWith("/lib/runtime.ts") ||
-      filePath.endsWith("lib/runtime.ts")
-    ) {
+    if (matchesSuffix(filePath, "/lib/runtime.ts", "lib/runtime.ts")) {
       cache.delete("hydrate");
     } else if (
-      filePath.endsWith("/lib/mount.ts") ||
-      filePath.endsWith("lib/mount.ts") ||
-      filePath.endsWith("/lib/stringify.ts") ||
-      filePath.endsWith("lib/stringify.ts")
+      matchesSuffix(filePath, "/lib/mount.ts", "lib/mount.ts") ||
+      matchesSuffix(filePath, "/lib/stringify.ts", "lib/stringify.ts")
     ) {
       cache.delete("mount");
-    } else if (
-      filePath.endsWith("/signals.ts") ||
-      filePath.endsWith("signals.ts")
-    ) {
+    } else if (matchesSuffix(filePath, "/signals.ts", "signals.ts")) {
       cache.delete("signals");
+    } else if (matchesSuffix(filePath, "/hooks.ts", "hooks.ts")) {
+      cache.delete("hooks");
     } else {
       // Try the reverse index first (exact match for registered island paths).
       const key = islandPathToKey.get(filePath);
       if (key !== undefined) {
         cache.delete(key);
         islandPathToKey.delete(filePath);
+        keyToIslandPath.delete(key);
       } else {
         // Fallback: extract island name via regex.
         // Handles cases where the path was not pre-registered (e.g. HMR
         // fires before the island was ever served, or path differs from registration).
-        const match = filePath.match(/islands\/([^.\\/]+)\.tsx?$/);
+        const match = filePath.match(
+          new RegExp(
+            `islands/(${stripAnchors(ISLAND_NAME_REGEX.source)})\\.tsx?$`,
+          ),
+        );
         if (match) {
           cache.delete(match[1]);
           // Also clean any islandPathToKey entry whose path ends with the
           // matched filename, to prevent the index from accumulating stale entries
           // over long dev sessions.
-          for (const [path, k] of islandPathToKey) {
-            if (k === match[1]) {
-              islandPathToKey.delete(path);
-              break;
-            }
+          const stalePath = keyToIslandPath.get(match[1]);
+          if (stalePath !== undefined) {
+            islandPathToKey.delete(stalePath);
+            keyToIslandPath.delete(match[1]);
           }
         }
       }

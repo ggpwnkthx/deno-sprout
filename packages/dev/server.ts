@@ -19,13 +19,19 @@ import type { MiddlewareHandler } from "@hono/hono";
 // Exported so tests can retrieve the watcher to close it after use.
 export const watcherMap: WeakMap<App, { close: () => void }> = new WeakMap();
 
-// Derive the monorepo root from this file's location.
+// Monorepo root — resolved once at load time from this file's location.
+// This file lives at packages/dev/server.ts so three dirname calls returns
+// the workspace root. Extracted as a constant to make the intent explicit.
 const MONOREPO_ROOT = dirname(
   dirname(dirname(new URL(import.meta.url).pathname)),
 );
 
 export interface DevServerOptions {
-  /** Project root directory. Defaults to `Deno.cwd()`. */
+  /**
+   * Project root directory. Defaults to `Deno.cwd()`.
+   * Must be a readable directory; the server will fail fast with a
+   * descriptive error if the path does not exist or is not accessible.
+   */
   root?: string;
 }
 
@@ -73,6 +79,27 @@ export function hmrInjector(): MiddlewareHandler {
 }
 
 /**
+ * Validate that required runtime files exist at startup rather than
+ * failing with a cryptic error when the first island request arrives.
+ */
+async function validateRuntimePaths(runtimePaths: string[]): Promise<void> {
+  await Promise.all(
+    runtimePaths.map(async (filePath) => {
+      try {
+        await Deno.stat(filePath);
+      } catch {
+        throw new Error(
+          `[sprout-dev] Required runtime file not found: ${filePath}\n` +
+            "This may indicate the monorepo root is miscomputed or the " +
+            "islands package is missing. Run the dev server from the " +
+            "monorepo root.",
+        );
+      }
+    }),
+  );
+}
+
+/**
  * Development server with HMR support.
  *
  * Creates a Hono app configured for a Sprout development workflow:
@@ -105,6 +132,24 @@ export async function createDevServer(
 ): Promise<App> {
   const root = options?.root ?? Deno.cwd();
 
+  // Validate root upfront so broken paths surface immediately with a clear
+  // message rather than producing cryptic failures later in join().
+  try {
+    const rootStat = await Deno.stat(root);
+    if (!rootStat.isDirectory) {
+      throw new Error(
+        `[sprout-dev] root is not a directory: ${root}`,
+      );
+    }
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) {
+      throw new Error(
+        `[sprout-dev] root directory does not exist: ${root}`,
+      );
+    }
+    throw err;
+  }
+
   // Paths
   const islandsDir = join(root, "islands");
   const routesDir = join(root, "routes");
@@ -130,6 +175,17 @@ export async function createDevServer(
     "islands",
     "signals.ts",
   );
+  const hooksPath = join(
+    MONOREPO_ROOT,
+    "packages",
+    "islands",
+    "hooks.ts",
+  );
+
+  // Fail fast if required runtime files are missing — before any routes are
+  // registered or watchers started. This surfaces misconfiguration early
+  // rather than producing cryptic failures on the first island request.
+  await validateRuntimePaths([runtimePath, mountPath, signalsPath, hooksPath]);
 
   // Create App instance
   const app = new App({
@@ -145,6 +201,7 @@ export async function createDevServer(
     runtimePath,
     mountPath,
     signalsPath,
+    hooksPath,
   });
 
   // Register island bundler before init so /_sprout/islands/*.js is handled
@@ -152,6 +209,7 @@ export async function createDevServer(
   app.use("/_sprout/hydrate.js", islandBundler as MiddlewareHandler);
   app.use("/_sprout/runtime/mount.js", islandBundler as MiddlewareHandler);
   app.use("/_sprout/signals.js", islandBundler as MiddlewareHandler);
+  app.use("/_sprout/hooks.js", islandBundler as MiddlewareHandler);
 
   // Create HMR handler
   const { handler: wsHandler, broadcast } = createHmrHandler();
@@ -174,13 +232,15 @@ export async function createDevServer(
 
   // Start file watcher
   const watcher = watchFiles([routesDir, islandsDir, staticDir], (event) => {
-    // Invalidate cache for island changes and reload events.
     // CSS changes do not require cache invalidation.
-    if (event.type !== "css-update") {
+    if (event.type === "css-update") {
+      // no-op
+    } else if (event.path.startsWith(staticDir)) {
+      // Static assets are not cached by the island bundler; skip invalidate.
+    } else {
       invalidate(event.path);
     }
-
-    // Broadcast to all connected WebSocket clients
+    // Always broadcast so HMR can still reload the page if needed
     broadcast(event);
   });
 
