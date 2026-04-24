@@ -40,11 +40,11 @@ export {
 } from "./wait_hydration.ts";
 export { startServer, stopServer } from "./server.ts";
 export { withBrowserPage } from "./browser.ts";
+export type { WithBrowserPageOptions } from "./browser.ts";
 export type {
   BasicPageSnapshot,
   BrowserInstance,
   BrowserIslandError,
-  BrowserPageOptions,
   BrowserRuntimeDiagnostics,
   CaptureResult,
   ConsoleMessage,

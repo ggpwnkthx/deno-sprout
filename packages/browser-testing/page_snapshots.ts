@@ -9,6 +9,7 @@ import type {
 import {
   BODY_TEXT_PREVIEW_LENGTH,
   RESOURCE_PREVIEW_LIMIT,
+  SCRIPT_PREVIEW_LIMIT,
 } from "./constants.ts";
 
 export async function readBasicPageSnapshot(
@@ -25,20 +26,29 @@ export async function readBasicPageSnapshot(
   );
 }
 
-export async function readIslandSnapshot(page: Page): Promise<IslandSnapshot> {
-  return await page.evaluate(() => {
-    const islands = Array.from(document.querySelectorAll("[data-island]"))
-      .map((el) => ({
-        name: el.getAttribute("data-island") ?? "unknown",
-        hydrated: el.getAttribute("data-hydrated") ?? null,
-        outerHtml: el.outerHTML,
-      }));
+const MAX_ISLAND_COUNT = 50;
+const MAX_OUTERHTML_LENGTH = 5000;
 
-    return {
-      islandCount: islands.length,
-      islands,
-    };
-  });
+export async function readIslandSnapshot(page: Page): Promise<IslandSnapshot> {
+  return await page.evaluate(
+    (maxIslandCount: number, maxOuterHtmlLength: number) => {
+      const islands = Array.from(document.querySelectorAll("[data-island]"))
+        .slice(0, maxIslandCount)
+        .map((el) => ({
+          name: el.getAttribute("data-island") ?? "unknown",
+          hydrated: el.getAttribute("data-hydrated") ?? null,
+          outerHtml: el.outerHTML.length > maxOuterHtmlLength
+            ? el.outerHTML.slice(0, maxOuterHtmlLength) + "…[truncated]"
+            : el.outerHTML,
+        }));
+
+      return {
+        islandCount: document.querySelectorAll("[data-island]").length,
+        islands,
+      };
+    },
+    { args: [MAX_ISLAND_COUNT, MAX_OUTERHTML_LENGTH] },
+  );
 }
 
 export async function readNetworkStats(
@@ -66,7 +76,6 @@ export async function readNetworkStats(
 export async function readModuleScripts(
   page: Page,
 ): Promise<readonly string[]> {
-  const SCRIPT_PREVIEW_LIMIT = 12;
   return await page.evaluate(
     (limit: number) =>
       Array.from(document.querySelectorAll("script"))
