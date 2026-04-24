@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "@ggpwnkthx/sprout-jsx",
+    "lib": [
+      "deno.ns",
+      "dom"
+    ]
+  }
+}

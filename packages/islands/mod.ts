@@ -11,3 +11,5 @@ export { generateIslandWrapper } from "./lib/wrapper-template.ts";
 export { mount } from "./lib/mount.ts";
 export { HydrationError, IslandErrorEvent } from "./lib/stringify.ts";
 export type { IslandErrorDetail } from "./lib/stringify.ts";
+/** Attribute name set on an island element after client-side hydration completes. */
+export const HYDRATED_ATTR = "data-hydrated";

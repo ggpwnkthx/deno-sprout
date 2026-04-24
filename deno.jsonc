@@ -1,7 +1,8 @@
 {
   "workspace": [
     "packages/*",
-    "examples/**"
+    "examples/**",
+    "tests/**"
   ],
   "tasks": {
     "dev": "deno run --allow-net --allow-read --allow-env --allow-write @ggpwnkthx/sprout/dev",
@@ -12,7 +13,7 @@
     "lint": "deno lint packages/ tests/ examples/",
     "fmt": "deno fmt",
     "ci": "deno task lint && deno task check && deno task test",
-    "browser:e2e": "deno test -A tests/browser.e2e.ts",
+    "browser:e2e": "deno test -A tests/browser/",
     "dev:minimal": "deno task --cwd examples/minimal dev",
     "dev:api": "deno task --cwd examples/api dev",
     "dev:blog": "deno task --cwd examples/blog dev",

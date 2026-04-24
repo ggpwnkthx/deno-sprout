@@ -16,6 +16,7 @@
 import type { FC } from "@hono/hono/jsx";
 import {
   getIslandName,
+  HYDRATED_ATTR,
   HydrationError,
   IslandErrorEvent,
   RenderError,
@@ -167,6 +168,10 @@ export async function mount<P extends Record<string, unknown>>(
         err,
       );
     dispatchIslandError(el, getIslandName(el), error);
+  } finally {
+    // Always mark the island as hydrated (even on error) so browser tests
+    // can wait for this signal and detect the failure separately
+    el.setAttribute(HYDRATED_ATTR, "true");
   }
   return () => {}; // TODO(v0.2.0): implement real dispose with effect cleanup
 }

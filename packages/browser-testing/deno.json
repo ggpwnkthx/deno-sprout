@@ -1,0 +1,35 @@
+{
+  "name": "@ggpwnkthx/sprout-browser-testing",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./browser": "./browser.ts",
+    "./server": "./server.ts",
+    "./types": "./types.ts",
+    "./page-interactions": "./page_interactions.ts",
+    "./wait-hydration": "./wait_hydration.ts",
+    "./failure-collection": "./failure_collection.ts",
+    "./page-snapshots": "./page_snapshots.ts",
+    "./error": "./error.ts",
+    "./close": "./close.ts",
+    "./browser-instrumentation": "./browser_instrumentation.ts",
+    "./constants": "./constants.ts",
+    "./selectors": "./selectors.ts"
+  },
+  "imports": {
+    "@astral/astral": "jsr:@astral/astral@^0.5.6",
+    "@ggpwnkthx/sprout-dev": "jsr:@ggpwnkthx/sprout-dev@^0.1",
+    "@std/assert": "jsr:@std/assert@^1"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "lib": [
+      "deno.ns",
+      "dom"
+    ]
+  },
+  "publish": {
+    "scope": "@ggpwnkthx",
+    "registry": "https://jsr.io"
+  }
+}

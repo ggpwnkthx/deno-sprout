@@ -79,6 +79,9 @@ export function getIslandName(el: Element): string {
   return el.getAttribute("data-island") ?? "unknown";
 }
 
+/** Attribute name set on an island element after client-side hydration completes. */
+export const HYDRATED_ATTR = "data-hydrated";
+
 /**
  * Renders a JSX component to its HTML string representation.
  *
