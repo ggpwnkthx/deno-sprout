@@ -1,6 +1,6 @@
 ---
 name: deno-release-checklist
-description: Run a Deno-focused pre-merge or pre-release checklist covering formatting, linting, type checks, tests, permissions, dependency hygiene, and operator notes.
+description: Run a Deno-focused pre-merge or pre-release checklist covering formatting, linting, type checks, tests, permissions, dependencies, and operator notes.
 license: MIT
 compatibility: opencode
 metadata:
@@ -9,55 +9,30 @@ metadata:
   category: workflow
 ---
 
-## What I do
+## Verification
 
-I provide a **repeatable release and pre-merge checklist** for Deno
-repositories.
+- `deno fmt --check`
+- `deno lint`
+- `deno check`
+- smallest useful test set
+- broader tests when risk is high
 
-## When to use me
+## Dependency sanity
 
-Use me when:
+- new imports justified
+- pinned external imports
+- no accidental Node/npm workflow drift
+- permission impact understood
 
-- preparing a PR for merge
-- cutting a release
-- validating a risky refactor
-- auditing whether a change is operationally ready
+## Operational review
 
-## Checklist
-
-### Verification
-
-- run `deno fmt --check`
-- run `deno lint`
-- run `deno check`
-- run the smallest useful test set first
-- expand to broader tests when risk is high
-
-### Dependency sanity
-
-- confirm new imports are justified
-- prefer pinned `jsr:` dependencies
-- confirm no accidental Node/npm workflow drift
-
-### Permission review
-
-- note whether the change requires:
-  - `--allow-read`
-  - `--allow-write`
-  - `--allow-env`
-  - `--allow-net`
-  - `--allow-run`
-- check whether permissions can be narrowed
-
-### Operational review
-
-- config and env changes documented
-- any new files or directories created intentionally
-- error messages and logs remain useful
+- config/env documented
+- new files/directories intentional
+- errors/logs actionable
 - large-input behavior considered
-- tests cover the most failure-prone paths
+- tests cover risky failure modes
 
-## Output format
+## Output
 
 ### Release readiness
 
@@ -65,22 +40,8 @@ Use me when:
 
 ### Checks run
 
-- bullets
-
 ### Risks to resolve
-
-- bullets
 
 ### Permission notes
 
-- bullets
-
 ### Merge or release recommendation
-
-- 1 short paragraph
-
-## Style rules
-
-- Prefer concrete evidence over generic reassurance.
-- State clearly which checks were not run.
-- Highlight the smallest set of work needed to get to ready.

@@ -5,11 +5,13 @@ import {
   buildProjectReviewPrompt,
   isReviewableFile,
   selectProjectContextFiles,
+  suggestReviewAgents,
 } from "../lib/project.ts";
 import { normalizePath } from "../lib/path.ts";
 
 const MAX_CONTEXT_FILES = 8;
 const MAX_RECENT_FILES = 25;
+const MIN_FILES_FOR_IDLE_REVIEW = 4;
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -19,6 +21,8 @@ export const ReviewPromptPlugin: Plugin = async (
   let changed = false;
   let running = false;
   let recentlyEditedPaths: string[] = [];
+
+  const autoSubmit = process.env.OPENCODE_AUTO_SUBMIT_REVIEW === "1";
 
   const log = async (
     level: LogLevel,
@@ -35,7 +39,7 @@ export const ReviewPromptPlugin: Plugin = async (
     });
   };
 
-  const runReview = async () => {
+  const maybePrepareReview = async () => {
     if (running) return;
     running = true;
 
@@ -43,6 +47,13 @@ export const ReviewPromptPlugin: Plugin = async (
       const changedFiles = await collectChangedFiles({ worktree, directory });
       if (changedFiles.length === 0) {
         await log("debug", "No changed files found for review");
+        return;
+      }
+
+      if (!shouldPrepareIdleReview(changedFiles)) {
+        await log("debug", "Changed files did not meet idle review threshold", {
+          changedFilesCount: changedFiles.length,
+        });
         return;
       }
 
@@ -55,25 +66,22 @@ export const ReviewPromptPlugin: Plugin = async (
       const prompt = buildProjectReviewPrompt(changedFiles, reviewFiles);
 
       await client.tui.appendPrompt({
-        body: {
-          text: prompt,
-        },
+        body: { text: prompt },
       });
 
-      await client.tui.submitPrompt();
+      if (autoSubmit) {
+        await client.tui.submitPrompt();
+      }
 
-      await log("info", "Submitted project-level review prompt", {
+      await log("info", autoSubmit ? "Submitted risk-triggered review prompt" : "Prepared risk-triggered review prompt", {
         changedFilesCount: changedFiles.length,
         reviewFiles,
-        omittedFiles: changedFiles.filter((file) =>
-          !reviewFiles.includes(file)
-        ),
+        autoSubmit,
       });
 
-      changed = false;
       recentlyEditedPaths = [];
     } catch (error) {
-      await log("error", "Failed to submit project-level review prompt", {
+      await log("error", "Failed to prepare project-level review prompt", {
         error: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -97,11 +105,17 @@ export const ReviewPromptPlugin: Plugin = async (
       }
 
       if (event.type === "session.idle" && changed) {
-        await runReview();
+        changed = false;
+        await maybePrepareReview();
       }
     },
   };
 };
+
+function shouldPrepareIdleReview(changedFiles: readonly string[]): boolean {
+  if (changedFiles.length >= MIN_FILES_FOR_IDLE_REVIEW) return true;
+  return suggestReviewAgents(changedFiles).length >= 3;
+}
 
 function extractEditedPath(event: unknown): string | null {
   if (!event || typeof event !== "object") return null;

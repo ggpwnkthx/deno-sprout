@@ -1,6 +1,6 @@
 import { tool } from "@opencode-ai/plugin";
 
-import { clipText, runCommand } from "../lib/command.ts";
+import { commandReport, runCommand } from "../lib/runtime.ts";
 
 export default tool({
   description:
@@ -22,32 +22,19 @@ export default tool({
     }
 
     const command = ["deno", "cache"];
-    if (args.reload) {
-      command.push("--reload");
-    }
+    if (args.reload) command.push("--reload");
     command.push(...args.targets);
 
     const result = await runCommand(context, command, {
       cwd: context.worktree,
     });
 
-    return [
-      `Exit code: ${result.exitCode}`,
-      "",
-      "### Command",
-      command.join(" "),
-      "",
-      "### Stdout",
-      clipText(result.stdout, 12_000) || "(empty)",
-      "",
-      "### Stderr",
-      clipText(result.stderr, 12_000) || "(empty)",
-    ].join("\n");
+    return commandReport(result);
   },
 });
 
 function validateTarget(target: string): void {
-  if (target.includes("\n") || target.includes("\r")) {
-    throw new Error("targets may not contain newlines");
+  if (/[\r\n\0]/.test(target)) {
+    throw new Error("targets may not contain control characters");
   }
 }

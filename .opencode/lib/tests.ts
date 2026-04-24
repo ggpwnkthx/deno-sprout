@@ -1,9 +1,20 @@
 import { readdir } from "node:fs/promises";
 import { join as joinFsPath } from "node:path";
 
-import { clipText, runCommand, type WorktreeContext } from "./command.ts";
-import { basename, dirname, joinPath, normalizePath } from "./path.ts";
-import { candidateRelatedTestPaths, isTestFile } from "./project.ts";
+import { collectChangedFiles } from "./git.ts";
+import { commandReport, runCommand, type RuntimeContext } from "./runtime.ts";
+import {
+  basename,
+  dirname,
+  joinPath,
+  normalizePath,
+  resolveInside,
+} from "./path.ts";
+import {
+  candidateRelatedTestPaths,
+  isIgnoredPath,
+  isTestFile,
+} from "./project.ts";
 
 const TEST_GLOB_SUFFIXES = [
   "test.ts",
@@ -24,19 +35,32 @@ const TEST_GLOB_SUFFIXES = [
   "spec.cjs",
 ] as const;
 
+const IGNORED_DIR_NAMES = new Set([
+  ".git",
+  ".cache",
+  "node_modules",
+  "dist",
+  "build",
+  "coverage",
+  ".turbo",
+  ".next",
+  ".svelte-kit",
+  "vendor",
+  ".opencode",
+]);
+
 export interface RelatedTestSelection {
   readonly changedFiles: readonly string[];
   readonly relatedTests: readonly string[];
+  readonly reason: string;
 }
 
 export async function scanTestFiles(
-  context: WorktreeContext,
+  context: RuntimeContext,
   maxFiles = 20_000,
 ): Promise<string[]> {
   const found = new Set<string>();
-
   await walkDirectory(context.worktree, "", found, maxFiles);
-
   return [...found].sort((a, b) => a.localeCompare(b));
 }
 
@@ -49,7 +73,12 @@ async function walkDirectory(
   if (found.size >= maxFiles) return;
 
   const absoluteDir = relativeDir ? joinFsPath(root, relativeDir) : root;
-  const entries = await readdir(absoluteDir, { withFileTypes: true });
+  let entries;
+  try {
+    entries = await readdir(absoluteDir, { withFileTypes: true });
+  } catch {
+    return;
+  }
 
   for (const entry of entries) {
     const relativePath = relativeDir
@@ -57,18 +86,18 @@ async function walkDirectory(
       : normalizePath(entry.name);
 
     if (entry.isDirectory()) {
+      if (IGNORED_DIR_NAMES.has(entry.name) || isIgnoredPath(relativePath)) {
+        continue;
+      }
+
       await walkDirectory(root, relativePath, found, maxFiles);
       if (found.size >= maxFiles) return;
       continue;
     }
 
-    if (!entry.isFile()) {
-      continue;
-    }
+    if (!entry.isFile()) continue;
 
-    if (
-      TEST_GLOB_SUFFIXES.some((suffix) => relativePath.endsWith(`.${suffix}`))
-    ) {
+    if (TEST_GLOB_SUFFIXES.some((suffix) => relativePath.endsWith(`.${suffix}`))) {
       found.add(relativePath);
       if (found.size >= maxFiles) return;
     }
@@ -86,23 +115,22 @@ export function chooseRelatedTests(
   for (const changed of changedFiles) {
     const normalized = normalizePath(changed);
     if (isTestFile(normalized)) {
-      direct.add(normalized);
+      if (testIndex.has(normalized) || allTests.length === 0) {
+        direct.add(normalized);
+      }
       continue;
     }
 
     for (const candidate of candidateRelatedTestPaths(normalized)) {
-      if (testIndex.has(candidate)) {
-        direct.add(candidate);
-      }
+      if (testIndex.has(candidate)) direct.add(candidate);
     }
   }
 
   if (direct.size >= maxFiles) {
     return {
       changedFiles,
-      relatedTests: [...direct].slice(0, maxFiles).sort((a, b) =>
-        a.localeCompare(b)
-      ),
+      relatedTests: [...direct].sort((a, b) => a.localeCompare(b)).slice(0, maxFiles),
+      reason: "selected direct test filename matches for changed files",
     };
   }
 
@@ -124,6 +152,9 @@ export function chooseRelatedTests(
   return {
     changedFiles,
     relatedTests: [...selected].sort((a, b) => a.localeCompare(b)),
+    reason: direct.size > 0
+      ? "selected direct matches plus nearby/name-ranked tests"
+      : "selected nearby/name-ranked tests; no direct test filename match found",
   };
 }
 
@@ -145,48 +176,41 @@ function scoreTestFile(
       continue;
     }
 
-    if (dirname(normalizedChanged) === testDir) {
-      score += 25;
-    }
+    if (dirname(normalizedChanged) === testDir) score += 25;
 
     const changedBase = basename(normalizedChanged).replace(/\.[^.]+$/, "");
-    if (testName.includes(changedBase)) {
-      score += 30;
-    }
+    if (changedBase.length >= 3 && testName.includes(changedBase)) score += 30;
 
     const changedDir = dirname(normalizedChanged);
-    if (testDir.endsWith(changedDir) || changedDir.endsWith(testDir)) {
-      score += 12;
-    }
+    if (testDir.endsWith(changedDir) || changedDir.endsWith(testDir)) score += 12;
   }
 
   return score;
 }
 
+export async function selectChangedTests(
+  context: RuntimeContext,
+  maxFiles = 12,
+): Promise<RelatedTestSelection> {
+  const changedFiles = await collectChangedFiles(context);
+  const allTests = await scanTestFiles(context);
+  return chooseRelatedTests(changedFiles, allTests, maxFiles);
+}
+
 export async function runSelectedTests(
-  context: WorktreeContext,
+  context: RuntimeContext,
   testFiles: readonly string[],
+  options: { allowAll?: boolean; cwd?: string } = {},
 ): Promise<string> {
   if (testFiles.length === 0) {
     return "No related test files were found.";
   }
 
-  const result = await runCommand(context, ["deno", "test", ...testFiles], {
-    cwd: context.worktree,
-  });
+  const cwd = options.cwd ? resolveInside(context.worktree, options.cwd) : context.worktree;
+  const command = options.allowAll
+    ? ["deno", "test", "-A", ...testFiles]
+    : ["deno", "test", ...testFiles];
 
-  const sections = [
-    `Exit code: ${result.exitCode}`,
-    "",
-    "### Command",
-    `deno test -A ${testFiles.join(" ")}`,
-    "",
-    "### Stdout",
-    clipText(result.stdout, 12_000) || "(empty)",
-    "",
-    "### Stderr",
-    clipText(result.stderr, 12_000) || "(empty)",
-  ];
-
-  return sections.join("\n");
+  const result = await runCommand(context, command, { cwd });
+  return commandReport(result, 12_000);
 }

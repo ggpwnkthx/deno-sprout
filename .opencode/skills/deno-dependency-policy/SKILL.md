@@ -1,6 +1,6 @@
 ---
 name: deno-dependency-policy
-description: Enforce Deno dependency conventions such as preferring pinned jsr imports, avoiding Node-only APIs, and minimizing dependency weight.
+description: Enforce Deno-first dependency conventions: prefer built-ins, pinned jsr imports, minimal dependency weight, and avoid accidental Node/npm drift.
 license: MIT
 compatibility: opencode
 metadata:
@@ -9,52 +9,17 @@ metadata:
   category: policy
 ---
 
-## What I do
-
-I help enforce **dependency and import policy** for a Deno project.
-
-I focus on:
-
-- preferring `jsr:` packages
-- pinning package versions
-- avoiding `https://deno.land/...` imports unless explicitly approved
-- avoiding Node compatibility APIs unless the project requires them
-- keeping dependencies minimal and justified
-
-## When to use me
-
-Use me when:
-
-- adding a new dependency
-- reviewing imports in a PR
-- migrating from Node or Bun scripts to Deno
-- checking whether an external package is necessary
-- standardizing the repo's dependency policy
-
 ## Rules
 
-1. Prefer built-ins before third-party packages.
-2. Prefer small focused `jsr:` packages over large general-purpose dependencies.
-3. Pin versions for external imports.
-4. Avoid Node-only APIs in app code unless the repo has explicitly chosen Node
-   compatibility.
-5. Avoid mixing multiple styles of dependency sourcing without a clear reason.
-6. Flag imports that make permissions broader than necessary.
-7. Flag packages that duplicate a Deno standard capability or built-in Web API.
+1. Prefer Deno and Web built-ins before third-party packages.
+2. Prefer small focused `jsr:` packages.
+3. Pin external package versions.
+4. Avoid Node-only APIs in target-repo app code unless the repo explicitly chose Node compatibility.
+5. Avoid mixing dependency sources without a clear reason.
+6. Flag dependencies that widen permissions.
+7. Reject dependencies that duplicate simple local code.
 
-## Review checklist
-
-For each new dependency or import:
-
-- What problem does it solve?
-- Can Deno built-ins solve it instead?
-- Is the source `jsr:` and version-pinned?
-- Does it introduce Node assumptions?
-- Does it expand runtime permissions?
-- Does it add heavy transitive surface area?
-- Is the import location appropriate for the layer that uses it?
-
-## Output format
+## Output
 
 ### Dependency decisions
 
@@ -71,9 +36,3 @@ For each new dependency or import:
 ### Recommended edits
 
 - short actionable list
-
-## Style rules
-
-- Be conservative about new dependencies.
-- Prefer explicit reasoning over blanket rules.
-- If a non-`jsr:` import is acceptable, explain why.

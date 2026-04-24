@@ -1,18 +1,29 @@
 import type { Plugin } from "@opencode-ai/plugin";
 
-import { clipText, formatCommand, runCommand } from "../lib/command.ts";
+import {
+  commandReport,
+  formatCommand,
+  runCommand,
+} from "../lib/runtime.ts";
 import { collectChangedFiles } from "../lib/git.ts";
-import { isTestFile } from "../lib/project.ts";
+import {
+  chooseRelatedTests,
+  runSelectedTests,
+  scanTestFiles,
+} from "../lib/tests.ts";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
-interface StepResult {
-  readonly name: string;
+interface StepSummary {
   readonly command: readonly string[];
   readonly exitCode: number;
-  readonly stdout: string;
-  readonly stderr: string;
 }
+
+const CHECK_COMMANDS = [
+  ["deno", "fmt", "--check"],
+  ["deno", "lint"],
+  ["deno", "check"],
+] as const;
 
 export const SessionChecksPlugin: Plugin = async (
   { client, directory, worktree },
@@ -40,67 +51,76 @@ export const SessionChecksPlugin: Plugin = async (
     running = true;
 
     try {
-      const changedFiles = await collectChangedFiles({ worktree, directory });
+      const context = { directory, worktree };
+      const changedFiles = await collectChangedFiles(context);
 
       if (changedFiles.length === 0) {
         await log("debug", "No changed files found; skipping session checks");
         return;
       }
 
-      const commands: string[][] = [
-        ["deno", "fmt", "--check"],
-        ["deno", "lint"],
-        ["deno", "check"],
-      ];
-
-      if (changedFiles.some((file) => isTestFile(file))) {
-        commands.push(["deno", "test"]);
-      }
-
-      const results: StepResult[] = [];
+      const reports: string[] = [];
+      const summaries: StepSummary[] = [];
       let failed = false;
 
-      for (const command of commands) {
-        const result = await runCommand({ directory, worktree }, command, {
-          cwd: worktree,
-        });
-        results.push({
-          name: command.slice(0, 2).join(" "),
-          command,
-          exitCode: result.exitCode,
-          stdout: result.stdout,
-          stderr: result.stderr,
-        });
-
-        if (result.exitCode !== 0) {
-          failed = true;
-        }
+      for (const command of CHECK_COMMANDS) {
+        const result = await runCommand(context, command, { cwd: worktree });
+        summaries.push({ command, exitCode: result.exitCode });
+        if (result.exitCode !== 0) failed = true;
+        reports.push(`## ${formatCommand(command)}\n\n${commandReport(result, 4_000)}`);
       }
+
+      const allTests = await scanTestFiles(context);
+      const selection = chooseRelatedTests(changedFiles, allTests, 12);
+      let testReport = [
+        "## Related test selection",
+        "",
+        `Changed files: ${selection.changedFiles.length}`,
+        `Indexed tests: ${allTests.length}`,
+        `Selected tests: ${selection.relatedTests.length}`,
+        `Reason: ${selection.reason}`,
+        "",
+        selection.relatedTests.length > 0
+          ? selection.relatedTests.map((file) => `- ${file}`).join("\n")
+          : "- No related tests found.",
+      ].join("\n");
+
+      if (selection.relatedTests.length > 0) {
+        const resultText = await runSelectedTests(context, selection.relatedTests, {
+          allowAll: false,
+        });
+        testReport += `\n\n## deno test related files\n\n${resultText}`;
+        if (/^Exit code:\s*[1-9]/m.test(resultText)) failed = true;
+      }
+
+      reports.push(testReport);
 
       if (!failed) {
         await log("info", "Deno session checks passed", {
           changedFilesCount: changedFiles.length,
-          commands: results.map((result) => formatCommand(result.command)),
+          checks: summaries.map((item) => ({
+            command: formatCommand(item.command),
+            exitCode: item.exitCode,
+          })),
+          selectedTests: selection.relatedTests,
         });
         return;
       }
 
-      const summary = buildFailurePrompt(results);
       await client.tui.appendPrompt({
         body: {
-          text: summary,
+          text: buildFailurePrompt(reports),
         },
       });
       await client.tui.submitPrompt();
 
       await log("error", "Deno session checks failed", {
         changedFilesCount: changedFiles.length,
-        failures: results.filter((item) => item.exitCode !== 0).map((item) => ({
+        checks: summaries.map((item) => ({
           command: formatCommand(item.command),
           exitCode: item.exitCode,
-          stdout: clipText(item.stdout, 4_000),
-          stderr: clipText(item.stderr, 4_000),
         })),
+        selectedTests: selection.relatedTests,
       });
     } catch (error) {
       await log("error", "Failed to execute Deno session checks", {
@@ -125,32 +145,20 @@ export const SessionChecksPlugin: Plugin = async (
   };
 };
 
-function buildFailurePrompt(results: readonly StepResult[]): string {
-  const failedSteps = results.filter((result) => result.exitCode !== 0);
-
+function buildFailurePrompt(reports: readonly string[]): string {
   return [
     "The automated Deno checks failed after the latest edits.",
-    "Prefer routing verification triage through @deno-release-manager, and pull in @deno-reviewer when the failures imply deeper structural or typing issues.",
     "",
-    "Fix the underlying issues before making more changes.",
+    "Route verification triage through @deno-release-manager. Pull in @deno-test-strategist if the failure implies missing or unclear test proof.",
     "",
-    "## Failed checks",
-    ...failedSteps.flatMap((result) => [
-      `### ${formatCommand(result.command)}`,
-      `- Exit code: ${result.exitCode}`,
-      "- Stdout:",
-      "```text",
-      clipText(result.stdout, 4_000) || "(empty)",
-      "```",
-      "- Stderr:",
-      "```text",
-      clipText(result.stderr, 4_000) || "(empty)",
-      "```",
-      "",
-    ]),
+    "Fix the smallest root cause before making unrelated changes.",
+    "",
+    ...reports,
+    "",
     "## Instructions",
     "- Prefer minimal, root-cause fixes.",
-    "- Keep the project Deno-first.",
+    "- Keep the target repository Deno-first.",
     "- Do not add Node/npm workarounds.",
+    "- Do not claim checks passed until they actually pass.",
   ].join("\n");
 }

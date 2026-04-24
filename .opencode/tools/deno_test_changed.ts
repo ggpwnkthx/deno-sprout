@@ -1,10 +1,8 @@
 import { tool } from "@opencode-ai/plugin";
 
-import { collectChangedFiles } from "../lib/git.ts";
 import {
-  chooseRelatedTests,
   runSelectedTests,
-  scanTestFiles,
+  selectChangedTests,
 } from "../lib/tests.ts";
 
 export default tool({
@@ -22,17 +20,19 @@ export default tool({
       .boolean()
       .default(false)
       .describe("Run the selected tests with deno test"),
+    allowAll: tool.schema
+      .boolean()
+      .default(false)
+      .describe("Pass -A to deno test when the selected tests need full permissions"),
   },
   async execute(args, context) {
-    const changedFiles = await collectChangedFiles(context);
-    const allTests = await scanTestFiles(context);
-    const selection = chooseRelatedTests(changedFiles, allTests, args.maxFiles);
+    const selection = await selectChangedTests(context, args.maxFiles);
 
     if (!args.run) {
       return [
         `Changed files: ${selection.changedFiles.length}`,
-        `Indexed tests: ${allTests.length}`,
         `Selected related tests: ${selection.relatedTests.length}`,
+        `Reason: ${selection.reason}`,
         "",
         "### Related tests",
         selection.relatedTests.length > 0
@@ -41,6 +41,8 @@ export default tool({
       ].join("\n");
     }
 
-    return runSelectedTests(context, selection.relatedTests);
+    return runSelectedTests(context, selection.relatedTests, {
+      allowAll: args.allowAll,
+    });
   },
 });

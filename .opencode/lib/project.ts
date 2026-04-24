@@ -6,7 +6,22 @@ import {
   normalizePath,
   stripExtension,
 } from "./path.ts";
-import { formatAgentMention, suggestReviewAgents } from "./agents.ts";
+
+export interface AgentSuggestion {
+  readonly name: string;
+  readonly reason: string;
+}
+
+export const AGENT_NAMES = {
+  lead: "deno-lead",
+  implementer: "deno-implementer",
+  criticalReviewer: "deno-critical-reviewer",
+  architectureReviewer: "deno-architecture-reviewer",
+  httpAuditor: "deno-http-auditor",
+  performanceAuditor: "deno-performance-auditor",
+  testStrategist: "deno-test-strategist",
+  releaseManager: "deno-release-manager",
+} as const;
 
 const REVIEWABLE_EXTENSIONS = new Set([
   ".ts",
@@ -26,6 +41,12 @@ const REVIEWABLE_EXTENSIONS = new Set([
   ".php",
   ".rb",
   ".cs",
+  ".json",
+  ".jsonc",
+  ".toml",
+  ".yaml",
+  ".yml",
+  ".md",
 ]);
 
 const REVIEWABLE_FILENAMES = new Set([
@@ -38,9 +59,10 @@ const REVIEWABLE_FILENAMES = new Set([
   "bun.lockb",
   "tsconfig.json",
   "README.md",
+  "Dockerfile",
 ]);
 
-const TEST_SUFFIXES = [
+export const TEST_SUFFIXES = [
   ".test.ts",
   ".test.tsx",
   ".test.js",
@@ -61,223 +83,35 @@ const TEST_SUFFIXES = [
 
 const IGNORED_PREFIXES = [
   ".git/",
-  ".opencode/",
+  ".opencode/.cache/",
   "node_modules/",
   "dist/",
   "build/",
   "coverage/",
   ".turbo/",
+  ".next/",
+  ".svelte-kit/",
+  "vendor/",
 ] as const;
 
-const IGNORED_SEGMENTS = [
-  "/.git/",
-  "/.opencode/",
-  "/node_modules/",
-  "/dist/",
-  "/build/",
-  "/coverage/",
-  "/.turbo/",
-] as const;
+const IGNORED_SEGMENTS = IGNORED_PREFIXES.map((prefix) => `/${prefix}`);
+
+export function isIgnoredPath(path: string): boolean {
+  const normalized = normalizePath(path).replace(/^\.\//, "");
+  return IGNORED_PREFIXES.some((prefix) => normalized.startsWith(prefix)) ||
+    IGNORED_SEGMENTS.some((segment) => normalized.includes(segment));
+}
 
 export function isReviewableFile(path: string): boolean {
   const normalized = normalizePath(path);
-
-  if (IGNORED_PREFIXES.some((prefix) => normalized.startsWith(prefix))) {
-    return false;
-  }
-
-  if (IGNORED_SEGMENTS.some((segment) => normalized.includes(segment))) {
-    return false;
-  }
-
-  if (REVIEWABLE_FILENAMES.has(basename(normalized))) {
-    return true;
-  }
-
+  if (isIgnoredPath(normalized)) return false;
+  if (REVIEWABLE_FILENAMES.has(basename(normalized))) return true;
   return REVIEWABLE_EXTENSIONS.has(extname(normalized));
 }
 
 export function isTestFile(path: string): boolean {
   const normalized = normalizePath(path);
   return TEST_SUFFIXES.some((suffix) => normalized.endsWith(suffix));
-}
-
-export function getDirectoryBucket(path: string): string {
-  const normalized = normalizePath(path);
-  const parts = normalized.split("/");
-
-  if (parts.length <= 2) return normalized;
-  return parts.slice(0, 2).join("/");
-}
-
-export function scoreProjectFile(
-  file: string,
-  recentlyEditedPaths: readonly string[],
-): number {
-  const normalized = normalizePath(file);
-  const parts = normalized.split("/");
-  const fileName = parts[parts.length - 1] ?? normalized;
-  const depth = parts.length;
-  const recentIndex = recentlyEditedPaths.lastIndexOf(normalized);
-
-  let score = 0;
-
-  if (recentIndex >= 0) {
-    score += 20 + recentIndex;
-  }
-
-  if (depth <= 2) {
-    score += 8;
-  }
-
-  if (/\/(src|app|server|packages|lib|routes)\//.test(`/${normalized}`)) {
-    score += 6;
-  }
-
-  if (
-    /(index|route|router|controller|service|repo|repository|model|schema|config|client|server|handler|middleware)\./
-      .test(fileName)
-  ) {
-    score += 10;
-  }
-
-  if (isTestFile(fileName)) {
-    score -= 4;
-  }
-
-  return score;
-}
-
-export function selectProjectContextFiles(
-  files: readonly string[],
-  recentlyEditedPaths: readonly string[],
-  maxFiles: number,
-): string[] {
-  const unique = [...new Set(files.map(normalizePath))];
-  if (unique.length <= maxFiles) return unique;
-
-  const scored = unique
-    .map((file) => ({
-      file,
-      bucket: getDirectoryBucket(file),
-      score: scoreProjectFile(file, recentlyEditedPaths),
-    }))
-    .sort((a, b) => b.score - a.score || a.file.localeCompare(b.file));
-
-  const selected: string[] = [];
-  const seenBuckets = new Set<string>();
-
-  for (const item of scored) {
-    if (selected.length >= maxFiles) break;
-    if (seenBuckets.has(item.bucket)) continue;
-
-    selected.push(item.file);
-    seenBuckets.add(item.bucket);
-  }
-
-  for (const item of scored) {
-    if (selected.length >= maxFiles) break;
-    if (!selected.includes(item.file)) {
-      selected.push(item.file);
-    }
-  }
-
-  return selected;
-}
-
-export function buildProjectReviewPrompt(
-  changedFiles: readonly string[],
-  reviewFiles: readonly string[],
-): string {
-  const suggestedAgents = suggestReviewAgents(changedFiles);
-  const delegationList = suggestedAgents.length === 0
-    ? "- None"
-    : suggestedAgents
-      .map((agent) => `- ${formatAgentMention(agent.name)} - ${agent.reason}`)
-      .join("\n");
-
-  const referencedFiles = reviewFiles.length === 0
-    ? "none"
-    : reviewFiles.map((file) => `@${file}`).join(" ");
-
-  const reviewFileList = reviewFiles.length === 0
-    ? "- None"
-    : reviewFiles.map((file) => `- @${file}`).join("\n");
-
-  const omittedFiles = changedFiles.filter((file) =>
-    !reviewFiles.includes(file)
-  );
-  const omittedFileList = omittedFiles.length === 0
-    ? "- None"
-    : omittedFiles.map((file) => `- ${file}`).join("\n");
-
-  return [
-    "Perform a strict code-quality review of the current change set.",
-    "",
-    `Total changed files detected: ${changedFiles.length}`,
-    "",
-    reviewFiles.length > 0
-      ? `Referenced files for direct inspection: ${referencedFiles}`
-      : "Referenced files for direct inspection: none",
-    "",
-    "Preferred delegation:",
-    delegationList,
-    "",
-    "Review instructions:",
-    "- When task delegation is available, route the review through the suggested read-only subagents and then synthesize the result.",
-    "- Grade the work heuristically at the project level, not as a review of one file.",
-    "- Use architecture, boundary design, data flow, and consistency across files to infer project quality.",
-    "- Do not anchor on the most recently edited file or any single file unless it is clearly the dominant risk.",
-    "- Do not make code changes. Review only.",
-    "- Do not be nice for the sake of being nice.",
-    "- Any grade below B+ must be addressed.",
-    "- Call out specific symbols, code paths, interface boundaries, and complexity hot spots.",
-    "- Flag change-set level issues such as duplicated logic across files, fractured ownership, inconsistent validation, mixed abstractions, and missing end-to-end flow coverage.",
-    "- Flag memory-risk patterns such as whole-payload reads, unnecessary buffering, missing pagination/cursors, and avoidable O(n^2) scans.",
-    "- Flag missing centralized validation for HTTP input, params, env, files, and parsed JSON.",
-    "- Flag weak typing at boundaries: domain entities, config, external I/O, and errors.",
-    "- Flag poor modularity, duplication, poor folder placement, or code that does not look production-grade.",
-    "",
-    "Grade these categories using letter grades:",
-    "1. DRY / modularity / clear folder boundaries",
-    "2. Memory safety / streaming / chunking / pagination / complexity awareness",
-    "3. Validation of untrusted input / fail-fast typed errors",
-    "4. Strong typing for entities, boundaries, config, and errors",
-    "",
-    "Use this exact output structure:",
-    "",
-    "## Overall grade",
-    "- Grade: <A+|A|A-|B+|B|B-|C+|C|C-|D|F>",
-    "- Verdict: <1-3 sentences>",
-    "",
-    "## Category grades",
-    "- DRY / modularity / folders: <grade>",
-    "- Memory safety / complexity: <grade>",
-    "- Validation / typed failures: <grade>",
-    "- Strong typing / interfaces: <grade>",
-    "",
-    "## What is good",
-    "- <bullets>",
-    "",
-    "## What is weak",
-    "- <bullets>",
-    "",
-    "## Must address before merge",
-    "- Include this section if ANY category or the overall grade is below B+.",
-    "- Be concrete and prioritized.",
-    "",
-    "## Complexity and memory hot spots",
-    "- <bullets>",
-    "",
-    "## Suggested next edits",
-    "- <small, concrete changes>",
-    "",
-    "Referenced changed files:",
-    reviewFileList,
-    "",
-    "Additional changed files not directly referenced:",
-    omittedFileList,
-  ].join("\n");
 }
 
 export function candidateRelatedTestPaths(path: string): string[] {
@@ -296,13 +130,229 @@ export function candidateRelatedTestPaths(path: string): string[] {
   for (const suffix of TEST_SUFFIXES) {
     candidates.add(`${withoutExtension}${suffix}`);
     candidates.add(joinPath(currentDirectory, `${currentFile}${suffix}`));
-    candidates.add(
-      joinPath("tests", currentDirectory, `${currentFile}${suffix}`),
-    );
-    candidates.add(
-      joinPath("test", currentDirectory, `${currentFile}${suffix}`),
-    );
+    candidates.add(joinPath("tests", currentDirectory, `${currentFile}${suffix}`));
+    candidates.add(joinPath("test", currentDirectory, `${currentFile}${suffix}`));
+    candidates.add(joinPath("tests", `${currentFile}${suffix}`));
+    candidates.add(joinPath("test", `${currentFile}${suffix}`));
   }
 
   return [...candidates];
+}
+
+export function getDirectoryBucket(path: string): string {
+  const normalized = normalizePath(path);
+  const parts = normalized.split("/");
+  if (parts.length <= 2) return normalized;
+  return parts.slice(0, 2).join("/");
+}
+
+export function scoreProjectFile(
+  file: string,
+  recentlyEditedPaths: readonly string[],
+): number {
+  const normalized = normalizePath(file);
+  const parts = normalized.split("/");
+  const fileName = parts.at(-1) ?? normalized;
+  const depth = parts.length;
+  const recentIndex = recentlyEditedPaths.lastIndexOf(normalized);
+
+  let score = 0;
+
+  if (recentIndex >= 0) score += 20 + recentIndex;
+  if (depth <= 2) score += 8;
+  if (/\/(src|app|server|packages|lib|routes|api|domain)\//.test(`/${normalized}`)) score += 6;
+  if (/(index|route|router|controller|service|repo|repository|model|schema|config|client|server|handler|middleware)\./.test(fileName)) score += 10;
+  if (isTestFile(fileName)) score -= 4;
+
+  return score;
+}
+
+export function selectProjectContextFiles(
+  files: readonly string[],
+  recentlyEditedPaths: readonly string[],
+  maxFiles: number,
+): string[] {
+  const unique = [...new Set(files.map(normalizePath))].filter(isReviewableFile);
+  if (unique.length <= maxFiles) return unique;
+
+  const scored = unique
+    .map((file) => ({
+      file,
+      bucket: getDirectoryBucket(file),
+      score: scoreProjectFile(file, recentlyEditedPaths),
+    }))
+    .sort((a, b) => b.score - a.score || a.file.localeCompare(b.file));
+
+  const selected: string[] = [];
+  const seenBuckets = new Set<string>();
+
+  for (const item of scored) {
+    if (selected.length >= maxFiles) break;
+    if (seenBuckets.has(item.bucket)) continue;
+    selected.push(item.file);
+    seenBuckets.add(item.bucket);
+  }
+
+  for (const item of scored) {
+    if (selected.length >= maxFiles) break;
+    if (!selected.includes(item.file)) selected.push(item.file);
+  }
+
+  return selected;
+}
+
+export function suggestReviewAgents(
+  changedFiles: readonly string[],
+): AgentSuggestion[] {
+  const normalized = changedFiles.map(normalizePath);
+  const suggestions: AgentSuggestion[] = [
+    {
+      name: AGENT_NAMES.criticalReviewer,
+      reason: "evaluate correctness, security, failure modes, test proof, and merge risk",
+    },
+  ];
+
+  if (normalized.length >= 4 || spansMultipleBuckets(normalized) || normalized.some(isArchitectureRelatedPath)) {
+    suggestions.push({
+      name: AGENT_NAMES.architectureReviewer,
+      reason: "changed files span structure, ownership, or dependency boundaries",
+    });
+  }
+
+  if (normalized.some(isHttpRelatedPath)) {
+    suggestions.push({
+      name: AGENT_NAMES.httpAuditor,
+      reason: "changed files touch HTTP, request/response, auth, route, or config boundaries",
+    });
+  }
+
+  if (normalized.some(isPerformanceSensitivePath)) {
+    suggestions.push({
+      name: AGENT_NAMES.performanceAuditor,
+      reason: "changed files touch streaming, file, list, search, cache, parser, or batch paths",
+    });
+  }
+
+  if (!normalized.some(isTestFile)) {
+    suggestions.push({
+      name: AGENT_NAMES.testStrategist,
+      reason: "source files changed without obvious test-file changes",
+    });
+  }
+
+  return dedupeSuggestions(suggestions);
+}
+
+function spansMultipleBuckets(files: readonly string[]): boolean {
+  return new Set(files.map(getDirectoryBucket)).size >= 3;
+}
+
+function isArchitectureRelatedPath(path: string): boolean {
+  const value = normalizePath(path).toLowerCase();
+  return /(deno\.jsonc?|import_map|package\.json|tsconfig|\/domain\/|\/adapter\/|\/client\/|\/lib\/|\/types?\/|\/schemas?\/|\/config\/|\/errors?\.)/.test(value);
+}
+
+function isHttpRelatedPath(path: string): boolean {
+  const value = normalizePath(path).toLowerCase();
+  return /(route|routes|http|api|handler|middleware|controller|server|request|response|auth|config)/.test(value);
+}
+
+function isPerformanceSensitivePath(path: string): boolean {
+  const value = normalizePath(path).toLowerCase();
+  return /(stream|queue|worker|job|batch|scan|search|index|cache|file|parser|import|export|sync|list|paginate|cursor|perf|performance|benchmark)/.test(value);
+}
+
+function dedupeSuggestions(
+  suggestions: readonly AgentSuggestion[],
+): AgentSuggestion[] {
+  const seen = new Set<string>();
+  const output: AgentSuggestion[] = [];
+
+  for (const suggestion of suggestions) {
+    if (seen.has(suggestion.name)) continue;
+    seen.add(suggestion.name);
+    output.push(suggestion);
+  }
+
+  return output;
+}
+
+export function formatAgentMention(name: string): string {
+  return `@${name}`;
+}
+
+export function buildProjectReviewPrompt(
+  changedFiles: readonly string[],
+  reviewFiles: readonly string[],
+): string {
+  const suggestedAgents = suggestReviewAgents(changedFiles);
+  const delegationList = suggestedAgents.length === 0
+    ? "- None"
+    : suggestedAgents.map((agent) => `- ${formatAgentMention(agent.name)} - ${agent.reason}`).join("\n");
+
+  const referencedFiles = reviewFiles.length === 0
+    ? "none"
+    : reviewFiles.map((file) => `@${file}`).join(" ");
+
+  const reviewFileList = reviewFiles.length === 0
+    ? "- None"
+    : reviewFiles.map((file) => `- @${file}`).join("\n");
+
+  const omittedFiles = changedFiles.filter((file) => !reviewFiles.includes(file));
+  const omittedFileList = omittedFiles.length === 0
+    ? "- None"
+    : omittedFiles.map((file) => `- ${file}`).join("\n");
+
+  return [
+    "Perform a strict project-level review of the current change set.",
+    "",
+    `Total changed files detected: ${changedFiles.length}`,
+    "",
+    `Referenced files for direct inspection: ${referencedFiles}`,
+    "",
+    "Preferred delegation:",
+    delegationList,
+    "",
+    "Instructions:",
+    "- Route through the suggested read-only subagents when task delegation is available.",
+    "- Grade the work at the change-set level, not file-by-file theater.",
+    "- Focus on correctness, security, ownership, validation, typing, performance, tests, and diff scope.",
+    "- Do not make code changes.",
+    "- Any grade below B+ must include concrete corrective work.",
+    "- Call out specific files, symbols, code paths, and complexity hot spots.",
+    "",
+    "Use this output structure:",
+    "",
+    "## Overall grade",
+    "- Grade: <A+|A|A-|B+|B|B-|C+|C|C-|D|F>",
+    "- Verdict: <1-3 sentences>",
+    "",
+    "## Category grades",
+    "- DRY / modularity / folders: <grade>",
+    "- Memory safety / complexity: <grade>",
+    "- Validation / typed failures: <grade>",
+    "- Strong typing / interfaces: <grade>",
+    "- Tests / proof: <grade>",
+    "",
+    "## What is good",
+    "- <bullets>",
+    "",
+    "## What is weak",
+    "- <bullets>",
+    "",
+    "## Must address before merge",
+    "- Include only if any category or the overall grade is below B+.",
+    "",
+    "## Complexity and memory hot spots",
+    "- <bullets>",
+    "",
+    "## Suggested next edits",
+    "- <small, concrete changes>",
+    "",
+    "Referenced changed files:",
+    reviewFileList,
+    "",
+    "Additional changed files not directly referenced:",
+    omittedFileList,
+  ].join("\n");
 }

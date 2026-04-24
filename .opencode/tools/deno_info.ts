@@ -1,6 +1,6 @@
 import { tool } from "@opencode-ai/plugin";
 
-import { clipText, runCommand } from "../lib/command.ts";
+import { commandReport, runCommand } from "../lib/runtime.ts";
 
 export default tool({
   description: "Run `deno info` for a specific file or module specifier.",
@@ -15,31 +15,18 @@ export default tool({
       .describe("Whether to return JSON output from deno info"),
   },
   async execute(args, context) {
-    if (args.target.includes("\n") || args.target.includes("\r")) {
-      throw new Error("target may not contain newlines");
+    if (/[\r\n\0]/.test(args.target)) {
+      throw new Error("target may not contain control characters");
     }
 
     const command = ["deno", "info"];
-    if (args.json) {
-      command.push("--json");
-    }
+    if (args.json) command.push("--json");
     command.push(args.target);
 
     const result = await runCommand(context, command, {
       cwd: context.worktree,
     });
 
-    return [
-      `Exit code: ${result.exitCode}`,
-      "",
-      "### Command",
-      command.join(" "),
-      "",
-      "### Stdout",
-      clipText(result.stdout, 16_000) || "(empty)",
-      "",
-      "### Stderr",
-      clipText(result.stderr, 8_000) || "(empty)",
-    ].join("\n");
+    return commandReport(result, 16_000);
   },
 });

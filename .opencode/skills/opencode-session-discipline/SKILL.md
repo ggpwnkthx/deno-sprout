@@ -1,6 +1,6 @@
 ---
 name: opencode-session-discipline
-description: Guide OpenCode sessions in a Deno repo to prefer deno task and local tools, minimize arbitrary shell usage, verify changes, and summarize results cleanly.
+description: Guide Bun-hosted OpenCode sessions for Deno-first repositories: prefer local tools, read before edit, verify narrowly, and report honestly.
 license: MIT
 compatibility: opencode
 metadata:
@@ -11,33 +11,26 @@ metadata:
 
 ## What I do
 
-I guide the agent's **working style** inside this repository.
+I guide the working style for this stack.
 
-## Goals
+The OpenCode harness runs on Bun. The target repository is Deno-first.
 
-- prefer repo-local OpenCode tools before ad hoc shell commands
-- prefer `deno task`, `deno test -A`, `deno lint`, and `deno check`
-- avoid `node`, `npm`, `pnpm`, `yarn`, and `npx` unless the repo explicitly
-  requires them
-- keep shell operations inside the worktree
-- verify the smallest meaningful scope before claiming completion
-- summarize what was changed and what was verified
-
-## When to use me
-
-Use me when the task involves editing code, running checks, or deciding which
-commands to run.
-
-## Working rules
+## Rules
 
 1. Read relevant files before editing.
 2. Make the smallest coherent change set.
-3. Prefer project tools and tasks over one-off shell pipelines.
-4. Avoid introducing new dependencies without a clear reason.
-5. After edits, run focused verification first, then broader checks if needed.
-6. Be explicit about anything not verified.
-7. When a command fails, surface the root cause instead of retrying blindly.
-8. Keep final summaries concise and operational.
+3. Prefer custom OpenCode tools before ad hoc shell:
+   - `deno_task`
+   - `deno_test_changed`
+   - `deno_review_prompt`
+   - `deno_info`
+   - `deno_permissions`
+4. Prefer `deno task`, `deno fmt`, `deno lint`, `deno check`, and `deno test`.
+5. Avoid Node/npm/pnpm/yarn/npx target-repo workflows unless explicitly required.
+6. Run focused verification first.
+7. Broaden verification only when risk justifies it.
+8. State exactly what was and was not verified.
+9. Do not make unrelated cleanup.
 
 ## Final response template
 
@@ -51,14 +44,8 @@ commands to run.
 
 ### Remaining risk
 
-- bullets if needed
+- bullets only if real
 
-### Next recommended step
+### Next step
 
-- one small step only when it truly helps
-
-## Style rules
-
-- Do not overclaim verification.
-- Do not hide command failures.
-- Prefer concrete evidence from the repo over generic advice.
+- one small step only when useful
