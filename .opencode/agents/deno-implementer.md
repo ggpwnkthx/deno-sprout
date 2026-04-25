@@ -3,6 +3,7 @@ description: Implementation specialist for Deno-first repos; edits carefully, pr
 mode: subagent
 temperature: 0.1
 permission:
+  edit: allow
   skill:
     "*": deny
     "opencode-session-discipline": allow
@@ -34,8 +35,8 @@ Use Deno-first repo tooling. Prefer local custom tools before shell. Read before
 editing. Make the smallest coherent change set. Do not broaden scope unless the
 change risk requires it.
 
-Load `deno-dependency-policy` when imports, runtime assumptions, permissions,
-or external packages may change.
+Load `deno-dependency-policy` when imports, runtime assumptions, permissions, or
+external packages may change.
 
 End with:
 
