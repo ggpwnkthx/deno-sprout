@@ -15,13 +15,14 @@ const MIN_FILES_FOR_IDLE_REVIEW = 4;
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
-export const ReviewPromptPlugin: Plugin = async (
+export const reviewPromptPlugin: Plugin = async (
   { client, directory, worktree },
 ) => {
   let changed = false;
   let running = false;
   let recentlyEditedPaths: string[] = [];
 
+  const idleReviewEnabled = process.env.OPENCODE_IDLE_REVIEW === "1";
   const autoSubmit = process.env.OPENCODE_AUTO_SUBMIT_REVIEW === "1";
 
   const log = async (
@@ -40,6 +41,12 @@ export const ReviewPromptPlugin: Plugin = async (
   };
 
   const maybePrepareReview = async () => {
+    if (!idleReviewEnabled) {
+      recentlyEditedPaths = [];
+      await log("debug", "Idle review disabled");
+      return;
+    }
+
     if (running) return;
     running = true;
 
@@ -73,11 +80,17 @@ export const ReviewPromptPlugin: Plugin = async (
         await client.tui.submitPrompt();
       }
 
-      await log("info", autoSubmit ? "Submitted risk-triggered review prompt" : "Prepared risk-triggered review prompt", {
-        changedFilesCount: changedFiles.length,
-        reviewFiles,
-        autoSubmit,
-      });
+      await log(
+        "info",
+        autoSubmit
+          ? "Submitted risk-triggered review prompt"
+          : "Prepared risk-triggered review prompt",
+        {
+          changedFilesCount: changedFiles.length,
+          reviewFiles,
+          autoSubmit,
+        },
+      );
 
       recentlyEditedPaths = [];
     } catch (error) {

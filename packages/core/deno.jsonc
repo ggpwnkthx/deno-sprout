@@ -1,0 +1,28 @@
+// @sprout/core — primary public server package: Hono-backed `createApp` /
+// `serve`, route method dispatch, HTML shell, public-file and
+// framework-asset serving for both dev and production.
+{
+  "name": "@sprout/core",
+  "version": "0.2.0",
+  "description": "Primary public server package: Hono-backed `createApp` / `serve`, route method dispatch, HTML shell, public-file and framework-asset serving for both dev and production.",
+  "license": "MIT",
+  "exports": {
+    ".": "./mod.ts",
+    "./runtime-entry": "./runtime.entry.ts"
+  },
+  "publish": {
+    "exclude": [
+      "**/*_test.ts",
+      "**/*_test.tsx",
+      "**/*_test.js",
+      "**/*_test.jsx",
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.test.js",
+      "**/*.test.jsx",
+      ".DS_Store",
+      ".github",
+      ".vscode"
+    ]
+  }
+}

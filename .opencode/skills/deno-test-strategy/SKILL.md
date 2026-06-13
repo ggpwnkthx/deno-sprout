@@ -1,12 +1,12 @@
 ---
 name: deno-test-strategy
 description: Decide the smallest convincing Deno verification plan for a change: focused tests, regression cases, permission checks, and broad checks when warranted.
-license: MIT
-compatibility: opencode
-metadata:
-  audience: maintainers
-  runtime: deno
-  category: testing
+  license: MIT
+  compatibility: opencode
+  metadata:
+    audience: maintainers
+    runtime: deno
+    category: testing
 ---
 
 ## What I do
@@ -20,7 +20,8 @@ Map changed behavior to proof.
 3. Prefer focused tests before broad suites.
 4. Require negative/boundary tests for validation, auth, parsing, retry, and error behavior.
 5. Require permission checks when filesystem/network/env/run access changes.
-6. Use broad checks only when scope/risk justifies it.
+6. Require README/example smoke checks when public JSR examples or exports change.
+7. Use broad checks only when scope/risk justifies it.
 
 ## Output
 

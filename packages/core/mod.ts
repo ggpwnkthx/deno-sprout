@@ -1,26 +1,28 @@
-// @ggpwnkthx/sprout-core
-// Core framework - App, routing, layouts, and middleware
-
-export { App, type AppOptions, isDeploy } from "./app.tsx";
-export { AppError, appError, AppErrorCode, AppErrorStatus } from "./error.ts";
-export type { Context, MiddlewareHandler } from "./context.ts";
+// Public surface of `@sprout/core`.
+//
+// M3 ships the server-rendering MVP: `createApp`, `serve`, the
+// `RequestContext` type, the typed `CoreError`, and the re-exports
+// of the small set of framework-agnostic helpers that route
+// authors reach for (`defineConfig`, the public `ConfigInput` /
+// `ResolvedConfig` / `Mode` types).
+//
+// The HTML shell, the route dispatcher, and the public-files
+// middleware live under `server/`; users do not import from there
+// directly. The framework asset routes (`/@sprout/runtime.js`,
+// `/@sprout/app.css`, `/@sprout/island/<id>.js`) are NOT yet
+// registered; they will land in the M4 development asset pipeline.
+export { createApp, serve } from "./server/app.ts";
 export type {
-  DataLoader,
-  ErrorPageProps,
-  Handler,
-  Handlers,
-  LayoutComponent,
-  LayoutConfig,
-  NotFoundPageProps,
-  PageComponent,
+  App,
+  CreateAppOptions,
   PageProps,
-  RouteConfig,
-} from "./types.ts";
-export { define } from "./lib/define.ts";
-export { defineLayout } from "./lib/layout.ts";
-export { defineMiddleware } from "./lib/middleware.ts";
-export { Head, Meta, Title } from "./lib/head.ts";
-
-// Re-export CORS and CSRF from @hono/hono
-export { cors } from "@hono/hono/cors";
-export { csrf } from "@hono/hono/csrf";
+  RequestContext,
+  RouteHandler,
+  RouteModule,
+  RoutePageComponent,
+  ServeOptions,
+} from "./server/types.ts";
+export type { CoreErrorCode } from "./server/errors.ts";
+export { CoreError } from "./server/errors.ts";
+export { defineConfig } from "@sprout/config";
+export type { ConfigInput, Mode, ResolvedConfig } from "@sprout/config";

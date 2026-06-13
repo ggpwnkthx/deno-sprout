@@ -1,8 +1,17 @@
-.env
-PLAN-0.md
-PLAN-1.md
-PLAN-2.md
-PLAN-3.md
-PLAN-4.md
-AGENTS.md
+# Deno
+deno.lock
 /core
+node_modules
+
+# Build/cache outputs
+.sprout/
+.sprout-tmp/
+dist/
+coverage/
+
+# Local/editor
+.DS_Store
+.idea/
+.env
+.env.*
+!.env.example

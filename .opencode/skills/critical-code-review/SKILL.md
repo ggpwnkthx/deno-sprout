@@ -41,23 +41,32 @@ Review code with high standards and low drama.
 
 ```markdown
 ## Verdict
+
 [approve / approve with nits / request changes / needs more context]
 
 ## Highest-risk issues
+
 - [severity] [file/function]: [specific problem]
   - Why it matters:
   - Evidence:
   - Fix:
 
 ## Detailed review
+
 ### Correctness
+
 ### Security and failure modes
+
 ### Data model and API design
+
 ### Simplicity and maintainability
+
 ### Tests and proof
+
 ### Diff hygiene
 
 ## Minimal fix plan
+
 1.
 2.
 3.

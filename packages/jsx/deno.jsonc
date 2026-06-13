@@ -1,0 +1,33 @@
+// @sprout/jsx — server and browser JSX runtimes for Sprout. Server emits
+// island placeholders; browser mounts the placeholders into the DOM.
+{
+  "name": "@sprout/jsx",
+  "version": "0.2.0",
+  "description": "Server and browser JSX runtimes for Sprout. Server emits island placeholders; browser mounts the placeholders into the DOM.",
+  "license": "MIT",
+  "exports": {
+    ".": "./mod.ts",
+    "./dom": "./dom/mod.ts",
+    "./dom/jsx-runtime": "./dom/jsx-runtime.ts",
+    "./dom/jsx-dev-runtime": "./dom/jsx-runtime.ts",
+    "./shared": "./shared/mod.ts",
+    "./server/island-registry": "./server/island-registry.ts",
+    "./jsx-runtime": "./server/jsx-runtime.ts",
+    "./jsx-dev-runtime": "./server/jsx-runtime.ts"
+  },
+  "publish": {
+    "exclude": [
+      "**/*_test.ts",
+      "**/*_test.tsx",
+      "**/*_test.js",
+      "**/*_test.jsx",
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.test.js",
+      "**/*.test.jsx",
+      ".DS_Store",
+      ".github",
+      ".vscode"
+    ]
+  }
+}

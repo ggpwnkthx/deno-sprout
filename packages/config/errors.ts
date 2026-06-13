@@ -1,0 +1,28 @@
+// Typed config errors.
+//
+// `ConfigError` extends `FrameworkError` so callers can catch the base
+// class and still discriminate on `code`. The `ConfigErrorCode` union
+// is closed: adding a new code is a public API change.
+import { FrameworkError } from "@sprout/utils";
+
+/** Stable error codes for the `@sprout/config` package. */
+export type ConfigErrorCode =
+  | "CONFIG_IMPORT_FAILED"
+  | "CONFIG_INVALID_SHAPE"
+  | "CONFIG_INVALID_PATH"
+  | "CONFIG_PATH_OUTSIDE_ROOT"
+  | "CONFIG_INVALID_PORT"
+  | "CONFIG_INVALID_CACHE_POLICY";
+
+/**
+ * Typed error for `@sprout/config`. The `code` is one of
+ * {@link ConfigErrorCode}; the `details` is a frozen object carrying
+ * JSON-serializable context (for example, the offending path or
+ * offending field name).
+ */
+export class ConfigError extends FrameworkError<ConfigErrorCode> {
+  constructor(code: ConfigErrorCode, message: string, details?: Record<string, unknown>) {
+    super(code, message, details);
+    this.name = "ConfigError";
+  }
+}

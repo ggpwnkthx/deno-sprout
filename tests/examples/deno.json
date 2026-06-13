@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "@sprout/jsx"
+  },
+  "imports": {
+    "@std/assert": "jsr:@std/assert@1",
+    "@std/path": "jsr:@std/path@^1.0.8",
+    "@std/fs": "jsr:@std/fs@^1.0.24",
+    "@std/encoding": "jsr:@std/encoding@^1.0.5",
+    "@hono/hono": "jsr:@hono/hono@4.12.24",
+    "esbuild": "jsr:@ggpwnkthx/esbuild@0.2.8",
+    "@ggpwnkthx/esbuild-plugin-deno": "jsr:@ggpwnkthx/esbuild-plugin-deno@0.2.8",
+    "@sprout/core": "../../packages/core/mod.ts",
+    "@sprout/config": "../../packages/config/mod.ts",
+    "@sprout/compiler": "../../packages/compiler/mod.ts",
+    "@sprout/jsx": "../../packages/jsx/mod.ts",
+    "@sprout/jsx/dom": "../../packages/jsx/dom/mod.ts",
+    "@sprout/jsx/shared": "../../packages/jsx/shared/mod.ts",
+    "@sprout/jsx/server/island-registry": "../../packages/jsx/server/island-registry.ts",
+    "@sprout/jsx/jsx-runtime": "../../packages/jsx/server/jsx-runtime.ts",
+    "@sprout/jsx/jsx-dev-runtime": "../../packages/jsx/server/jsx-runtime.ts",
+    "@sprout/jsx/dom/jsx-runtime": "../../packages/jsx/dom/jsx-runtime.ts",
+    "@sprout/jsx/dom/jsx-dev-runtime": "../../packages/jsx/dom/jsx-runtime.ts",
+    "@sprout/runtime": "../../packages/runtime/mod.ts",
+    "@sprout/utils": "../../packages/utils/mod.ts"
+  }
+}
+

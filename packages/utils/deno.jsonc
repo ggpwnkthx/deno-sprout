@@ -1,0 +1,27 @@
+// @sprout/utils — small, environment-safe helpers shared by every Sprout
+// package: typed base error, slash-normalized path helpers, and gzip
+// `Accept-Encoding` negotiation.
+{
+  "name": "@sprout/utils",
+  "version": "0.2.0",
+  "description": "Small, environment-safe helpers shared by every Sprout package: typed base error, slash-normalized path helpers, and gzip `Accept-Encoding` negotiation.",
+  "license": "MIT",
+  "exports": {
+    ".": "./mod.ts"
+  },
+  "publish": {
+    "exclude": [
+      "**/*_test.ts",
+      "**/*_test.tsx",
+      "**/*_test.js",
+      "**/*_test.jsx",
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.test.js",
+      "**/*.test.jsx",
+      ".DS_Store",
+      ".github",
+      ".vscode"
+    ]
+  }
+}

@@ -1,12 +1,12 @@
 ---
 name: deno-dependency-policy
 description: Enforce Deno-first dependency conventions: prefer built-ins, pinned jsr imports, minimal dependency weight, and avoid accidental Node/npm drift.
-license: MIT
-compatibility: opencode
-metadata:
-  audience: maintainers
-  runtime: deno
-  category: policy
+  license: MIT
+  compatibility: opencode
+  metadata:
+    audience: maintainers
+    runtime: deno
+    category: policy
 ---
 
 ## Rules
@@ -18,6 +18,8 @@ metadata:
 5. Avoid mixing dependency sources without a clear reason.
 6. Flag dependencies that widen permissions.
 7. Reject dependencies that duplicate simple local code.
+8. For publishable JSR packages, treat unpinned `npm:` and remote URL imports in public entrypoints
+   as release risks unless explicitly justified.
 
 ## Output
 

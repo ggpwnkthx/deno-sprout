@@ -9,6 +9,7 @@ bun test .opencode/tests
 ```
 
 They cover the high-risk pure policy modules:
+
 - command rewriting/blocking
 - secret read blocking
 - cwd containment

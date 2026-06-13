@@ -1,0 +1,55 @@
+:root {
+  font-family: system-ui, -apple-system, sans-serif;
+  --bg: #fafafa;
+  --fg: #111;
+  --border: #ccc;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+[data-theme="dark"] {
+  --bg: #111;
+  --fg: #fafafa;
+  --border: #444;
+}
+
+body {
+  margin: 0;
+  padding: 2rem;
+  max-width: 40rem;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+button {
+  font: inherit;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+code {
+  background: rgba(127, 127, 127, 0.15);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.875em;
+}

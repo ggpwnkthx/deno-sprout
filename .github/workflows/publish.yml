@@ -1,0 +1,52 @@
+# Publishes the seven @sprout/* packages to JSR on a v* tag push.
+#
+# The CI job runs the workspace's `ci` task (fmt + lint + check + test),
+# the M10 end-to-end smoke (`deno task smoke`), and the publish dry-run
+# for all 7 packages (`deno task publish-check`). A broken release
+# fails the workflow without making it to JSR.
+#
+# The publish job runs `deno publish` against each workspace package
+# in a matrix. Deno's `publish` command consumes the GitHub OIDC
+# token automatically when the workflow has `id-token: write`.
+name: publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x.x
+      - run: deno task ci
+      - run: deno task smoke
+      - run: deno task publish-check
+  publish:
+    needs: ci
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package:
+          - packages/utils
+          - packages/config
+          - packages/compiler
+          - packages/jsx
+          - packages/runtime
+          - packages/core
+          - packages/cli
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x.x
+      - working-directory: ${{ matrix.package }}
+        run: deno publish

@@ -1,0 +1,24 @@
+{
+  "tasks": {
+    "dev": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run jsr:@sprout/cli@0.2.0 dev",
+    "build": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run jsr:@sprout/cli@0.2.0 build",
+    "serve": "deno run --allow-read --allow-env --allow-net jsr:@sprout/cli@0.2.0 serve"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "@sprout/jsx"
+  },
+  "imports": {
+    "@sprout/core": "jsr:@sprout/core@0.2.0",
+    "@sprout/config": "jsr:@sprout/config@0.2.0",
+    "@sprout/compiler": "jsr:@sprout/compiler@0.2.0",
+    "@sprout/jsx": "jsr:@sprout/jsx@0.2.0",
+    "@sprout/jsx/dom": "jsr:@sprout/jsx@0.2.0/dom",
+    "@sprout/jsx/dom/jsx-runtime": "jsr:@sprout/jsx@0.2.0/dom/jsx-runtime",
+    "@sprout/jsx/dom/jsx-dev-runtime": "jsr:@sprout/jsx@0.2.0/dom/jsx-dev-runtime",
+    "@sprout/runtime": "jsr:@sprout/runtime@0.2.0",
+    "@sprout/utils": "jsr:@sprout/utils@0.2.0"
+  }
+}

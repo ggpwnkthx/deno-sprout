@@ -1,0 +1,49 @@
+:root {
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #111;
+  background: #fafafa;
+}
+
+body {
+  margin: 0;
+  padding: 2rem;
+  max-width: 40rem;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  color: #444;
+}
+
+input,
+textarea {
+  font: inherit;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  font: inherit;
+  padding: 0.5rem 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  align-self: flex-start;
+}

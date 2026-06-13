@@ -1,0 +1,27 @@
+// @sprout/cli — command-line UX: `init`, `dev`, `build`, `serve`,
+// `inspect`, and `help`. Thin orchestrator over `@sprout/core`,
+// `@sprout/config`, and `@sprout/compiler`.
+{
+  "name": "@sprout/cli",
+  "version": "0.2.0",
+  "description": "Command-line UX: `init`, `dev`, `build`, `serve`, `inspect`, and `help`. Thin orchestrator over `@sprout/core`, `@sprout/config`, and `@sprout/compiler`.",
+  "license": "MIT",
+  "exports": {
+    ".": "./mod.ts"
+  },
+  "publish": {
+    "exclude": [
+      "**/*_test.ts",
+      "**/*_test.tsx",
+      "**/*_test.js",
+      "**/*_test.jsx",
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.test.js",
+      "**/*.test.jsx",
+      ".DS_Store",
+      ".github",
+      ".vscode"
+    ]
+  }
+}

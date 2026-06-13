@@ -1,12 +1,12 @@
 ---
 name: opencode-session-discipline
 description: Guide Bun-hosted OpenCode sessions for Deno-first repositories: prefer local tools, read before edit, verify narrowly, and report honestly.
-license: MIT
-compatibility: opencode
-metadata:
-  audience: contributors
-  runtime: opencode
-  category: workflow
+  license: MIT
+  compatibility: opencode
+  metadata:
+    audience: contributors
+    runtime: opencode
+    category: workflow
 ---
 
 ## What I do
@@ -25,7 +25,9 @@ The OpenCode harness runs on Bun. The target repository is Deno-first.
    - `deno_review_prompt`
    - `deno_info`
    - `deno_permissions`
-4. Prefer `deno task`, `deno fmt`, `deno lint`, `deno check`, and `deno test`.
+   - `deno_jsr_audit`
+4. Prefer `deno task`, `deno fmt`, `deno lint`, `deno check`, `deno test`, `deno doc --lint`, and
+   `deno publish --dry-run` for release work.
 5. Avoid Node/npm/pnpm/yarn/npx target-repo workflows unless explicitly required.
 6. Run focused verification first.
 7. Broaden verification only when risk justifies it.

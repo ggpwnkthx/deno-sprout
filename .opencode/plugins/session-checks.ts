@@ -1,16 +1,8 @@
 import type { Plugin } from "@opencode-ai/plugin";
 
-import {
-  commandReport,
-  formatCommand,
-  runCommand,
-} from "../lib/runtime.ts";
+import { commandReport, formatCommand, runCommand } from "../lib/runtime.ts";
 import { collectChangedFiles } from "../lib/git.ts";
-import {
-  chooseRelatedTests,
-  runSelectedTests,
-  scanTestFiles,
-} from "../lib/tests.ts";
+import { chooseRelatedTests, runSelectedTests, scanTestFiles } from "../lib/tests.ts";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -25,11 +17,14 @@ const CHECK_COMMANDS = [
   ["deno", "check"],
 ] as const;
 
-export const SessionChecksPlugin: Plugin = async (
+export const sessionChecksPlugin: Plugin = async (
   { client, directory, worktree },
 ) => {
   let changed = false;
   let running = false;
+
+  const idleChecksEnabled = process.env.OPENCODE_IDLE_CHECKS === "1";
+  const autoSubmitCheckFailures = process.env.OPENCODE_AUTO_SUBMIT_CHECK_FAILURES === "1";
 
   const log = async (
     level: LogLevel,
@@ -47,6 +42,11 @@ export const SessionChecksPlugin: Plugin = async (
   };
 
   const runChecks = async () => {
+    if (!idleChecksEnabled) {
+      await log("debug", "Idle session checks disabled");
+      return;
+    }
+
     if (running) return;
     running = true;
 
@@ -67,7 +67,9 @@ export const SessionChecksPlugin: Plugin = async (
         const result = await runCommand(context, command, { cwd: worktree });
         summaries.push({ command, exitCode: result.exitCode });
         if (result.exitCode !== 0) failed = true;
-        reports.push(`## ${formatCommand(command)}\n\n${commandReport(result, 4_000)}`);
+        reports.push(
+          `## ${formatCommand(command)}\n\n${commandReport(result, 4_000)}`,
+        );
       }
 
       const allTests = await scanTestFiles(context);
@@ -86,9 +88,13 @@ export const SessionChecksPlugin: Plugin = async (
       ].join("\n");
 
       if (selection.relatedTests.length > 0) {
-        const resultText = await runSelectedTests(context, selection.relatedTests, {
-          allowAll: false,
-        });
+        const resultText = await runSelectedTests(
+          context,
+          selection.relatedTests,
+          {
+            allowAll: true,
+          },
+        );
         testReport += `\n\n## deno test related files\n\n${resultText}`;
         if (/^Exit code:\s*[1-9]/m.test(resultText)) failed = true;
       }
@@ -112,16 +118,26 @@ export const SessionChecksPlugin: Plugin = async (
           text: buildFailurePrompt(reports),
         },
       });
-      await client.tui.submitPrompt();
 
-      await log("error", "Deno session checks failed", {
-        changedFilesCount: changedFiles.length,
-        checks: summaries.map((item) => ({
-          command: formatCommand(item.command),
-          exitCode: item.exitCode,
-        })),
-        selectedTests: selection.relatedTests,
-      });
+      if (autoSubmitCheckFailures) {
+        await client.tui.submitPrompt();
+      }
+
+      await log(
+        "error",
+        autoSubmitCheckFailures
+          ? "Submitted Deno session check failure prompt"
+          : "Prepared Deno session check failure prompt",
+        {
+          changedFilesCount: changedFiles.length,
+          checks: summaries.map((item) => ({
+            command: formatCommand(item.command),
+            exitCode: item.exitCode,
+          })),
+          selectedTests: selection.relatedTests,
+          autoSubmitCheckFailures,
+        },
+      );
     } catch (error) {
       await log("error", "Failed to execute Deno session checks", {
         error: error instanceof Error ? error.message : String(error),

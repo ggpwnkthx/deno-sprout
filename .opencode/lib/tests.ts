@@ -3,18 +3,8 @@ import { join as joinFsPath } from "node:path";
 
 import { collectChangedFiles } from "./git.ts";
 import { commandReport, runCommand, type RuntimeContext } from "./runtime.ts";
-import {
-  basename,
-  dirname,
-  joinPath,
-  normalizePath,
-  resolveInside,
-} from "./path.ts";
-import {
-  candidateRelatedTestPaths,
-  isIgnoredPath,
-  isTestFile,
-} from "./project.ts";
+import { basename, dirname, joinPath, normalizePath, resolveInside } from "./path.ts";
+import { candidateRelatedTestPaths, isIgnoredPath, isTestFile } from "./project.ts";
 
 const TEST_GLOB_SUFFIXES = [
   "test.ts",
@@ -97,7 +87,9 @@ async function walkDirectory(
 
     if (!entry.isFile()) continue;
 
-    if (TEST_GLOB_SUFFIXES.some((suffix) => relativePath.endsWith(`.${suffix}`))) {
+    if (
+      TEST_GLOB_SUFFIXES.some((suffix) => relativePath.endsWith(`.${suffix}`))
+    ) {
       found.add(relativePath);
       if (found.size >= maxFiles) return;
     }
@@ -129,7 +121,10 @@ export function chooseRelatedTests(
   if (direct.size >= maxFiles) {
     return {
       changedFiles,
-      relatedTests: [...direct].sort((a, b) => a.localeCompare(b)).slice(0, maxFiles),
+      relatedTests: [...direct].sort((a, b) => a.localeCompare(b)).slice(
+        0,
+        maxFiles,
+      ),
       reason: "selected direct test filename matches for changed files",
     };
   }
@@ -182,7 +177,9 @@ function scoreTestFile(
     if (changedBase.length >= 3 && testName.includes(changedBase)) score += 30;
 
     const changedDir = dirname(normalizedChanged);
-    if (testDir.endsWith(changedDir) || changedDir.endsWith(testDir)) score += 12;
+    if (testDir.endsWith(changedDir) || changedDir.endsWith(testDir)) {
+      score += 12;
+    }
   }
 
   return score;

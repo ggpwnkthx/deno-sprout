@@ -1,46 +1,90 @@
+// Sprout workspace root. This file is JSONC (JSON with comments) and is read
+// by Deno 2.x as the workspace config plus the shared compilerOptions, fmt,
+// lint, and import map. Each member package has its own minimal deno.jsonc
+// that only declares name, version, and exports; the settings below are
+// inherited automatically.
 {
   "workspace": [
-    "packages/*",
-    "examples/**",
-    "tests/**"
+    "packages/core",
+    "packages/cli",
+    "packages/config",
+    "packages/compiler",
+    "packages/jsx",
+    "packages/runtime",
+    "packages/utils",
+    "examples/*"
+  ],
+  "nodeModulesDir": "none",
+  "exclude": [
+    "node_modules",
+    ".git",
+    ".github",
+    ".opencode",
+    ".sprout",
+    "dist",
+    "coverage",
+    "docs",
+    "examples",
+    "tests/fixtures",
+    "tests/.tmp",
+    "tests/examples"
   ],
   "tasks": {
-    "dev": "deno run --allow-net --allow-read --allow-env --allow-write @ggpwnkthx/sprout/dev",
-    "build": "deno run --allow-net --allow-read --allow-env --allow-write @ggpwnkthx/sprout/build",
-    "init": "deno run -Ar @ggpwnkthx/sprout/init",
-    "check": "deno check",
-    "test": "deno test -A packages/router/ packages/jsx/ packages/core/ packages/islands/ packages/static/ packages/build/ packages/dev/ packages/init/",
-    "lint": "deno lint packages/ tests/ examples/",
+    "check": "deno check packages/*/mod.ts",
+    "test": "deno test --allow-all",
+    "test-examples": "deno test --allow-all --no-check --config tests/examples/deno.json tests/examples/examples_test.ts",
     "fmt": "deno fmt",
-    "ci": "deno task lint && deno task check && deno task test",
-    "browser:e2e": "deno test -A tests/browser/",
-    "dev:minimal": "deno task --cwd examples/minimal dev",
-    "dev:api": "deno task --cwd examples/api dev",
-    "dev:blog": "deno task --cwd examples/blog dev",
-    "dev:islands": "deno task --cwd examples/islands dev",
-    "dev:error-handling": "deno task --cwd examples/error-handling dev",
-    "dev:fixtures": "deno run -A tests/dev-fixtures.ts"
-  },
-  "imports": {
-    "@hono/hono": "jsr:@hono/hono@^4.12.14",
-    "@std/assert": "jsr:@std/assert@^1",
-    "@astral/astral": "jsr:@astral/astral@^0.5.6"
+    "lint": "deno lint",
+    "ci": "deno fmt --check && deno lint && deno task check && deno task test",
+    "smoke": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run --allow-sys --allow-ffi scripts/smoke.ts",
+    "publish-check": "deno publish --dry-run --config packages/utils/deno.jsonc --allow-dirty && deno publish --dry-run --config packages/config/deno.jsonc --allow-dirty && deno publish --dry-run --config packages/compiler/deno.jsonc --allow-dirty && deno publish --dry-run --config packages/jsx/deno.jsonc --allow-dirty && deno publish --dry-run --config packages/runtime/deno.jsonc --allow-dirty && deno publish --dry-run --config packages/core/deno.jsonc --allow-dirty && deno publish --dry-run --config packages/cli/deno.jsonc --allow-dirty"
   },
   "compilerOptions": {
     "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "@ggpwnkthx/sprout-jsx"
-  },
-  "publish": {
-    "scope": "@ggpwnkthx",
-    "registry": "https://jsr.io"
-  },
-  "lint": {
-    "exclude": [
-      "./.*"
+    "jsxImportSource": "@sprout/jsx",
+    "lib": [
+      "deno.window",
+      "deno.worker",
+      "dom",
+      "dom.iterable",
+      "dom.asynciterable",
+      "esnext"
     ]
   },
-  "exclude": [
-    "./.*"
-  ]
+  "imports": {
+    "@std/fs": "jsr:@std/fs@^1.0.24",
+    "@std/encoding": "jsr:@std/encoding@^1.0.5",
+    "esbuild": "jsr:@ggpwnkthx/esbuild@0.2.8",
+    "@ggpwnkthx/esbuild-plugin-deno": "jsr:@ggpwnkthx/esbuild-plugin-deno@0.2.8",
+    "@std/path": "jsr:@std/path@^1.0.8",
+    "@hono/hono": "jsr:@hono/hono@4.12.24"
+    // "@sprout/core": "./packages/core/mod.ts",
+    // "@sprout/cli": "./packages/cli/mod.ts",
+    // "@sprout/config": "./packages/config/mod.ts",
+    // "@sprout/compiler": "./packages/compiler/mod.ts",
+    // "@sprout/jsx": "./packages/jsx/mod.ts",
+    // "@sprout/jsx/dom": "./packages/jsx/dom/mod.ts",
+    // "@sprout/jsx/shared": "./packages/jsx/shared/mod.ts",
+    // "@sprout/jsx/server/island-registry": "./packages/jsx/server/island-registry.ts",
+    // "@sprout/runtime": "./packages/runtime/mod.ts",
+    // "@sprout/utils": "./packages/utils/mod.ts"
+  },
+  "lint": {
+    "rules": {
+      "tags": [
+        "recommended"
+      ]
+    }
+  },
+  "fmt": {
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "useTabs": false,
+    "singleQuote": false,
+    "semiColons": true
+  }
 }
