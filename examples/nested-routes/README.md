@@ -10,18 +10,10 @@ intentionally short; each route file is a one-page explanation of its own patter
 - **A catch-all route.** `src/routes/files/[...path].tsx` matches `/files/:path{.+}` and exposes the
   rest of the URL path (including further slashes) as `props.params.path`. The framework's pattern
   is `:path{.+}` so it only matches a non-empty remainder.
-
-  **M3 catch-all limitation.** The M3 server translates the manifest pattern `/files/:path{.+}` to
-  the Hono pattern `/files/:path`, which matches a single path segment rather than many. The
-  catch-all is therefore scoped to a single segment in the M3 release. A future milestone can
-  revisit the translation strategy; the test asserts the M3 behavior with a single-segment URL.
-
-- **A route group (post-MVP).** `src/routes/(marketing)/about.tsx` and
-  `src/routes/(marketing)/careers.tsx` demonstrate the route-group convention: a directory whose
-  name is wrapped in parentheses, with the segment dropped from the URL. The M2 discovery layer does
-  not yet honor this convention (route groups are on the post-MVP backlog); the M3 server returns
-  404 for these URLs. The files are kept in the example to document the convention so a reader can
-  see what the pattern looks like in source.
+- **A route group.** `src/routes/(marketing)/about.tsx` and `src/routes/(marketing)/careers.tsx`
+  demonstrate the route-group convention: a directory whose name is wrapped in parentheses, with the
+  segment dropped from the URL. The pages are served at `/about` and `/careers`, not
+  `/marketing/about` or `/marketing/careers`.
 
 The example deliberately does NOT show:
 
@@ -40,11 +32,11 @@ deno task dev
 The CLI prints:
 
 ```text
-[sprout] listening on http://localhost:8000
+[sprout] listening on http://0.0.0.0:8000
 ```
 
-Open <http://localhost:8000> in a browser. The home page links to the four example routes. Click
-each link to see the corresponding pattern in action.
+Open <http://0.0.0.0:8000> in a browser. The home page links to the four example routes. Click each
+link to see the corresponding pattern in action.
 
 To build for production:
 

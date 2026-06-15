@@ -22,7 +22,7 @@ export { parseArgs } from "./parse_args.ts";
 // (`docs/sprout/packages/cli.md`). When the file is imported as a
 // library (`import { run } from "@sprout/cli"`) the block does
 // not run; when it is the program entry point
-// (`deno run jsr:@sprout/cli dev`) it forwards `Deno.args` to
+// (`deno run @sprout/cli dev`) it forwards `Deno.args` to
 // `run` and exits with the resulting code.
 if (import.meta.main) {
   const result = await run(Deno.args);

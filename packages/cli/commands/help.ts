@@ -38,10 +38,8 @@ export function printHelp(options: PrintHelpOptions = {}): void {
   out("                    a non-empty directory unless --force is passed.");
   out("  dev [root]        Start the development server in <root>");
   out("                    (default: current directory).");
-  out("  build [root]      Build the project for production. (M5 placeholder;");
-  out("                    full implementation lands in M6.)");
-  out("  serve [root]      Serve the production build. (M5 placeholder; full");
-  out("                    implementation lands in M7.)");
+  out("  build [root]      Build the project for production.");
+  out("  serve [root]      Serve the production build.");
   out("  inspect [root]    Print the resolved config and the discovered");
   out("                    manifest without starting a server.");
   out("  help              Print this message.");

@@ -260,7 +260,7 @@ Runtime-added attributes:
 ### 3.7 Public CLI
 
 ```sh
-deno run -A jsr:@sprout/cli init my-app
+deno run -A @sprout/cliinit my-app
 deno task dev
 deno task build
 deno task serve
@@ -271,9 +271,9 @@ Generated project tasks:
 ```jsonc
 {
   "tasks": {
-    "dev": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sprout/cli dev",
-    "build": "deno run --allow-read --allow-write --allow-env jsr:@sprout/cli build",
-    "serve": "deno run --allow-read --allow-env --allow-net jsr:@sprout/cli serve"
+    "dev": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run @sprout/cli dev",
+    "build": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run @sprout/cli build",
+    "serve": "deno run --allow-read --allow-env --allow-net @sprout/cli serve"
   }
 }
 ```

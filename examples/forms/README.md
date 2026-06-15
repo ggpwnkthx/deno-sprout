@@ -38,13 +38,13 @@ deno task dev
 The CLI prints:
 
 ```text
-[sprout] listening on http://localhost:8000
+[sprout] listening on http://0.0.0.0:8000
 ```
 
-Open <http://localhost:8000> in a browser. You should see the contact form. Submit it; the page
+Open <http://0.0.0.0:8000> in a browser. You should see the contact form. Submit it; the page
 reloads to `/?ok=1` with a "Thanks" message.
 
-The JSON form of the same endpoint is at <http://localhost:8000/api/contact>. A POST with
+The JSON form of the same endpoint is at <http://0.0.0.0:8000/api/contact>. A POST with
 `Accept: application/json` returns the JSON response.
 
 To build for production:

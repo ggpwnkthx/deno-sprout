@@ -27,8 +27,7 @@ comparison goes through `slash` and `isInsideRoot`, and the production serve neg
 
 ## Links
 
-- [Repository](https://github.com/example/sprout) — placeholder URL, replace with the real one
-  before the first publish.
+- [Repository](https://github.com/ggpwnkthx/deno-sprout)
 - [Sprout documentation](https://jsr.io/@sprout/core) — the framework docs hub, hosted on
   `@sprout/core`'s JSR page.
 - [Permissions](https://jsr.io/@sprout/utils) — `@sprout/utils` calls no Deno APIs; no permissions

@@ -21,12 +21,8 @@ import {
 import { fromFileUrl, join } from "@std/path";
 import { loadConfig } from "@sprout/config";
 import { resolveRuntimeEntryFile } from "./source_paths.ts";
-import {
-  _resetDevCacheForTests,
-  compileDevAsset,
-  compileDevSourceMap,
-  resolveIslandEntryFile,
-} from "./mod.ts";
+import { compileDevAsset, compileDevSourceMap, resolveIslandEntryFile } from "./mod.ts";
+import { _resetDevCacheForTests } from "./build/mod.ts";
 import { esbuildBundle, VIRTUAL_ENTRY_DIR } from "./build/esbuild.ts";
 import { encodeHex } from "@std/encoding/hex";
 import type { ResolvedConfig } from "@sprout/config";
@@ -49,7 +45,7 @@ const dummyConfig: ResolvedConfig = {
     minify: false,
     frozenAssetCache: "none",
   },
-  server: { hostname: "localhost", port: 0 },
+  server: { hostname: "0.0.0.0", port: 0 },
 };
 
 async function makeTempDir(

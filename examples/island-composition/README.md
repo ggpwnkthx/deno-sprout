@@ -42,10 +42,10 @@ deno task dev
 The CLI prints:
 
 ```text
-[sprout] listening on http://localhost:8000
+[sprout] listening on http://0.0.0.0:8000
 ```
 
-Open <http://localhost:8000> in a browser. You should see the three islands mounted. Click the theme
+Open <http://0.0.0.0:8000> in a browser. You should see the three islands mounted. Click the theme
 toggle; the page colors invert. Reload the page; the theme persists.
 
 To build for production:

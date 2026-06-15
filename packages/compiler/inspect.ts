@@ -15,7 +15,7 @@ import type { DiscoveredProject, Manifest } from "./manifest/types.ts";
  * The output has the shape:
  *
  * ```text
- * Sprout project: 5 routes, 2 islands, styles: yes
+ * Sprout project: 7 routes, 2 islands, styles: yes
  *   Routes:
  *     /                          /abs/.../index.tsx          (page)
  *     /about                     /abs/.../about.tsx          (page)

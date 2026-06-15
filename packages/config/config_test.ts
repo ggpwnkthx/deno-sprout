@@ -63,7 +63,7 @@ Deno.test("loadConfig: missing config file resolves to defaults", async () => {
     assertEquals(config.build.sourcemap, true);
     assertEquals(config.build.minify, false);
     assertEquals(config.build.frozenAssetCache, "none");
-    assertEquals(config.server.hostname, "localhost");
+    assertEquals(config.server.hostname, "0.0.0.0");
     assertEquals(config.server.port, 8000);
   } finally {
     await tmp.cleanup();

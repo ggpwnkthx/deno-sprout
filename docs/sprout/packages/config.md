@@ -120,7 +120,7 @@ const defaults = {
     frozenAssetCache: "none",
   },
   server: {
-    hostname: "localhost",
+    hostname: "0.0.0.0",
     port: 8000,
   },
 };

@@ -24,15 +24,6 @@ export type {
 } from "./server/types.ts";
 ```
 
-Optional subpath for generated internals only:
-
-```ts
-// @sprout/core/runtime-entry
-export { start } from "./runtime.entry.ts";
-```
-
-Users should not need to import from `@sprout/core/runtime-entry`.
-
 ### Server API
 
 ```ts
@@ -104,7 +95,7 @@ This keeps Hono replaceable internally while preserving Hono-like ergonomics.
 | `server/html_shell.tsx` | HTML document wrapper, runtime script tag, stylesheet tags. |
 | `server/static_files.ts` | Public directory and frozen asset serving. |
 | `server/errors.ts` | Core error codes and conversion to HTTP responses. |
-| `runtime.entry.ts` | Small browser bootstrap script that imports `@sprout/runtime` and calls `mountAll()`. |
+| `runtime.entry.ts` | Compatibility browser bootstrap; the compiled `/@sprout/runtime.js` entry is owned by `@sprout/compiler`. |
 
 ### Dependencies
 

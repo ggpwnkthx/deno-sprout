@@ -46,8 +46,7 @@ JSX package, and the contract types that generated wrappers use.
 
 ## Links
 
-- [Repository](https://github.com/example/sprout) — placeholder URL, replace with the real one
-  before the first publish.
+- [Repository](https://github.com/ggpwnkthx/deno-sprout)
 - [Internals](https://jsr.io/@sprout/core) — the framework internals doc describes the mount loop
   and the virtual island entry.
 

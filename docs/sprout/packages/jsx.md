@@ -43,7 +43,7 @@ export {
 export type { JsonRecord, JsonValue, RuntimeErrorCode } from "./shared/types.ts";
 ```
 
-Server island registry:
+Framework server island registry subpath:
 
 ```ts
 // @sprout/jsx/server/island-registry
@@ -53,7 +53,7 @@ export {
 } from "./server/island_registry.ts";
 ```
 
-The registry subpath is internal-but-exported for `@sprout/core` and tests. It is not promoted in user docs.
+The registry subpath is exported so `@sprout/core` can coordinate with `@sprout/jsx` across package boundaries. Application code should not need it.
 
 ### Island Registry Contract
 

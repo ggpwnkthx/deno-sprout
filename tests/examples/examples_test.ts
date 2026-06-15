@@ -127,20 +127,17 @@ const EXAMPLES: readonly ExampleSpec[] = [
         includes: ["hello-world", "props.params.slug"],
       },
       {
-        // The M3 catch-all pattern is translated to a single
-        // Hono segment (the regex constraint is dropped), so the
-        // catch-all only matches a single segment. The
-        // `examples/nested-routes/` example documents this in
-        // its README; the M7 spec promises to revisit.
-        path: "/files/readme.txt",
-        includes: ["readme.txt", "props.params.path"],
+        path: "/files/docs/readme.txt",
+        includes: ["docs/readme.txt", "props.params.path"],
       },
-      // The example also ships `(marketing)/about.tsx` and
-      // `(marketing)/careers.tsx` to document the route-group
-      // pattern. The M2 discovery layer skips files inside a
-      // `(name)/` directory (route groups are a post-MVP
-      // feature), so the M3 server returns 404 for `/about` and
-      // `/careers`. The example README explains the limitation.
+      {
+        path: "/about",
+        includes: ["About us", "src/routes/(marketing)/about.tsx"],
+      },
+      {
+        path: "/careers",
+        includes: ["Careers", "route group"],
+      },
     ],
   },
   {
@@ -199,11 +196,11 @@ async function writeExampleDenoConfig(
   const deno = {
     tasks: {
       dev:
-        "deno run --allow-read --allow-write --allow-env --allow-net --allow-run jsr:@sprout/cli@0.2.0 dev",
+        "deno run --allow-read --allow-write --allow-env --allow-net --allow-run @sprout/cli dev",
       build:
-        "deno run --allow-read --allow-write --allow-env --allow-net --allow-run jsr:@sprout/cli@0.2.0 build",
+        "deno run --allow-read --allow-write --allow-env --allow-net --allow-run @sprout/cli build",
       serve:
-        "deno run --allow-read --allow-env --allow-net jsr:@sprout/cli@0.2.0 serve",
+        "deno run --allow-read --allow-env --allow-net @sprout/cli serve",
     },
     // The example's JSX is server-side: `jsxImportSource` must
     // point at `@sprout/jsx` (the server runtime). The compiler
@@ -367,7 +364,7 @@ for (const example of EXAMPLES) {
       // 4. Walk each example route and assert the response.
       for (const route of example.routes) {
         const res = await app.fetch(
-          new Request(`http://localhost${route.path}`),
+          new Request(`http://0.0.0.0${route.path}`),
         );
         if (res.status !== 200) {
           const body = await res.text();
@@ -380,8 +377,7 @@ for (const example of EXAMPLES) {
           assertStringIncludes(
             body,
             needle,
-            `expected ${route.path} body in example/${example.name} to include ${
-              JSON.stringify(needle)
+            `expected ${route.path} body in example/${example.name} to include ${JSON.stringify(needle)
             }`,
           );
         }
@@ -398,11 +394,10 @@ for (const example of EXAMPLES) {
       for (const p of example.expectedPublicPaths) {
         assert(
           publicPaths.has(p),
-          `expected public path ${p} in example/${example.name} manifest, got: ${
-            [...publicPaths].join(", ")
+          `expected public path ${p} in example/${example.name} manifest, got: ${[...publicPaths].join(", ")
           }`,
         );
-        const res = await app.fetch(new Request(`http://localhost${p}`));
+        const res = await app.fetch(new Request(`http://0.0.0.0${p}`));
         assertEquals(
           res.status,
           200,
@@ -417,7 +412,7 @@ for (const example of EXAMPLES) {
 
       // 6. Walk each public file URL and assert it serves.
       for (const f of example.publicFiles) {
-        const res = await app.fetch(new Request(`http://localhost${f}`));
+        const res = await app.fetch(new Request(`http://0.0.0.0${f}`));
         assertEquals(
           res.status,
           200,
@@ -428,7 +423,7 @@ for (const example of EXAMPLES) {
       // 7. Sanity-check the cache-control header for framework assets.
       const runtimePath = "/@sprout/runtime.js";
       const runtimeRes = await app.fetch(
-        new Request(`http://localhost${runtimePath}`),
+        new Request(`http://0.0.0.0${runtimePath}`),
       );
       const cacheControl = runtimeRes.headers.get("cache-control") ?? "";
       assertStringIncludes(
@@ -451,4 +446,3 @@ for (const example of EXAMPLES) {
 function slashTrailing(p: string): string {
   return p.endsWith("/") ? p.slice(0, -1) : p;
 }
-

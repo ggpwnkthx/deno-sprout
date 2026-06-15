@@ -34,11 +34,11 @@ deno task dev
 The CLI prints:
 
 ```text
-[sprout] listening on http://localhost:8000
+[sprout] listening on http://0.0.0.0:8000
 ```
 
-Open <http://localhost:8000> in a browser. You should see an `<h1>` that says **Hello, Sprout!** and
-a button that says **Count: 1**.
+Open <http://0.0.0.0:8000> in a browser. You should see an `<h1>` that says **Hello, Sprout!** and a
+button that says **Count: 1**.
 
 To build for production:
 

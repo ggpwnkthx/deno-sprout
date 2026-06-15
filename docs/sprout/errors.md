@@ -84,7 +84,6 @@ The runtime package re-exports `RuntimeError` from `@sprout/jsx/shared`. All cod
 | `CLI_INIT_FAILED`             | `runInit`       | An individual init template file already exists and `--force` was not passed, or a `Deno.mkdir` / `Deno.writeTextFile` call failed. `details.file` and `details.cause` are populated. |
 | `CLI_INSPECT_FAILED`          | (reserved)      | The `inspect` command failed to load the config or walk the project. (Currently unused: `inspect` errors propagate as `ConfigError` / `CompilerError`.) |
 | `CLI_DEV_FAILED`              | (reserved)      | The dev server failed to boot. (Currently unused: dev errors propagate as the underlying typed error.)                       |
-| `CLI_BUILD_NOT_IMPLEMENTED`   | (removed in M6) | (Was the M5 placeholder; the M6 `runBuild` calls the real production build.)                                                |
 | `CLI_SERVE_FAILED`            | (reserved)      | The production serve failed to load the frozen manifest. (Currently unused: serve errors propagate as `CompilerError` / `CoreError`.) |
 | `CLI_USER_ERROR`              | (reserved)      | Catch-all for errors that are not `FrameworkError`s. (Currently unused: any non-`FrameworkError` thrown by a command is wrapped by `run` as `{ ok: false, code: 1, error }` without changing the typed code.) |
 

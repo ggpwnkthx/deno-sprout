@@ -96,8 +96,22 @@ export type CounterProps = {
   readonly initial: number;
 };
 
+let nextCounterId = 0;
+
 export default function Counter(props: CounterProps): JSX.Element {
-  return <button type="button">Count: {props.initial}</button>;
+  const id = "sprout-counter-" + nextCounterId++;
+  let count = props.initial;
+
+  queueMicrotask(() => {
+    const button = document.getElementById(id);
+    if (!(button instanceof HTMLButtonElement)) return;
+    button.addEventListener("click", () => {
+      count += 1;
+      button.textContent = "Count: " + count;
+    });
+  });
+
+  return <button id={id} type="button">Count: {count}</button>;
 }
 ```
 

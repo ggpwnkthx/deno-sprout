@@ -42,7 +42,7 @@ Deno.test("createApp: a throwing route handler returns 500 with a short body", a
   const { dir, cleanup } = await makeThrowingProject();
   try {
     const app: App = await createApp({ root: dir, mode: "development" });
-    const res = await app.fetch(new Request("http://localhost/"));
+    const res = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(res.status, 500);
     const ctype = res.headers.get("content-type") ?? "";
     assertMatch(ctype, /^text\/plain/);

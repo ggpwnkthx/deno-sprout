@@ -7,13 +7,8 @@
 // handler (with HEAD → GET fallback and body stripping), and wraps
 // the result in the HTML shell when the handler returns JSX.
 //
-// Side effect: `renderRoute` calls `clearIslandRegistry` before
-// registering islands, so the registry contents are scoped to a
-// single request. This keeps the registry from accumulating
-// references across requests and means `app.fetch` is safe to call
-// concurrently for the same `App` instance.
 import { toFileUrl } from "@std/path";
-import { clearIslandRegistry, registerIslandComponent } from "@sprout/jsx/server/island-registry";
+import { registerIslandComponent } from "@sprout/jsx/server/island-registry";
 import type { IslandMetadata } from "@sprout/jsx/server/island-registry";
 import type { ResolvedConfig } from "@sprout/config";
 import type { Manifest, RouteEntry } from "@sprout/compiler";
@@ -76,13 +71,13 @@ function asRouteModule(value: unknown): RouteModule {
 }
 
 /**
- * Pre-load and register every island from the manifest. The
- * `clearIslandRegistry` call guarantees per-request isolation so the
- * registry never grows past the islands this route's tree might
- * reference.
+ * Pre-load and register every island from the manifest. Registration
+ * is idempotent for a module identity, so repeated requests can safely
+ * call this without clearing the process-global registry. Avoiding a
+ * request-time clear keeps concurrent renders from observing an empty
+ * or partial registry while another request awaits dynamic imports.
  */
 async function registerManifestIslands(manifest: Manifest): Promise<void> {
-  clearIslandRegistry();
   for (const island of manifest.islands) {
     const fileUrl = toFileUrl(island.file).href;
     const mod = await import(fileUrl) as Record<string, unknown>;

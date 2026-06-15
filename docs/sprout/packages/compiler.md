@@ -106,7 +106,7 @@ export type StyleEntry = {
 | `src/routes/_layout.tsx` | ignored initially |
 | `src/routes/_helpers.ts` | ignored |
 
-Initial release should ignore route groups such as `(marketing)` or explicitly reject them. If accepted, they must not affect the URL path.
+Route groups such as `(marketing)` are accepted and do not affect the URL path. If two grouped or ungrouped files resolve to the same URL, discovery reports `DISCOVERY_ROUTE_CONFLICT`.
 
 ### Island Public Path Mapping
 

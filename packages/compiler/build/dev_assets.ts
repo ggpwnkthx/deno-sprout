@@ -322,12 +322,15 @@ async function buildForKind(
   input: CompileDevAssetInput,
 ): Promise<EsbuildBundleResult> {
   switch (input.kind) {
-    case "runtime":
+    case "runtime": {
+      const denoConfigPath = findNearestDenoConfig(input.config.root);
       return await esbuildBundle({
         entryPoints: [input.entry],
         jsxImportSource: input.jsxImportSource,
         sourceMap: "linked",
+        denoConfigPath: denoConfigPath ?? undefined,
       });
+    }
     case "island":
       return await compileIsland(input, input.jsxImportSource);
     case "style":

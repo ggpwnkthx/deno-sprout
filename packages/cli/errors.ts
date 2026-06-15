@@ -30,7 +30,6 @@ export type CliErrorCode =
   | "CLI_INIT_FAILED"
   | "CLI_INSPECT_FAILED"
   | "CLI_DEV_FAILED"
-  | "CLI_BUILD_NOT_IMPLEMENTED"
   | "CLI_SERVE_FAILED"
   | "CLI_USER_ERROR";
 

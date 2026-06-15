@@ -5,6 +5,23 @@
 import type { JSX } from "@sprout/jsx";
 
 export default function ThemeToggle(): JSX.Element {
+  queueMicrotask(() => {
+    const button = document.querySelector<HTMLButtonElement>('[data-testid="theme-toggle"]');
+    if (button === null) return;
+
+    const applyTheme = (theme: "light" | "dark"): void => {
+      document.documentElement.dataset.theme = theme;
+      localStorage.setItem("sprout-theme", theme);
+      button.textContent = theme === "dark" ? "Use light theme" : "Use dark theme";
+    };
+
+    const saved = localStorage.getItem("sprout-theme") === "dark" ? "dark" : "light";
+    applyTheme(saved);
+    button.addEventListener("click", () => {
+      applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+    });
+  });
+
   return (
     <button type="button" data-testid="theme-toggle">
       Toggle theme

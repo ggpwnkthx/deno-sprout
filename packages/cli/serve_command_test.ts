@@ -80,7 +80,7 @@ Deno.test("sprout serve: build + run serve against the built project", async () 
     // the serve mode wiring works end-to-end.
     const { createApp } = await import("@sprout/core");
     const app = await createApp({ root: tmp.path, mode: "production" });
-    const res = await app.fetch(new Request("http://localhost/@sprout/runtime.js"));
+    const res = await app.fetch(new Request("http://0.0.0.0/@sprout/runtime.js"));
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("cache-control"), "public, max-age=31536000, immutable");
     assertEquals(res.headers.get("content-type"), "text/javascript; charset=utf-8");
@@ -103,7 +103,7 @@ Deno.test("sprout serve: returns ok: false with FROZEN_MANIFEST_MISSING when no 
     // in-process test.
     const { createApp } = await import("@sprout/core");
     const app = await createApp({ root: tmp.path, mode: "production" });
-    const res = await app.fetch(new Request("http://localhost/@sprout/runtime.js"));
+    const res = await app.fetch(new Request("http://0.0.0.0/@sprout/runtime.js"));
     assertEquals(res.status, 404);
     const body = await res.text();
     assertStringIncludes(body, "sprout build");
@@ -132,7 +132,7 @@ Deno.test("dev and serve: M7 — serve uses the frozen manifest, dev compiles on
     // Dev: cache-control: no-store.
     const devApp = await createApp({ root: tmp.path, mode: "development" });
     const devRes = await devApp.fetch(
-      new Request("http://localhost/@sprout/runtime.js"),
+      new Request("http://0.0.0.0/@sprout/runtime.js"),
     );
     assertEquals(devRes.status, 200);
     assertEquals(devRes.headers.get("cache-control"), "no-store");
@@ -140,7 +140,7 @@ Deno.test("dev and serve: M7 — serve uses the frozen manifest, dev compiles on
     // Production: cache-control: immutable.
     const prodApp = await createApp({ root: tmp.path, mode: "production" });
     const prodRes = await prodApp.fetch(
-      new Request("http://localhost/@sprout/runtime.js"),
+      new Request("http://0.0.0.0/@sprout/runtime.js"),
     );
     assertEquals(prodRes.status, 200);
     assertEquals(

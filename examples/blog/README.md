@@ -36,14 +36,14 @@ deno task dev
 The CLI prints:
 
 ```text
-[sprout] listening on http://localhost:8000
+[sprout] listening on http://0.0.0.0:8000
 ```
 
-Open <http://localhost:8000> in a browser. You should see the home page with three post titles.
-Click a title to navigate to the post detail page. Try `/blog/does-not-exist` to see the "Not found"
+Open <http://0.0.0.0:8000> in a browser. You should see the home page with three post titles. Click
+a title to navigate to the post detail page. Try `/blog/does-not-exist` to see the "Not found"
 response.
 
-The JSON API is at <http://localhost:8000/api/posts>. It returns the same data as the home page, in
+The JSON API is at <http://0.0.0.0:8000/api/posts>. It returns the same data as the home page, in
 JSON form.
 
 To build for production:

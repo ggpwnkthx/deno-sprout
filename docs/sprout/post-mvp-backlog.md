@@ -17,6 +17,5 @@ Consider after the first stable release:
 - partial prerendering;
 - streaming responses;
 - data loading conventions;
-- route groups;
 - metadata/head API;
 - typed route params generation.

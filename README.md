@@ -35,7 +35,7 @@ The remaining `@sprout/config` / `@sprout/utils` packages expose shared helpers 
 ## Compatibility
 
 - Deno: v2.8 or later. The workspace targets the v2.8 baseline; the development environment uses
-  Deno v2.8.2.
+  Deno v2.8.3.
 - Runtime: Deno-native. No Node.js APIs in any package.
 - JSR: each package declares a JSR name (`@sprout/core`, `@sprout/cli`, `@sprout/config`,
   `@sprout/compiler`, `@sprout/jsx`, `@sprout/runtime`, `@sprout/utils`).

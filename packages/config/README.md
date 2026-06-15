@@ -37,8 +37,7 @@ and returns a fully normalized config with absolute paths.
 
 ## Links
 
-- [Repository](https://github.com/example/sprout) — placeholder URL, replace with the real one
-  before the first publish.
+- [Repository](https://github.com/ggpwnkthx/deno-sprout)
 - [Config docs](https://jsr.io/@sprout/core) — the user-facing config reference (linked from
   `@sprout/core`'s JSR page).
 - [Permissions](https://jsr.io/@sprout/core) — the per-command permission table lives in the

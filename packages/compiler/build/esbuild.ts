@@ -33,6 +33,7 @@
 // also need `--allow-net`.
 import * as esbuild from "esbuild";
 import { denoPlugin } from "@ggpwnkthx/esbuild-plugin-deno";
+import { dirname, fromFileUrl, isAbsolute, join, normalize } from "@std/path";
 import { CompilerError } from "../errors.ts";
 
 /**
@@ -136,6 +137,80 @@ async function stopEsbuildBestEffort(): Promise<void> {
   }
 }
 
+function importerToFilePath(importer: string): string | null {
+  if (importer.length === 0) {
+    return null;
+  }
+  if (importer.startsWith("file://")) {
+    try {
+      return fromFileUrl(importer);
+    } catch (_cause) {
+      return null;
+    }
+  }
+  if (isAbsolute(importer)) {
+    return importer;
+  }
+  if (importer.includes("://")) {
+    return null;
+  }
+
+  const candidate = join(Deno.cwd(), importer);
+  try {
+    const stat = Deno.statSync(candidate);
+    return stat.isFile ? candidate : null;
+  } catch (_cause) {
+    return null;
+  }
+}
+
+function resolveRelativeFile(baseDir: string, specifier: string): string | null {
+  const base = normalize(join(baseDir, specifier));
+  const candidates = [
+    base,
+    `${base}.ts`,
+    `${base}.tsx`,
+    `${base}.js`,
+    `${base}.jsx`,
+    `${base}.mjs`,
+    `${base}.mts`,
+    join(base, "index.ts"),
+    join(base, "index.tsx"),
+    join(base, "index.js"),
+    join(base, "index.jsx"),
+  ];
+  for (const candidate of candidates) {
+    try {
+      const stat = Deno.statSync(candidate);
+      if (stat.isFile) {
+        return candidate;
+      }
+    } catch (_cause) {
+      // Try the next candidate.
+    }
+  }
+  return null;
+}
+
+function relativeFileImportPlugin(): esbuild.Plugin {
+  return {
+    name: "sprout-relative-file-imports",
+    setup(build) {
+      build.onResolve({ filter: /^\.+\// }, (args) => {
+        const importer = importerToFilePath(args.importer);
+        if (importer === null) {
+          return null;
+        }
+        const resolved = resolveRelativeFile(dirname(importer), args.path);
+        if (resolved === null) {
+          return null;
+        }
+        return { path: resolved };
+      });
+    },
+  };
+}
+
 /**
  * Bundle the supplied entry points with esbuild + the Deno resolver /
  * loader plugin. The function is `async` because `esbuild.build` is
@@ -177,6 +252,7 @@ export async function esbuildBundle(
       write: true,
       loader: opts.loader,
       plugins: [
+        relativeFileImportPlugin(),
         denoPlugin({
           configPath: opts.denoConfigPath,
           // Let esbuild own TS/JSX lowering so the wrapper's explicit

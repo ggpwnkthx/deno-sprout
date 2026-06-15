@@ -43,7 +43,6 @@ export type {
 export { CompilerError } from "./errors.ts";
 export type { CompilerErrorCode } from "./errors.ts";
 export {
-  _resetDevCacheForTests,
   buildProduction,
   compileDevAsset,
   compileDevSourceMap,

@@ -1,20 +1,39 @@
-// Browser runtime entry stub.
+// Compatibility browser runtime entry for `@sprout/core`.
 //
-// The real implementation lands in M4 (on-demand dev compiler) and
-// M6 (production build). The M4 compiler emits a generated module
-// that imports `@sprout/runtime` and calls `mountAll()` after
-// `DOMContentLoaded`. The M6 production build emits a
-// content-hashed, minified version of the same module.
-//
-// For M3 the file exists so the HTML shell can include a stable
-// script URL (`/@sprout/runtime.js`) and so Hono's middleware
-// chain has a file to resolve to once M4 wires the dev asset
-// pipeline. The function is a no-op for now.
+// The compiler now owns the asset entry it bundles for
+// `/@sprout/runtime.js`, but this file remains as a non-public package
+// file for older callers that may have imported the M3/M4 subpath
+// directly. Keep it behaviorally identical to the compiler entry.
+import { mountAll } from "@sprout/runtime";
 
-/**
- * No-op bootstrap. Replaced in M4 by the generated runtime module.
- */
-export function start(): void {
-  // Intentionally empty. M4 will replace this with a generated
-  // module that calls `mountAll()` on `DOMContentLoaded`.
+let started = false;
+
+/** Start the browser island mount loop once. */
+export function start(root?: ParentNode | null): void {
+  if (started) {
+    return;
+  }
+  if ((root === undefined || root === null) && typeof document === "undefined") {
+    return;
+  }
+
+  started = true;
+  const run = (): void => {
+    void mountAll(root ?? undefined).catch((cause) => {
+      console.error("[sprout] runtime mount failed", cause);
+    });
+  };
+
+  if (
+    (root === undefined || root === null) &&
+    typeof document !== "undefined" &&
+    document.readyState === "loading"
+  ) {
+    document.addEventListener("DOMContentLoaded", run, { once: true });
+    return;
+  }
+
+  queueMicrotask(run);
 }
+
+start();

@@ -88,6 +88,11 @@ Deno.test("discoverProject: basic-app produces the expected manifest", async () 
         pattern: "/files/:path{.+}",
         file: join(BASIC_APP, "src/routes/files/[...path].tsx"),
       },
+      {
+        id: "(marketing)/landing",
+        pattern: "/landing",
+        file: join(BASIC_APP, "src/routes/(marketing)/landing.tsx"),
+      },
     ],
     islands: [
       {
@@ -139,15 +144,13 @@ Deno.test("discoverProject: catch-all route maps to :param{.+}", async () => {
   assertEquals(catchAll.file.endsWith("files/[...path].tsx"), true);
 });
 
-Deno.test("discoverProject: route groups are skipped", async () => {
+Deno.test("discoverProject: route groups drop the grouped segment", async () => {
   const config = await loadConfig({ root: BASIC_APP });
   const project = await discoverProject(config);
-  // No route id or file path should mention "(marketing)".
-  for (const route of project.routes) {
-    if (route.id.includes("(marketing)") || route.file.includes("(marketing)")) {
-      throw new Error(`route group leaked into discovery: ${route.id} / ${route.file}`);
-    }
-  }
+  const grouped = project.routes.find((r) => r.pattern === "/landing");
+  assertExists(grouped);
+  assertEquals(grouped.id, "(marketing)/landing");
+  assertEquals(grouped.file, join(BASIC_APP, "src/routes/(marketing)/landing.tsx"));
 });
 
 Deno.test("discoverProject: private helpers and test files are ignored", async () => {

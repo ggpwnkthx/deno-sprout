@@ -4,7 +4,7 @@
 //
 // The tests build an `App` per test (no real port binding) and
 // drive it with `app.fetch(new Request(...))`. The `basic-app`
-// fixture is the canonical M3 example: 6 routes, 2 islands, an
+// fixture is the canonical M3 example: 7 routes, 2 islands, an
 // `app.css` stylesheet, and a public `favicon.svg`.
 import {
   assert,
@@ -27,7 +27,7 @@ async function withBasicApp<T>(fn: (app: App) => Promise<T>): Promise<T> {
 
 Deno.test("createApp: GET / returns HTML with the island placeholder", async () => {
   await withBasicApp(async (app) => {
-    const res = await app.fetch(new Request("http://localhost/"));
+    const res = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(res.status, 200);
     const ctype = res.headers.get("content-type") ?? "";
     assertMatch(ctype, /^text\/html/);
@@ -49,7 +49,7 @@ Deno.test("createApp: GET / returns HTML with the island placeholder", async () 
 
 Deno.test("createApp: GET /about returns HTML with the runtime and stylesheet", async () => {
   await withBasicApp(async (app) => {
-    const res = await app.fetch(new Request("http://localhost/about"));
+    const res = await app.fetch(new Request("http://0.0.0.0/about"));
     assertEquals(res.status, 200);
     const body = await res.text();
     assertStringIncludes(body, "about");
@@ -60,7 +60,7 @@ Deno.test("createApp: GET /about returns HTML with the runtime and stylesheet", 
 
 Deno.test("createApp: GET /blog/hello exercises the dynamic route", async () => {
   await withBasicApp(async (app) => {
-    const res = await app.fetch(new Request("http://localhost/blog/hello"));
+    const res = await app.fetch(new Request("http://0.0.0.0/blog/hello"));
     assertEquals(res.status, 200);
     const body = await res.text();
     assertStringIncludes(body, "hello");
@@ -71,7 +71,7 @@ Deno.test("createApp: GET /blog/hello exercises the dynamic route", async () => 
 Deno.test("createApp: POST /api/contact returns JSON", async () => {
   await withBasicApp(async (app) => {
     const res = await app.fetch(
-      new Request("http://localhost/api/contact", { method: "POST" }),
+      new Request("http://0.0.0.0/api/contact", { method: "POST" }),
     );
     assertEquals(res.status, 200);
     const ctype = res.headers.get("content-type") ?? "";
@@ -84,7 +84,7 @@ Deno.test("createApp: POST /api/contact returns JSON", async () => {
 Deno.test("createApp: GET /api/contact returns JSON from the GET handler", async () => {
   await withBasicApp(async (app) => {
     const res = await app.fetch(
-      new Request("http://localhost/api/contact", { method: "GET" }),
+      new Request("http://0.0.0.0/api/contact", { method: "GET" }),
     );
     assertEquals(res.status, 200);
     const ctype = res.headers.get("content-type") ?? "";
@@ -96,7 +96,7 @@ Deno.test("createApp: GET /api/contact returns JSON from the GET handler", async
 
 Deno.test("createApp: HEAD / returns 200 with an empty body", async () => {
   await withBasicApp(async (app) => {
-    const res = await app.fetch(new Request("http://localhost/", { method: "HEAD" }));
+    const res = await app.fetch(new Request("http://0.0.0.0/", { method: "HEAD" }));
     assertEquals(res.status, 200);
     const ctype = res.headers.get("content-type") ?? "";
     assertMatch(ctype, /^text\/html/);
@@ -109,7 +109,7 @@ Deno.test("createApp: HEAD on a route without HEAD falls back to GET and strips 
   // `/about` is a page with a default export but no explicit HEAD.
   await withBasicApp(async (app) => {
     const res = await app.fetch(
-      new Request("http://localhost/about", { method: "HEAD" }),
+      new Request("http://0.0.0.0/about", { method: "HEAD" }),
     );
     assertEquals(res.status, 200);
     const ctype = res.headers.get("content-type") ?? "";
@@ -121,7 +121,7 @@ Deno.test("createApp: HEAD on a route without HEAD falls back to GET and strips 
 
 Deno.test("createApp: GET on a missing route returns 404", async () => {
   await withBasicApp(async (app) => {
-    const res = await app.fetch(new Request("http://localhost/does-not-exist"));
+    const res = await app.fetch(new Request("http://0.0.0.0/does-not-exist"));
     assertEquals(res.status, 404);
     const body = await res.text();
     assertExists(body);
@@ -132,7 +132,7 @@ Deno.test("createApp: GET on a missing route returns 404", async () => {
 Deno.test("createApp: PUT /api/contact returns 405 with Allow listing supported methods", async () => {
   await withBasicApp(async (app) => {
     const res = await app.fetch(
-      new Request("http://localhost/api/contact", { method: "PUT" }),
+      new Request("http://0.0.0.0/api/contact", { method: "PUT" }),
     );
     assertEquals(res.status, 405);
     const allow = res.headers.get("allow") ?? "";
@@ -148,7 +148,7 @@ Deno.test("createApp: PUT /api/contact returns 405 with Allow listing supported 
 
 Deno.test("createApp: GET /favicon.svg serves the public file", async () => {
   await withBasicApp(async (app) => {
-    const res = await app.fetch(new Request("http://localhost/favicon.svg"));
+    const res = await app.fetch(new Request("http://0.0.0.0/favicon.svg"));
     assertEquals(res.status, 200);
     const ctype = res.headers.get("content-type") ?? "";
     assertMatch(ctype, /svg/);
@@ -159,7 +159,7 @@ Deno.test("createApp: GET /favicon.svg serves the public file", async () => {
 
 Deno.test("createApp: GET /nope.png returns 404 for a missing public file", async () => {
   await withBasicApp(async (app) => {
-    const res = await app.fetch(new Request("http://localhost/nope.png"));
+    const res = await app.fetch(new Request("http://0.0.0.0/nope.png"));
     assertEquals(res.status, 404);
   });
 });
@@ -169,8 +169,8 @@ Deno.test("createApp: re-rendering the same route still emits the island placeho
   // inside `renderRoute`. Calling `fetch` twice on the same app
   // should produce the placeholder on both responses.
   await withBasicApp(async (app) => {
-    const r1 = await app.fetch(new Request("http://localhost/"));
-    const r2 = await app.fetch(new Request("http://localhost/"));
+    const r1 = await app.fetch(new Request("http://0.0.0.0/"));
+    const r2 = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(r1.status, 200);
     assertEquals(r2.status, 200);
     const b1 = await r1.text();
@@ -183,7 +183,7 @@ Deno.test("createApp: re-rendering the same route still emits the island placeho
 Deno.test("createApp: HEAD on a missing route returns 404 with an empty body", async () => {
   await withBasicApp(async (app) => {
     const res = await app.fetch(
-      new Request("http://localhost/does-not-exist", { method: "HEAD" }),
+      new Request("http://0.0.0.0/does-not-exist", { method: "HEAD" }),
     );
     assertEquals(res.status, 404);
     const body = await res.text();
@@ -193,8 +193,8 @@ Deno.test("createApp: HEAD on a missing route returns 404 with an empty body", a
 
 Deno.test("createApp: GET /about HEAD /about headers share content-type", async () => {
   await withBasicApp(async (app) => {
-    const get = await app.fetch(new Request("http://localhost/about", { method: "GET" }));
-    const head = await app.fetch(new Request("http://localhost/about", { method: "HEAD" }));
+    const get = await app.fetch(new Request("http://0.0.0.0/about", { method: "GET" }));
+    const head = await app.fetch(new Request("http://0.0.0.0/about", { method: "HEAD" }));
     assertEquals(get.status, 200);
     assertEquals(head.status, 200);
     assertEquals(

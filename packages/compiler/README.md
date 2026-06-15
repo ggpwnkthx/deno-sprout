@@ -59,7 +59,6 @@ production serve uses to look up assets in O(1).
   re-stats the recorded input set before serving.
 - `compileDevSourceMap(input)` — return the source map for a single dev asset, or `null` when the
   asset did not produce a map. Used by the dev server's `/@sprout/<asset>.js.map` routes.
-- `_resetDevCacheForTests()` — reset the module-level dev cache. Tests-only helper.
 - `loadFrozenIndex(outDir)` — load the frozen manifest and return an O(1) `publicPath → FrozenAsset`
   index. A missing manifest throws `FROZEN_MANIFEST_MISSING`; a malformed manifest throws
   `FROZEN_MANIFEST_UNSUPPORTED`.
@@ -69,8 +68,8 @@ production serve uses to look up assets in O(1).
 - `resolveIslandEntryFile(id, root)` — resolve the on-disk path of an island source file given its
   slash-normalized id and a project root. Returns `null` when neither `<id>.tsx` nor `<id>.ts`
   exists.
-- `resolveRuntimeEntryFile()` — resolve the absolute path to the runtime entry file that
-  `packages/core` exports as `@sprout/core/runtime-entry`.
+- `resolveRuntimeEntryFile()` — resolve the absolute path to the compiler-owned browser runtime
+  entry file that is bundled as `/@sprout/runtime.js`.
 
 ### Types
 
@@ -107,8 +106,7 @@ production serve uses to look up assets in O(1).
 
 ## Links
 
-- [Repository](https://github.com/example/sprout) — placeholder URL, replace with the real one
-  before the first publish.
+- [Repository](https://github.com/ggpwnkthx/deno-sprout)
 - [Internals](https://jsr.io/@sprout/core) — the framework internals doc, which describes the
   manifest shape and the asset pipeline in detail.
 

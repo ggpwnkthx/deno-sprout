@@ -44,8 +44,7 @@ JSX runtime, serves public files, and serves framework assets for both dev (on-d
 
 ## Links
 
-- [Repository](https://github.com/example/sprout) — placeholder URL, replace with the real one
-  before the first publish.
+- [Repository](https://github.com/ggpwnkthx/deno-sprout)
 - [Getting started](https://jsr.io/@sprout/core) — the user-facing getting-started guide, linked
   from `@sprout/core`'s JSR page.
 - [Build and serve](https://jsr.io/@sprout/core) — the build / serve reference (frozen manifest,

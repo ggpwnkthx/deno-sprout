@@ -2,7 +2,7 @@
 
 This guide walks you from `sprout init` to a running app in about five
 minutes. By the end you will have a project on disk, a dev server listening on
-`http://localhost:8000`, and a working mental model for what the framework
+`http://0.0.0.0:8000`, and a working mental model for what the framework
 owns and what you write.
 
 If you only have time for one document, read this one. The other guides are
@@ -14,14 +14,14 @@ The `init` command scaffolds a runnable project. Pick a directory name (or
 none — `init` with no argument uses the current directory):
 
 ```sh
-deno run -A jsr:@sprout/cli init my-app
+deno run -A @sprout/cliinit my-app
 cd my-app
 ```
 
 To scaffold into the current directory instead:
 
 ```sh
-deno run -A jsr:@sprout/cli init
+deno run -A @sprout/cliinit
 ```
 
 The CLI writes six files. If the target directory is non-empty, `init`
@@ -73,10 +73,10 @@ deno task dev
 The CLI boots the dev server and prints:
 
 ```text
-[sprout] listening on http://localhost:8000
+[sprout] listening on http://0.0.0.0:8000
 ```
 
-Open <http://localhost:8000> in a browser.
+Open <http://0.0.0.0:8000> in a browser.
 
 ## 4. What you see
 

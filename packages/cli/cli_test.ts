@@ -32,6 +32,45 @@ import { INIT_FILES } from "./templates.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
 
+function workspaceImportUrl(rel: string): string {
+  return toFileUrl(join(REPO_ROOT, rel)).href;
+}
+
+async function rewriteGeneratedImportsToWorkspace(root: string): Promise<void> {
+  const denoJsoncPath = join(root, "deno.jsonc");
+  const denoJsonc = JSON.parse(await Deno.readTextFile(denoJsoncPath)) as {
+    readonly tasks?: Record<string, string>;
+    readonly compilerOptions?: Record<string, unknown>;
+  };
+  await Deno.writeTextFile(
+    denoJsoncPath,
+    JSON.stringify(
+      {
+        ...denoJsonc,
+        imports: {
+          "@sprout/core": workspaceImportUrl("packages/core/mod.ts"),
+          "@sprout/config": workspaceImportUrl("packages/config/mod.ts"),
+          "@sprout/compiler": workspaceImportUrl("packages/compiler/mod.ts"),
+          "@sprout/jsx": workspaceImportUrl("packages/jsx/mod.ts"),
+          "@sprout/jsx/dom": workspaceImportUrl("packages/jsx/dom/mod.ts"),
+          "@sprout/jsx/dom/jsx-runtime": workspaceImportUrl("packages/jsx/dom/jsx-runtime.ts"),
+          "@sprout/jsx/dom/jsx-dev-runtime": workspaceImportUrl(
+            "packages/jsx/dom/jsx-runtime.ts",
+          ),
+          "@sprout/jsx/shared": workspaceImportUrl("packages/jsx/shared/mod.ts"),
+          "@sprout/jsx/server/island-registry": workspaceImportUrl(
+            "packages/jsx/server/island-registry.ts",
+          ),
+          "@sprout/runtime": workspaceImportUrl("packages/runtime/mod.ts"),
+          "@sprout/utils": workspaceImportUrl("packages/utils/mod.ts"),
+        },
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Capture helpers
 // ---------------------------------------------------------------------------
@@ -213,13 +252,17 @@ Deno.test("init: creates a project whose generated deno.jsonc has the framework 
   try {
     const r = await run(["init", tmp], { silent: true });
     assertEquals(r.ok, true);
+    const generatedDenoJsonc = JSON.parse(
+      await Deno.readTextFile(join(tmp, "deno.jsonc")),
+    ) as { imports?: Record<string, string> };
+    await rewriteGeneratedImportsToWorkspace(tmp);
 
     // Boot the dev server against the freshly-init'd project and
     // hit `/`. This is the M5 exit-criterion proof: init creates
     // a runnable app, and dev serves it.
     const { createApp } = await import("@sprout/core");
     const app = await createApp({ root: tmp, mode: "development" });
-    const res = await app.fetch(new Request("http://localhost/"));
+    const res = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(res.status, 200);
     const body = await res.text();
     assertStringIncludes(body, "<h1>Hello, Sprout!</h1>");
@@ -234,12 +277,12 @@ Deno.test("init: creates a project whose generated deno.jsonc has the framework 
     // The island-bundle fetch is deferred to M10 (see JSDoc
     // above): it requires `jsr:@sprout/*` packages that M5 does
     // not publish.
-    const runtimeRes = await app.fetch(new Request("http://localhost/@sprout/runtime.js"));
+    const runtimeRes = await app.fetch(new Request("http://0.0.0.0/@sprout/runtime.js"));
     assertEquals(runtimeRes.status, 200);
     assertEquals(runtimeRes.headers.get("content-type"), "text/javascript; charset=utf-8");
     assertEquals(runtimeRes.headers.get("cache-control"), "no-store");
 
-    const cssRes = await app.fetch(new Request("http://localhost/@sprout/app.css"));
+    const cssRes = await app.fetch(new Request("http://0.0.0.0/@sprout/app.css"));
     assertEquals(cssRes.status, 200);
     assertEquals(cssRes.headers.get("content-type"), "text/css; charset=utf-8");
 
@@ -252,10 +295,7 @@ Deno.test("init: creates a project whose generated deno.jsonc has the framework 
     // the workspace. Asserting on the import map keys here is
     // the M5-honest check; the actual end-to-end island-bundle
     // fetch lands with M10's JSR publish.
-    const denoJsonc = JSON.parse(
-      await Deno.readTextFile(join(tmp, "deno.jsonc")),
-    ) as { imports?: Record<string, string> };
-    const imports = denoJsonc.imports ?? {};
+    const imports = generatedDenoJsonc.imports ?? {};
     for (
       const key of [
         "@sprout/core",
@@ -381,19 +421,20 @@ Deno.test("dev and serve: in M7, they use different asset pipelines", async () =
   try {
     const init = await run(["init", tmp], { silent: true });
     assertEquals(init.ok, true);
+    await rewriteGeneratedImportsToWorkspace(tmp);
 
     const { createApp } = await import("@sprout/core");
 
     // Dev pipeline: HTML response with island placeholder +
     // runtime script tag + no-store cache control.
     const devApp = await createApp({ root: tmp, mode: "development" });
-    const devRes = await devApp.fetch(new Request("http://localhost/"));
+    const devRes = await devApp.fetch(new Request("http://0.0.0.0/"));
     assertEquals(devRes.status, 200);
     const devBody = await devRes.text();
     assertStringIncludes(devBody, "/@sprout/runtime.js");
     assertStringIncludes(devBody, 'data-sprout-island="Counter"');
     const devRuntime = await devApp.fetch(
-      new Request("http://localhost/@sprout/runtime.js"),
+      new Request("http://0.0.0.0/@sprout/runtime.js"),
     );
     assertEquals(devRuntime.headers.get("cache-control"), "no-store");
   } finally {
@@ -534,7 +575,7 @@ Deno.test("smoke: init + inspect + bogus + dev request", async () => {
     // Boot the dev server against the freshly-init'd project.
     const { createApp } = await import("@sprout/core");
     const app = await createApp({ root: tmp, mode: "development" });
-    const r4 = await app.fetch(new Request("http://localhost/"));
+    const r4 = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(r4.status, 200);
     const body = await r4.text();
     assert(

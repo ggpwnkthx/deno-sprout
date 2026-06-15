@@ -81,7 +81,7 @@ function fixtureConfig(outDir: string): ResolvedConfig {
       minify: false,
       frozenAssetCache: "none",
     },
-    server: { hostname: "localhost", port: 0 },
+    server: { hostname: "0.0.0.0", port: 0 },
   };
 }
 

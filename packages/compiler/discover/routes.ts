@@ -29,11 +29,6 @@ const HTTP_METHODS = new Set([
   "HEAD",
 ]);
 
-/** `true` if any segment in the relative path is a route group (`(name)`). */
-function hasRouteGroupSegment(relativePath: string): boolean {
-  return relativePath.split("/").some((s) => s.startsWith("(") && s.endsWith(")"));
-}
-
 /**
  * Discover all route files in the project.
  *
@@ -62,15 +57,6 @@ export async function discoverRoutes(
       );
     }
     const relNoExt = stripExtension(rel);
-    // Files inside a route group (`(name)/...`) are dropped from
-    // discovery. The `routeFileToPattern` helper still computes the
-    // pattern that would result if the group segment were stripped,
-    // but including the file would cause it to collide with the
-    // canonical route for the same URL (for example
-    // `(marketing)/index` and `index` both map to `/`).
-    if (hasRouteGroupSegment(relNoExt)) {
-      continue;
-    }
     const pattern = routeFileToPattern(relNoExt);
     if (pattern === null) {
       // The file maps to no URL — most often a private helper

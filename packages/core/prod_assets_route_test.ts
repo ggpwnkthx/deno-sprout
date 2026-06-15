@@ -29,7 +29,7 @@ import { buildProduction } from "@sprout/compiler";
 import type { ResolvedConfig } from "@sprout/config";
 import { createApp } from "./mod.ts";
 import type { App } from "./mod.ts";
-import { _resetDevCacheForTests } from "@sprout/compiler";
+import { _resetDevCacheForTests } from "../compiler/build/mod.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
 const FIXTURE = join(REPO_ROOT, "tests/fixtures/basic-app");
@@ -105,7 +105,7 @@ Deno.test("prod asset: GET /@sprout/runtime.js returns 200, etag, immutable cach
     await copyFixtureTo(tmp.path);
     await buildProjectAt(tmp.path);
     const app = await bootProductionApp(tmp.path);
-    const res = await app.fetch(new Request("http://localhost/@sprout/runtime.js"));
+    const res = await app.fetch(new Request("http://0.0.0.0/@sprout/runtime.js"));
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("content-type"), "text/javascript; charset=utf-8");
     assertEquals(res.headers.get("cache-control"), "public, max-age=31536000, immutable");
@@ -127,12 +127,12 @@ Deno.test("prod asset: GET /@sprout/runtime.js with If-None-Match returns 304", 
     await buildProjectAt(tmp.path);
     const app = await bootProductionApp(tmp.path);
     // First request: discover the ETag.
-    const first = await app.fetch(new Request("http://localhost/@sprout/runtime.js"));
+    const first = await app.fetch(new Request("http://0.0.0.0/@sprout/runtime.js"));
     const etag = first.headers.get("etag");
     assertExists(etag);
     // Second request with If-None-Match -> 304.
     const second = await app.fetch(
-      new Request("http://localhost/@sprout/runtime.js", {
+      new Request("http://0.0.0.0/@sprout/runtime.js", {
         headers: { "if-none-match": etag },
       }),
     );
@@ -153,7 +153,7 @@ Deno.test("prod asset: If-None-Match: * returns 304", async () => {
     await buildProjectAt(tmp.path);
     const app = await bootProductionApp(tmp.path);
     const res = await app.fetch(
-      new Request("http://localhost/@sprout/runtime.js", {
+      new Request("http://0.0.0.0/@sprout/runtime.js", {
         headers: { "if-none-match": "*" },
       }),
     );
@@ -174,7 +174,7 @@ Deno.test("prod asset: If-None-Match with a wrong value returns 200", async () =
     await buildProjectAt(tmp.path);
     const app = await bootProductionApp(tmp.path);
     const res = await app.fetch(
-      new Request("http://localhost/@sprout/runtime.js", {
+      new Request("http://0.0.0.0/@sprout/runtime.js", {
         headers: { "if-none-match": '"deadbeefdeadbeef"' },
       }),
     );
@@ -193,7 +193,7 @@ Deno.test("prod asset: Accept-Encoding: gzip returns the gzip companion with con
     await buildProjectAt(tmp.path);
     const app = await bootProductionApp(tmp.path);
     const res = await app.fetch(
-      new Request("http://localhost/@sprout/runtime.js", {
+      new Request("http://0.0.0.0/@sprout/runtime.js", {
         headers: { "accept-encoding": "gzip" },
       }),
     );
@@ -216,7 +216,7 @@ Deno.test("prod asset: Accept-Encoding: gzip;q=0 does not receive gzip", async (
     await buildProjectAt(tmp.path);
     const app = await bootProductionApp(tmp.path);
     const res = await app.fetch(
-      new Request("http://localhost/@sprout/runtime.js", {
+      new Request("http://0.0.0.0/@sprout/runtime.js", {
         headers: { "accept-encoding": "gzip;q=0" },
       }),
     );
@@ -237,7 +237,7 @@ Deno.test("prod asset: Accept-Encoding: identity does not receive gzip", async (
     await buildProjectAt(tmp.path);
     const app = await bootProductionApp(tmp.path);
     const res = await app.fetch(
-      new Request("http://localhost/@sprout/runtime.js", {
+      new Request("http://0.0.0.0/@sprout/runtime.js", {
         headers: { "accept-encoding": "identity" },
       }),
     );
@@ -260,7 +260,7 @@ Deno.test("prod asset: /@sprout/island/Counter.js and cart/AddButton.js are serv
         "/@sprout/island/cart/AddButton.js",
       ]
     ) {
-      const res = await app.fetch(new Request("http://localhost" + path));
+      const res = await app.fetch(new Request("http://0.0.0.0" + path));
       assertEquals(res.status, 200, `${path} should be 200`);
       assertEquals(res.headers.get("content-type"), "text/javascript; charset=utf-8");
       assertEquals(res.headers.get("cache-control"), "public, max-age=31536000, immutable");
@@ -278,7 +278,7 @@ Deno.test("prod asset: /@sprout/app.css returns text/css", async () => {
     await copyFixtureTo(tmp.path);
     await buildProjectAt(tmp.path);
     const app = await bootProductionApp(tmp.path);
-    const res = await app.fetch(new Request("http://localhost/@sprout/app.css"));
+    const res = await app.fetch(new Request("http://0.0.0.0/@sprout/app.css"));
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("content-type"), "text/css; charset=utf-8");
     const body = await res.text();
@@ -294,7 +294,7 @@ Deno.test("prod asset: /@sprout/island/Missing.js returns 404", async () => {
     await copyFixtureTo(tmp.path);
     await buildProjectAt(tmp.path);
     const app = await bootProductionApp(tmp.path);
-    const res = await app.fetch(new Request("http://localhost/@sprout/island/Missing.js"));
+    const res = await app.fetch(new Request("http://0.0.0.0/@sprout/island/Missing.js"));
     assertEquals(res.status, 404);
   } finally {
     await tmp.cleanup();
@@ -307,7 +307,7 @@ Deno.test("prod asset: /@sprout/vendor.js returns 404 (no vendor bundle in MVP)"
     await copyFixtureTo(tmp.path);
     await buildProjectAt(tmp.path);
     const app = await bootProductionApp(tmp.path);
-    const res = await app.fetch(new Request("http://localhost/@sprout/vendor.js"));
+    const res = await app.fetch(new Request("http://0.0.0.0/@sprout/vendor.js"));
     assertEquals(res.status, 404);
   } finally {
     await tmp.cleanup();
@@ -369,13 +369,13 @@ Deno.test("prod asset: a single request reads exactly the raw asset + gzip compa
       return orig(path as string | URL);
     };
     try {
-      const res = await app.fetch(new Request("http://localhost/@sprout/runtime.js"));
+      const res = await app.fetch(new Request("http://0.0.0.0/@sprout/runtime.js"));
       assertEquals(res.status, 200);
       // Two reads: raw + gzip companion.
       assertEquals(sproutReads, 2);
       // A second request hits the disk again because the
       // default config has `frozenAssetCache: "none"`.
-      const res2 = await app.fetch(new Request("http://localhost/@sprout/runtime.js"));
+      const res2 = await app.fetch(new Request("http://0.0.0.0/@sprout/runtime.js"));
       assertEquals(res2.status, 200);
       assertEquals(sproutReads, 4);
     } finally {
@@ -397,7 +397,7 @@ Deno.test("prod asset: public files use max-age=3600 (not immutable, not no-stor
     await copyFixtureTo(tmp.path);
     await buildProjectAt(tmp.path);
     const app = await bootProductionApp(tmp.path);
-    const res = await app.fetch(new Request("http://localhost/favicon.svg"));
+    const res = await app.fetch(new Request("http://0.0.0.0/favicon.svg"));
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("cache-control"), "public, max-age=3600");
   } finally {
@@ -416,7 +416,7 @@ Deno.test("prod asset: 304 response has empty body, ETag, and cache headers", as
     await buildProjectAt(tmp.path);
     const app = await bootProductionApp(tmp.path);
     const res = await app.fetch(
-      new Request("http://localhost/@sprout/runtime.js", {
+      new Request("http://0.0.0.0/@sprout/runtime.js", {
         headers: { "if-none-match": '"' + (await firstEtag(app, "/@sprout/runtime.js")) + '"' },
       }),
     );
@@ -465,17 +465,17 @@ Deno.test("prod asset: bounded LRU is honored when configured", async () => {
     };
     try {
       // First request: cache miss -> 2 reads (raw + gzip).
-      const r1 = await app.fetch(new Request("http://localhost/@sprout/runtime.js"));
+      const r1 = await app.fetch(new Request("http://0.0.0.0/@sprout/runtime.js"));
       assertEquals(r1.status, 200);
       assertEquals(sproutReads, 2);
 
       // Second request for the same asset: cache hit -> 0 reads.
-      const r2 = await app.fetch(new Request("http://localhost/@sprout/runtime.js"));
+      const r2 = await app.fetch(new Request("http://0.0.0.0/@sprout/runtime.js"));
       assertEquals(r2.status, 200);
       assertEquals(sproutReads, 2);
 
       // Request a different asset: cache miss -> 2 more reads.
-      const r3 = await app.fetch(new Request("http://localhost/@sprout/app.css"));
+      const r3 = await app.fetch(new Request("http://0.0.0.0/@sprout/app.css"));
       assertEquals(r3.status, 200);
       assertEquals(sproutReads, 4);
 
@@ -519,7 +519,7 @@ Deno.test("prod asset: missing manifest -> 404 with a typed STATIC_FILE_NOT_FOUN
     // asset: the response is 404 with a typed body that hints
     // at `sprout build`.
     const app = await bootProductionApp(tmp.path);
-    const res = await app.fetch(new Request("http://localhost/@sprout/runtime.js"));
+    const res = await app.fetch(new Request("http://0.0.0.0/@sprout/runtime.js"));
     assertEquals(res.status, 404);
     const body = await res.text();
     assertStringIncludes(body, "sprout build");
@@ -534,7 +534,7 @@ Deno.test("prod asset: missing manifest -> 404 with a typed STATIC_FILE_NOT_FOUN
 
 /** Hit the asset once and return the bare 16-hex ETag. */
 async function firstEtag(app: App, publicPath: string): Promise<string> {
-  const res = await app.fetch(new Request("http://localhost" + publicPath));
+  const res = await app.fetch(new Request("http://0.0.0.0" + publicPath));
   const etag = res.headers.get("etag");
   assertExists(etag);
   return etag.slice(1, -1);

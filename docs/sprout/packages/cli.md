@@ -67,9 +67,9 @@ Generated `deno.jsonc`:
 ```jsonc
 {
   "tasks": {
-    "dev": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sprout/cli dev",
-    "build": "deno run --allow-read --allow-write --allow-env jsr:@sprout/cli build",
-    "serve": "deno run --allow-read --allow-env --allow-net jsr:@sprout/cli serve"
+    "dev": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run @sprout/cli dev",
+    "build": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run @sprout/cli build",
+    "serve": "deno run --allow-read --allow-env --allow-net @sprout/cli serve"
   },
   "compilerOptions": {
     "strict": true,

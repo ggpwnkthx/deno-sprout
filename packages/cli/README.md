@@ -27,7 +27,7 @@ the boundary.
   JSON-serializable object.
 - `CliErrorCode` — the closed union of stable error codes: `CLI_UNKNOWN_COMMAND`,
   `CLI_INVALID_ARGS`, `CLI_INIT_TARGET_NOT_EMPTY`, `CLI_INIT_FAILED`, `CLI_INSPECT_FAILED`,
-  `CLI_DEV_FAILED`, `CLI_BUILD_NOT_IMPLEMENTED`, `CLI_SERVE_FAILED`, `CLI_USER_ERROR`.
+  `CLI_DEV_FAILED`, `CLI_SERVE_FAILED`, `CLI_USER_ERROR`.
 - `FormatErrorOptions` — the options shape accepted by `formatError` (`debug`).
 - `CliOptions` — the options shape accepted by `run` (`silent`, `debug`).
 - `CliResult` — the outcome of a `run` invocation. `ok: true, code: 0` on success;
@@ -69,8 +69,7 @@ the boundary.
 
 ## Links
 
-- [Repository](https://github.com/example/sprout) — placeholder URL, replace with the real one
-  before the first publish.
+- [Repository](https://github.com/ggpwnkthx/deno-sprout)
 - [Getting started](https://jsr.io/@sprout/core) — the user-facing getting-started guide, linked
   from `@sprout/core`'s JSR page.
 - [Permissions](https://jsr.io/@sprout/core) — the per-command permission table lives in the

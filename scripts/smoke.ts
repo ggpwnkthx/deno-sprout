@@ -62,10 +62,10 @@ try {
   const denoJsonc = {
     tasks: {
       dev:
-        "deno run --allow-read --allow-write --allow-env --allow-net --allow-run jsr:@sprout/cli dev",
+        "deno run --allow-read --allow-write --allow-env --allow-net --allow-run @sprout/cli dev",
       build:
-        "deno run --allow-read --allow-write --allow-env --allow-net --allow-run jsr:@sprout/cli build",
-      serve: "deno run --allow-read --allow-env --allow-net jsr:@sprout/cli serve",
+        "deno run --allow-read --allow-write --allow-env --allow-net --allow-run @sprout/cli build",
+      serve: "deno run --allow-read --allow-env --allow-net @sprout/cli serve",
     },
     compilerOptions: {
       strict: true,
@@ -122,7 +122,7 @@ try {
   console.log("[smoke] serve -> request /");
   const app = await createApp({ root: tmp, mode: "production" });
 
-  const rootRes = await app.fetch(new Request("http://localhost/"));
+  const rootRes = await app.fetch(new Request("http://0.0.0.0/"));
   if (rootRes.status !== 200) {
     const body = await rootRes.text();
     throw new Error(`GET / -> ${rootRes.status}\nbody: ${body}`);
@@ -144,7 +144,7 @@ try {
   };
   for (const asset of manifest.assets) {
     const res = await app.fetch(
-      new Request(`http://localhost${asset.publicPath}`),
+      new Request(`http://0.0.0.0${asset.publicPath}`),
     );
     if (res.status !== 200) {
       throw new Error(

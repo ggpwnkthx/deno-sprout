@@ -28,7 +28,7 @@ async function withBasicApp<T>(fn: (app: App) => Promise<T>): Promise<T> {
 Deno.test("dev asset: GET /@sprout/runtime.js returns JS with no-store", async () => {
   await withBasicApp(async (app) => {
     const res = await app.fetch(
-      new Request("http://localhost/@sprout/runtime.js"),
+      new Request("http://0.0.0.0/@sprout/runtime.js"),
     );
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("content-type"), "text/javascript; charset=utf-8");
@@ -44,7 +44,7 @@ Deno.test("dev asset: GET /@sprout/runtime.js returns JS with no-store", async (
 Deno.test("dev asset: GET /@sprout/runtime.js.map returns JSON map with no-store", async () => {
   await withBasicApp(async (app) => {
     const res = await app.fetch(
-      new Request("http://localhost/@sprout/runtime.js.map"),
+      new Request("http://0.0.0.0/@sprout/runtime.js.map"),
     );
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("content-type"), "application/json; charset=utf-8");
@@ -58,7 +58,7 @@ Deno.test("dev asset: GET /@sprout/runtime.js.map returns JSON map with no-store
 Deno.test("dev asset: GET /@sprout/app.css returns the global stylesheet", async () => {
   await withBasicApp(async (app) => {
     const res = await app.fetch(
-      new Request("http://localhost/@sprout/app.css"),
+      new Request("http://0.0.0.0/@sprout/app.css"),
     );
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("content-type"), "text/css; charset=utf-8");
@@ -72,7 +72,7 @@ Deno.test("dev asset: GET /@sprout/app.css returns the global stylesheet", async
 Deno.test("dev asset: GET /@sprout/island/Counter.js returns island wrapper JS", async () => {
   await withBasicApp(async (app) => {
     const res = await app.fetch(
-      new Request("http://localhost/@sprout/island/Counter.js"),
+      new Request("http://0.0.0.0/@sprout/island/Counter.js"),
     );
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("content-type"), "text/javascript; charset=utf-8");
@@ -88,7 +88,7 @@ Deno.test("dev asset: GET /@sprout/island/Counter.js returns island wrapper JS",
 Deno.test("dev asset: GET /@sprout/island/cart/AddButton.js returns island wrapper JS", async () => {
   await withBasicApp(async (app) => {
     const res = await app.fetch(
-      new Request("http://localhost/@sprout/island/cart/AddButton.js"),
+      new Request("http://0.0.0.0/@sprout/island/cart/AddButton.js"),
     );
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("content-type"), "text/javascript; charset=utf-8");
@@ -101,7 +101,7 @@ Deno.test("dev asset: GET /@sprout/island/cart/AddButton.js returns island wrapp
 Deno.test("dev asset: GET /@sprout/island/Missing.js returns 404", async () => {
   await withBasicApp(async (app) => {
     const res = await app.fetch(
-      new Request("http://localhost/@sprout/island/Missing.js"),
+      new Request("http://0.0.0.0/@sprout/island/Missing.js"),
     );
     assertEquals(res.status, 404);
   });
@@ -110,7 +110,7 @@ Deno.test("dev asset: GET /@sprout/island/Missing.js returns 404", async () => {
 Deno.test("dev asset: GET /@sprout/island/Counter.js.map returns JSON map", async () => {
   await withBasicApp(async (app) => {
     const res = await app.fetch(
-      new Request("http://localhost/@sprout/island/Counter.js.map"),
+      new Request("http://0.0.0.0/@sprout/island/Counter.js.map"),
     );
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("content-type"), "application/json; charset=utf-8");
@@ -120,14 +120,14 @@ Deno.test("dev asset: GET /@sprout/island/Counter.js.map returns JSON map", asyn
 
 Deno.test("dev asset: GET / on a real App returns HTML that references the runtime script", async () => {
   await withBasicApp(async (app) => {
-    const res = await app.fetch(new Request("http://localhost/"));
+    const res = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(res.status, 200);
     const body = await res.text();
     assertStringIncludes(body, '<script type="module" src="/@sprout/runtime.js">');
     // The runtime script must be reachable through the same app
     // instance.
     const script = await app.fetch(
-      new Request("http://localhost/@sprout/runtime.js"),
+      new Request("http://0.0.0.0/@sprout/runtime.js"),
     );
     assertEquals(script.status, 200);
     const scriptBody = await script.text();
@@ -150,7 +150,7 @@ Deno.test("dev asset: every dev asset response sets cache-control: no-store", as
       "/@sprout/island/cart/AddButton.js",
     ];
     for (const path of urls) {
-      const res = await app.fetch(new Request("http://localhost" + path));
+      const res = await app.fetch(new Request("http://0.0.0.0" + path));
       assertEquals(
         res.headers.get("cache-control"),
         "no-store",
@@ -169,7 +169,7 @@ Deno.test("dev asset: framework asset routes run before user routes", async () =
   // is registered first, so the response here must be 200.
   await withBasicApp(async (app) => {
     const res = await app.fetch(
-      new Request("http://localhost/@sprout/runtime.js"),
+      new Request("http://0.0.0.0/@sprout/runtime.js"),
     );
     assertEquals(res.status, 200);
   });

@@ -73,7 +73,7 @@ Deno.test("M8 render: a route that throws on import returns 500 with ROUTE_IMPOR
   try {
     const app: App = await createApp({ root: project.dir, mode: "development" });
     // First request triggers the dynamic import and the throw.
-    const res = await app.fetch(new Request("http://localhost/"));
+    const res = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(res.status, 500);
     const ctype = res.headers.get("content-type") ?? "";
     assertMatch(ctype, /^text\/plain/);
@@ -104,7 +104,7 @@ Deno.test("M8 render: a route with no default and no methods returns 404 ROUTE_N
   });
   try {
     const app: App = await createApp({ root: project.dir, mode: "development" });
-    const res = await app.fetch(new Request("http://localhost/"));
+    const res = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(res.status, 404);
   } finally {
     await project.cleanup();
@@ -134,7 +134,7 @@ Deno.test("M8 render: a route default that is not a function returns 404 ROUTE_N
   });
   try {
     const app: App = await createApp({ root: project.dir, mode: "development" });
-    const res = await app.fetch(new Request("http://localhost/"));
+    const res = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(res.status, 404);
   } finally {
     await project.cleanup();
@@ -159,7 +159,7 @@ Deno.test("M8 render: a route whose GET export is not a function returns 404 ROU
   });
   try {
     const app: App = await createApp({ root: project.dir, mode: "development" });
-    const res = await app.fetch(new Request("http://localhost/"));
+    const res = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(res.status, 404);
   } finally {
     await project.cleanup();
@@ -180,7 +180,7 @@ Deno.test("M8 render: a route that returns a primitive number is wrapped as text
   });
   try {
     const app: App = await createApp({ root: project.dir, mode: "development" });
-    const res = await app.fetch(new Request("http://localhost/"));
+    const res = await app.fetch(new Request("http://0.0.0.0/"));
     // The shell accepts the value, the response is a 200 HTML
     // shell with the primitive stringified into the body.
     // (The shell renders arbitrary children; the literal `42`
@@ -250,7 +250,7 @@ Deno.test("M8 render: a successful route renders the HTML shell", async () => {
   });
   try {
     const app: App = await createApp({ root: project.dir, mode: "development" });
-    const res = await app.fetch(new Request("http://localhost/"));
+    const res = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(res.status, 200);
     const body = await res.text();
     assertMatch(body, /<!doctype html>/);

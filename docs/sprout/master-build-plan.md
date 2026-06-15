@@ -257,7 +257,7 @@ Runtime-added attributes:
 ### 3.7 Public CLI
 
 ```sh
-deno run -A jsr:@sprout/cli init my-app
+deno run -A @sprout/cliinit my-app
 deno task dev
 deno task build
 deno task serve
@@ -268,9 +268,9 @@ Generated project tasks:
 ```jsonc
 {
   "tasks": {
-    "dev": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sprout/cli dev",
-    "build": "deno run --allow-read --allow-write --allow-env jsr:@sprout/cli build",
-    "serve": "deno run --allow-read --allow-env --allow-net jsr:@sprout/cli serve"
+    "dev": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run @sprout/cli dev",
+    "build": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run @sprout/cli build",
+    "serve": "deno run --allow-read --allow-env --allow-net @sprout/cli serve"
   }
 }
 ```
@@ -415,15 +415,6 @@ export type {
   ServeOptions,
 } from "./server/types.ts";
 ```
-
-Optional subpath for generated internals only:
-
-```ts
-// @sprout/core/runtime-entry
-export { start } from "./runtime.entry.ts";
-```
-
-Users should not need to import from `@sprout/core/runtime-entry`.
 
 ### Server API
 
@@ -616,9 +607,9 @@ Generated `deno.jsonc`:
 ```jsonc
 {
   "tasks": {
-    "dev": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sprout/cli dev",
-    "build": "deno run --allow-read --allow-write --allow-env jsr:@sprout/cli build",
-    "serve": "deno run --allow-read --allow-env --allow-net jsr:@sprout/cli serve"
+    "dev": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run @sprout/cli dev",
+    "build": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run @sprout/cli build",
+    "serve": "deno run --allow-read --allow-env --allow-net @sprout/cli serve"
   },
   "compilerOptions": {
     "strict": true,
@@ -815,7 +806,7 @@ const defaults = {
     frozenAssetCache: "none",
   },
   server: {
-    hostname: "localhost",
+    hostname: "0.0.0.0",
     port: 8000,
   },
 };
@@ -983,7 +974,7 @@ export type StyleEntry = {
 | `src/routes/_layout.tsx` | ignored initially |
 | `src/routes/_helpers.ts` | ignored |
 
-Initial release should ignore route groups such as `(marketing)` or explicitly reject them. If accepted, they must not affect the URL path.
+Route groups such as `(marketing)` are accepted and do not affect the URL path. If two grouped or ungrouped files resolve to the same URL, discovery reports `DISCOVERY_ROUTE_CONFLICT`.
 
 ### Island Public Path Mapping
 
@@ -2121,7 +2112,6 @@ Consider after the first stable release:
 - partial prerendering;
 - streaming responses;
 - data loading conventions;
-- route groups;
 - metadata/head API;
 - typed route params generation.
 

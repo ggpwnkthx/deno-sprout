@@ -52,20 +52,20 @@ shared helpers (`@sprout/jsx/shared`) provide JSON prop serialization, parsing, 
 - `JsonPrimitive`, `JsonValue`, `JsonRecord` — the canonical JSON shapes used by
   `serializeJsonProps` / `parseJsonProps`.
 
-### `@sprout/jsx/server/island-registry` (internal-but-exported)
+### `@sprout/jsx/server/island-registry` (framework subpath)
 
 - `registerIslandComponent(component, metadata)` — register a function component as an island. The
   server JSX runtime checks the registry when JSX receives a component tag and emits a placeholder
   when the component is registered.
-- `clearIslandRegistry()` — clear the registry. Useful between tests.
+- `clearIslandRegistry()` — clear the registry. Intended for framework tests and controlled
+  framework setup.
 - `lookupIslandMetadata(component)` — read the metadata for a registered component, or `undefined`
-  when the component is not registered. Internal helper.
+  when the component is not registered. Used by the server JSX runtime.
 - `IslandMetadata` — the metadata shape stored in the registry.
 
 ## Links
 
-- [Repository](https://github.com/example/sprout) — placeholder URL, replace with the real one
-  before the first publish.
+- [Repository](https://github.com/ggpwnkthx/deno-sprout)
 - [Islands docs](https://jsr.io/@sprout/core) — the user-facing island guide, linked from
   `@sprout/core`'s JSR page.
 

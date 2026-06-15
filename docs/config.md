@@ -213,12 +213,12 @@ Server bind options. Used by `sprout dev` and `sprout serve`.
 
 ```ts
 server: {
-  hostname: "localhost",
+  hostname: "0.0.0.0",
   port: 8000,
 }
 ```
 
-- `hostname` — the bind hostname. Default: `"localhost"`.
+- `hostname` — the bind hostname. Default: `"0.0.0.0"`.
 - `port` — the bind port. Must be an integer in `[1, 65535]`.
   Default: `8000`.
 

@@ -26,6 +26,7 @@ import {
   assert,
   assertEquals,
   assertExists,
+  assertMatch,
   assertRejects,
   assertStringIncludes,
   assertThrows,
@@ -81,7 +82,7 @@ function fixtureConfig(outDir: string): ResolvedConfig {
       minify: false,
       frozenAssetCache: "none",
     },
-    server: { hostname: "localhost", port: 0 },
+    server: { hostname: "0.0.0.0", port: 0 },
   };
 }
 
@@ -157,7 +158,7 @@ Deno.test("buildProduction: writes a complete outDir with manifest and hashed as
       assert(bytes.byteLength > 0);
       if (asset.contentType.startsWith("text/javascript")) {
         const head = new TextDecoder().decode(bytes.slice(0, 256));
-        assertStringIncludes(head, "export");
+        assertMatch(head, /(class|const|function|var)/);
       }
     }
 

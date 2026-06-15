@@ -16,7 +16,7 @@ import { assert, assertEquals, assertStringIncludes } from "jsr:@std/assert@1";
 import { fromFileUrl, join } from "@std/path";
 import { buildProduction } from "@sprout/compiler";
 import type { ResolvedConfig } from "@sprout/config";
-import { _resetDevCacheForTests } from "@sprout/compiler";
+import { _resetDevCacheForTests } from "../compiler/build/mod.ts";
 import { createApp } from "./mod.ts";
 import type { App } from "./mod.ts";
 
@@ -79,7 +79,7 @@ Deno.test("M8 collision: dev /@sprout/runtime.js returns the framework asset, no
     await Deno.mkdir(join(tmp.path, "public/@sprout"), { recursive: true });
     await Deno.writeTextFile(evilFile, "/* PUBLIC FILE WINS */");
     const app: App = await createApp({ root: tmp.path, mode: "development" });
-    const res = await app.fetch(new Request("http://localhost/@sprout/runtime.js"));
+    const res = await app.fetch(new Request("http://0.0.0.0/@sprout/runtime.js"));
     assertEquals(res.status, 200);
     // The framework asset uses `cache-control: no-store` in dev;
     // a static-file response uses `cache-control: public,
@@ -107,7 +107,7 @@ Deno.test("M8 collision: dev /@sprout/app.css returns the framework stylesheet, 
     await Deno.mkdir(join(tmp.path, "public/@sprout"), { recursive: true });
     await Deno.writeTextFile(evilFile, "/* PUBLIC CSS WINS */");
     const app: App = await createApp({ root: tmp.path, mode: "development" });
-    const res = await app.fetch(new Request("http://localhost/@sprout/app.css"));
+    const res = await app.fetch(new Request("http://0.0.0.0/@sprout/app.css"));
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("cache-control"), "no-store");
     const body = await res.text();
@@ -129,7 +129,7 @@ Deno.test("M8 collision: dev /@sprout/island/Counter.js returns the framework is
     await Deno.mkdir(join(tmp.path, "public/@sprout/island"), { recursive: true });
     await Deno.writeTextFile(evilFile, "/* PUBLIC ISLAND WINS */");
     const app: App = await createApp({ root: tmp.path, mode: "development" });
-    const res = await app.fetch(new Request("http://localhost/@sprout/island/Counter.js"));
+    const res = await app.fetch(new Request("http://0.0.0.0/@sprout/island/Counter.js"));
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("cache-control"), "no-store");
     const body = await res.text();
@@ -157,7 +157,7 @@ Deno.test("M8 collision: prod /@sprout/runtime.js returns the frozen asset, not 
     await Deno.writeTextFile(evilFile, "/* PUBLIC FILE WINS */");
     await buildProjectAt(tmp.path);
     const app: App = await createApp({ root: tmp.path, mode: "production" });
-    const res = await app.fetch(new Request("http://localhost/@sprout/runtime.js"));
+    const res = await app.fetch(new Request("http://0.0.0.0/@sprout/runtime.js"));
     assertEquals(res.status, 200);
     // The frozen asset uses `cache-control: ...immutable`; a
     // static-file response uses `public, max-age=3600`. The
@@ -191,7 +191,7 @@ Deno.test("M8 collision: public /favicon.svg is served normally in dev", async (
     const favicon = join(tmp.path, "public/favicon.svg");
     await Deno.writeTextFile(favicon, "<svg>FRAMEWORK_FAVICON</svg>");
     const app: App = await createApp({ root: tmp.path, mode: "development" });
-    const res = await app.fetch(new Request("http://localhost/favicon.svg"));
+    const res = await app.fetch(new Request("http://0.0.0.0/favicon.svg"));
     assertEquals(res.status, 200);
     // The public-file middleware uses
     // `cache-control: public, max-age=3600`.
@@ -218,7 +218,7 @@ Deno.test("M8 collision: a user route at / wins over public/index.html", async (
     const indexFile = join(tmp.path, "public/index.html");
     await Deno.writeTextFile(indexFile, "<html>PUBLIC_INDEX</html>");
     const app: App = await createApp({ root: tmp.path, mode: "development" });
-    const res = await app.fetch(new Request("http://localhost/"));
+    const res = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(res.status, 200);
     const body = await res.text();
     // The route renders the shell + the counter placeholder.

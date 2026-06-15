@@ -25,7 +25,7 @@ Deno Deploy is the easiest target. The full deploy path is:
    `.sprout/dist/_sprout/**` files to the repository. (Or build on
    every deploy; either works.)
 3. The `serve` task in the generated `deno.jsonc` runs
-   `deno run --allow-read --allow-env --allow-net jsr:@sprout/cli serve`,
+   `deno run --allow-read --allow-env --allow-net @sprout/cli serve`,
    which is the exact command Deno Deploy expects.
 4. Set the Deno Deploy entrypoint to the `serve` task. The Deno
    Deploy project UI has a field for "Deno serve command" or
@@ -42,7 +42,7 @@ A typical Deno Deploy entrypoint (in `.github/workflows/deploy.yml`
 or the Deno Deploy UI):
 
 ```sh
-deno run --allow-read --allow-env --allow-net jsr:@sprout/cli serve
+deno run --allow-read --allow-env --allow-net @sprout/cli serve
 ```
 
 The `root` is the project root (the directory containing
@@ -89,7 +89,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=/srv/my-app
-ExecStart=/usr/local/bin/deno run --allow-read --allow-env --allow-net jsr:@sprout/cli serve
+ExecStart=/usr/local/bin/deno run --allow-read --allow-env --allow-net @sprout/cli serve
 Restart=on-failure
 User=sprout
 

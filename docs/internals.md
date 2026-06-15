@@ -317,11 +317,10 @@ API surface is documented in each package's `README.md`. Per-package
 `deno.jsonc` files carry a `description`, a `license`, and a
 `publish.exclude` list that keeps tests, dev-only helpers, and
 CI / editor files out of the published tarball. The top-level
-[CHANGELOG.md](CHANGELOG.md) tracks the per-milestone release
+[CHANGELOG.md](../CHANGELOG.md) tracks the per-milestone release
 notes; the M10 entry is the release-candidate notes. The end-to-end
 smoke lives at `scripts/smoke.ts` and runs as `deno task smoke`;
 the publish dry-run is `deno task publish-check`. The
 [`.github/workflows/publish.yml`](../.github/workflows/publish.yml)
 file is the 7-package matrix that wires the actual `deno publish`
 step to a `v*` tag push.
-

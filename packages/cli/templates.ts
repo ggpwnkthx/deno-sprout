@@ -28,13 +28,13 @@
  *
  * M10 pins every `@sprout/*` import to `0.2.0`; release automation
  * bumps the patch version on every release. Tasks delegate to the
- * `jsr:@sprout/cli` binary.
+ * pinned `jsr:@sprout/cli@0.2.0` binary.
  */
 export const TEMPLATE_DENO_JSONC = `{
   "tasks": {
-    "dev": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run jsr:@sprout/cli dev",
-    "build": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run jsr:@sprout/cli build",
-    "serve": "deno run --allow-read --allow-env --allow-net jsr:@sprout/cli serve"
+    "dev": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run @sprout/cli dev",
+    "build": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run @sprout/cli build",
+    "serve": "deno run --allow-read --allow-env --allow-net @sprout/cli serve"
   },
   "compilerOptions": {
     "strict": true,
@@ -85,8 +85,22 @@ export type CounterProps = {
   readonly initial: number;
 };
 
+let nextCounterId = 0;
+
 export default function Counter(props: CounterProps): JSX.Element {
-  return <button type="button">Count: {props.initial}</button>;
+  const id = "sprout-counter-" + nextCounterId++;
+  let count = props.initial;
+
+  queueMicrotask(() => {
+    const button = document.getElementById(id);
+    if (!(button instanceof HTMLButtonElement)) return;
+    button.addEventListener("click", () => {
+      count += 1;
+      button.textContent = "Count: " + count;
+    });
+  });
+
+  return <button id={id} type="button">Count: {count}</button>;
 }
 `;
 

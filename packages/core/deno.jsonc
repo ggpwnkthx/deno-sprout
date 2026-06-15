@@ -7,8 +7,7 @@
   "description": "Primary public server package: Hono-backed `createApp` / `serve`, route method dispatch, HTML shell, public-file and framework-asset serving for both dev and production.",
   "license": "MIT",
   "exports": {
-    ".": "./mod.ts",
-    "./runtime-entry": "./runtime.entry.ts"
+    ".": "./mod.ts"
   },
   "publish": {
     "exclude": [
