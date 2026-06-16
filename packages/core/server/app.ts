@@ -446,6 +446,20 @@ async function registerProductionAssetRoutes(
   return { cache };
 }
 
+/**
+ * Create a Sprout application.
+ *
+ * Loads the project configuration, builds the Hono router, and
+ * returns an `App` ready to be passed to `Deno.serve` or used as
+ * a fetch handler. In development mode the framework asset routes
+ * (`/@sprout/runtime.js`, `/@sprout/app.css`, island bundles) are
+ * compiled on demand; in production mode the frozen manifest is
+ * loaded at startup and content-hashed assets are served with
+ * `ETag` / `gzip` support.
+ *
+ * @param options Project root, run mode, and config file path.
+ * @returns A promise resolving to the framework `App`.
+ */
 export async function createApp(options: CreateAppOptions = {}): Promise<App> {
   const config = await loadConfig({
     root: options.root,
@@ -455,6 +469,20 @@ export async function createApp(options: CreateAppOptions = {}): Promise<App> {
   return await buildApp(config);
 }
 
+/**
+ * Start the Sprout HTTP server.
+ *
+ * Loads the project configuration, builds the `App`, and starts
+ * `Deno.serve` on the resolved hostname and port. The server
+ * handles route dispatch, the HTML shell, public files, and the
+ * framework asset pipeline (on-demand compile in development,
+ * frozen manifest in production). Exits cleanly when the abort
+ * signal is triggered.
+ *
+ * @param options Project root, run mode, config file path, and
+ *   optional hostname, port, and abort signal overrides.
+ * @returns A promise that resolves when the server has shut down.
+ */
 export async function serve(options: ServeOptions = {}): Promise<void> {
   const config = await loadConfig({
     root: options.root,

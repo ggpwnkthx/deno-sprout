@@ -31,6 +31,13 @@ export type CoreErrorCode =
  * methods, the upstream error, ...).
  */
 export class CoreError extends FrameworkError<CoreErrorCode> {
+  /**
+   * Build a `CoreError`.
+   *
+   * @param code Stable error code from `CoreErrorCode`.
+   * @param message Human-readable error message.
+   * @param details Optional JSON-serializable context object.
+   */
   constructor(
     code: CoreErrorCode,
     message: string,

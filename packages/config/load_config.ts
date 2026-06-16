@@ -468,6 +468,7 @@ export function resolveConfig(
 // loadConfig
 // ---------------------------------------------------------------------------
 
+/** Options for {@link loadConfig}. */
 export type LoadConfigOptions = {
   /** Project root. Defaults to `Deno.cwd()`. */
   readonly root?: string;

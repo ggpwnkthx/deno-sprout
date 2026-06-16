@@ -6,6 +6,7 @@
 //
 // M7 may replace this with `jsr:@std/media-types`; until then the map
 // stays small and focused on the extensions Sprout actually serves.
+/** Map of file extension (including `.`) to MIME content type. */
 export const EXTENSION_CONTENT_TYPES: Readonly<Record<string, string>> = {
   ".css": "text/css; charset=utf-8",
   ".gif": "image/gif",
@@ -24,6 +25,7 @@ export const EXTENSION_CONTENT_TYPES: Readonly<Record<string, string>> = {
   ".woff2": "font/woff2",
 };
 
+/** MIME type returned for unknown file extensions. */
 export const DEFAULT_CONTENT_TYPE = "application/octet-stream";
 
 /**

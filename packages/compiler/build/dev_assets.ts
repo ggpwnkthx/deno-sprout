@@ -13,6 +13,7 @@ import { hashInputs, SingleFlightCache } from "./cache.ts";
 import { buildIslandVirtualEntry } from "./virtual_modules.ts";
 import { resolveRelativeImport } from "./resolve_relative.ts";
 
+/** The kind of dev asset being compiled. */
 export type AssetKind = "runtime" | "island" | "style";
 
 /**
@@ -31,6 +32,7 @@ export type CompileDevAssetInput = {
   readonly mode: "development" | "production";
 };
 
+/** Result of compiling a dev asset. */
 export type CompileDevAssetResult = {
   readonly kind: AssetKind;
   readonly id: string;

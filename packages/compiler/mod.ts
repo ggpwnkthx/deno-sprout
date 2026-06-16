@@ -40,6 +40,15 @@ export type {
   RoutePattern,
   StyleEntry,
 } from "./manifest/types.ts";
+export { FrameworkError } from "@sprout/utils";
+export type { FrameworkErrorDetails } from "@sprout/utils";
+export type {
+  BuildConfig,
+  IslandDiscoveryConfig,
+  Mode,
+  ResolvedConfig,
+  RouteDiscoveryConfig,
+} from "@sprout/config";
 export { CompilerError } from "./errors.ts";
 export type { CompilerErrorCode } from "./errors.ts";
 export {

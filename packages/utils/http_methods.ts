@@ -9,6 +9,7 @@
 // and have the body stripped. `OPTIONS` is included for CORS-style
 // flows even though `@sprout/core` does not implement CORS in M3
 // (a user-supplied handler can answer `OPTIONS`).
+/** Closed list of HTTP methods the framework understands. */
 export const SUPPORTED_HTTP_METHODS = [
   "GET",
   "HEAD",
@@ -19,6 +20,7 @@ export const SUPPORTED_HTTP_METHODS = [
   "OPTIONS",
 ] as const;
 
+/** An HTTP method from the framework's closed {@link SUPPORTED_HTTP_METHODS} list. */
 export type HttpMethod = typeof SUPPORTED_HTTP_METHODS[number];
 
 /**

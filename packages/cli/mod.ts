@@ -14,6 +14,8 @@ export type { CliOptions, CliResult, ParsedArgs } from "./types.ts";
 export { CliError, formatError } from "./errors.ts";
 export type { CliErrorCode, FormatErrorOptions } from "./errors.ts";
 export { printHelp } from "./commands/help.ts";
+export type { PrintHelpOptions } from "./commands/help.ts";
+export { FrameworkError } from "@sprout/utils";
 export { parseArgs } from "./parse_args.ts";
 
 // Binary entrypoint. The CLI library surface (the `run` function

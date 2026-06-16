@@ -8,3 +8,4 @@ export { type DomRender, mountComponent } from "./mount_component.ts";
 export type { IslandClientModule, IslandMountResult, MountComponent } from "./module_contract.ts";
 export { RuntimeError } from "./errors.ts";
 export type { RuntimeErrorCode } from "./errors.ts";
+export { FrameworkError } from "@sprout/utils";

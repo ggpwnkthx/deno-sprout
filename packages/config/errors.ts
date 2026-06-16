@@ -21,6 +21,13 @@ export type ConfigErrorCode =
  * offending field name).
  */
 export class ConfigError extends FrameworkError<ConfigErrorCode> {
+  /**
+   * Build a `ConfigError`.
+   *
+   * @param code Stable error code from `ConfigErrorCode`.
+   * @param message Human-readable error message.
+   * @param details Optional JSON-serializable context object.
+   */
   constructor(code: ConfigErrorCode, message: string, details?: Record<string, unknown>) {
     super(code, message, details);
     this.name = "ConfigError";

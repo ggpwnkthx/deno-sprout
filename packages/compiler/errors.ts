@@ -6,6 +6,7 @@
 // API change.
 import { FrameworkError } from "@sprout/utils";
 
+/** Stable error codes for the `@sprout/compiler` package. */
 export type CompilerErrorCode =
   | "DISCOVERY_ROOT_MISSING"
   | "DISCOVERY_ROUTE_CONFLICT"
@@ -28,6 +29,13 @@ export type CompilerErrorCode =
  * or the offending public path).
  */
 export class CompilerError extends FrameworkError<CompilerErrorCode> {
+  /**
+   * Build a `CompilerError`.
+   *
+   * @param code Stable error code from `CompilerErrorCode`.
+   * @param message Human-readable error message.
+   * @param details Optional JSON-serializable context object.
+   */
   constructor(
     code: CompilerErrorCode,
     message: string,

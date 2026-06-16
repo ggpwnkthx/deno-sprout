@@ -24,6 +24,7 @@
 // `details` is shallowly frozen: top-level fields are read-only, but nested
 // values are not deep-frozen. Callers that need deeper safety should clone
 // and freeze nested values themselves.
+/** Frozen, JSON-serializable details object carried by every `FrameworkError`. */
 export type FrameworkErrorDetails = Readonly<Record<string, unknown>>;
 
 /**

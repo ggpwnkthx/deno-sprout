@@ -40,6 +40,13 @@ export type CliErrorCode =
  * path, the attempted port, ...).
  */
 export class CliError extends FrameworkError<CliErrorCode> {
+  /**
+   * Build a `CliError`.
+   *
+   * @param code Stable error code from `CliErrorCode`.
+   * @param message Human-readable error message.
+   * @param details Optional JSON-serializable context object.
+   */
   constructor(
     code: CliErrorCode,
     message: string,

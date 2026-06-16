@@ -27,4 +27,13 @@ export { getHono } from "./server/app.ts";
 export type { CoreErrorCode } from "./server/errors.ts";
 export { CoreError } from "./server/errors.ts";
 export { defineConfig } from "@sprout/config";
-export type { ConfigInput, Mode, ResolvedConfig } from "@sprout/config";
+export type {
+  BuildConfig,
+  ConfigInput,
+  IslandDiscoveryConfig,
+  Mode,
+  ResolvedConfig,
+  RouteDiscoveryConfig,
+  StyleConfig,
+} from "@sprout/config";
+export { FrameworkError } from "@sprout/utils";
