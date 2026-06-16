@@ -347,7 +347,7 @@ Deno.test("loadConfig: maxBytes unset uses the 16 MiB default", async () => {
 // Stylesheet
 // ---------------------------------------------------------------------------
 
-Deno.test("loadConfig: styles.app points to a missing file → null + warning", async () => {
+Deno.test("loadConfig: styles.app points to a missing file throws CONFIG_INVALID_PATH", async () => {
   const tmp = await makeTempDir("sprout-cfg-styles-missing-");
   try {
     const configPath = join(tmp.path, "sprout.config.ts");
@@ -356,20 +356,16 @@ Deno.test("loadConfig: styles.app points to a missing file → null + warning", 
       configPath,
       `export default { styles: { app: ${JSON.stringify(missing)} } };\n`,
     );
-    // Capture stdout/stderr to assert on the warning.
-    const originalWarn = console.warn;
-    const warnings: string[] = [];
-    console.warn = (msg: string) => {
-      warnings.push(msg);
-    };
-    try {
-      const config = await loadConfig({ root: tmp.path });
-      assertEquals(config.styles.app, null);
-    } finally {
-      console.warn = originalWarn;
-    }
-    assertEquals(warnings.length >= 1, true);
-    assertStringIncludes(warnings.join("\n"), missing);
+    // An explicit `styles.app` path that doesn't exist on disk is a
+    // user typo, not a silent default. loadConfig surfaces it as a
+    // typed ConfigError so the operator sees the mistake at startup
+    // rather than as a missing-stylesheet at runtime.
+    const err = await assertRejects(
+      () => loadConfig({ root: tmp.path }),
+      ConfigError,
+    );
+    assertEquals(err.code, "CONFIG_INVALID_PATH");
+    assertStringIncludes(err.message, "styles.app");
   } finally {
     await tmp.cleanup();
   }

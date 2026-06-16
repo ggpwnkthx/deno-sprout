@@ -8,6 +8,8 @@ node_modules
 .sprout-tmp/
 dist/
 coverage/
+tests/.tmp
+tests/.tmp/**
 
 # Local/editor
 .DS_Store

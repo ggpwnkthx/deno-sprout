@@ -323,10 +323,11 @@ export function resolveConfig(
     if (exists) {
       stylesApp = resolved;
     } else {
-      console.warn(
-        `[sprout] config styles.app ${JSON.stringify(resolved)} does not exist; setting to null`,
+      throw new ConfigError(
+        "CONFIG_INVALID_PATH",
+        `config field "styles.app" points to a missing file`,
+        { path: resolved },
       );
-      stylesApp = null;
     }
   } else if (stylesInput.app === undefined) {
     // Default: look at <root>/src/styles/app.css.

@@ -31,7 +31,9 @@ const RESERVED_PUBLIC_PREFIX = "/@sprout/";
  *     before the check; invalid percent encoding is rejected);
  *   - the URL path starts with `/@sprout/` (the framework reserves
  *     this namespace; public files are not allowed to shadow it);
- *   - the resulting path does not exist on disk.
+ *   - the resulting path does not exist on disk;
+ *   - the candidate is a symbolic link (resolved via `Deno.lstat`
+ *     before `Deno.stat` to prevent symlink-escape path traversal).
  *
  * The returned path is the slash-normalized absolute path on disk,
  * already proven to be inside `publicDir` via `isInsideRoot`.
@@ -87,9 +89,18 @@ export async function resolvePublicFile(
   if (!isInsideRoot(candidate, publicDir)) {
     return null;
   }
+  // Use Deno.lstat (not Deno.stat) to detect symlinks before they
+  // are followed. Deno.lstat reports the link itself; Deno.stat
+  // would follow it and defeat the isInsideRoot guard for
+  // symlink-escape attacks (e.g. publicDir/foo -> /etc/passwd).
+  // Reject all symlinks: publicDir contents are exactly the served
+  // contents, with no indirection.
   try {
-    const stat = await Deno.stat(candidate);
-    if (!stat.isFile) {
+    const lstat = await Deno.lstat(candidate);
+    if (lstat.isSymlink) {
+      return null;
+    }
+    if (!lstat.isFile) {
       return null;
     }
   } catch (_cause) {

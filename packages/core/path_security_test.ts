@@ -124,6 +124,83 @@ Deno.test("M8 core: resolvePublicFile returns the absolute path for a present pu
 });
 
 // ---------------------------------------------------------------------------
+// resolvePublicFile — symlink rejection (M10 hardening)
+// ---------------------------------------------------------------------------
+
+Deno.test("M8 core: resolvePublicFile returns null for a symlink inside publicDir that escapes", async () => {
+  // Regression test: a symlink publicDir/foo -> /etc/passwd must NOT
+  // be served via resolvePublicFile(publicDir, "/foo"), even though
+  // Deno.stat would follow the link and find a real file.
+  // The fix uses Deno.lstat (not Deno.stat) to detect the link first.
+  const tmp = await makeTempDir("sprout-m8-pub-symlink-escape-");
+  const sibling = await makeTempDir("sprout-m8-pub-symlink-escape-sib-");
+  try {
+    const externalFile = join(sibling.path, "secret.txt");
+    await Deno.writeTextFile(externalFile, "secret content");
+    const symlinkPath = join(tmp.path, "escape.txt");
+    try {
+      await Deno.symlink(externalFile, symlinkPath);
+    } catch (_cause) {
+      // Symlink creation requires developer mode / admin on Windows.
+      // Skip the test body when the syscall is not permitted.
+      return;
+    }
+    const result = await resolvePublicFile(tmp.path, "/escape.txt");
+    assertEquals(result, null);
+  } finally {
+    await tmp.cleanup();
+    await sibling.cleanup();
+  }
+});
+
+Deno.test("M8 core: resolvePublicFile returns null for a symlink inside publicDir that points to another file in publicDir", async () => {
+  // Strict-policy contract: all symlinks are rejected, even ones
+  // that point to other files inside publicDir. The publicDir
+  // contents must be exactly the served contents — no indirection.
+  const tmp = await makeTempDir("sprout-m8-pub-symlink-internal-");
+  try {
+    const targetFile = join(tmp.path, "target.svg");
+    await Deno.writeTextFile(targetFile, "<svg/>");
+    const symlinkPath = join(tmp.path, "link.svg");
+    try {
+      await Deno.symlink(targetFile, symlinkPath);
+    } catch (_cause) {
+      return;
+    }
+    const result = await resolvePublicFile(tmp.path, "/link.svg");
+    assertEquals(result, null);
+  } finally {
+    await tmp.cleanup();
+  }
+});
+
+Deno.test("M8 core: resolvePublicFile returns the absolute path for a regular file even when sibling symlinks exist", async () => {
+  // Positive case: a real regular file inside publicDir is resolved
+  // normally even when a sibling symlink that escapes exists.
+  // This proves the symlink check does not regress the happy path.
+  const tmp = await makeTempDir("sprout-m8-pub-symlink-ok-");
+  const sibling = await makeTempDir("sprout-m8-pub-symlink-ok-sib-");
+  try {
+    const externalFile = join(sibling.path, "secret.txt");
+    await Deno.writeTextFile(externalFile, "secret");
+    const escapeLink = join(tmp.path, "escape.txt");
+    try {
+      await Deno.symlink(externalFile, escapeLink);
+    } catch (_cause) {
+      // Windows: skip
+      return;
+    }
+    const regularFile = join(tmp.path, "favicon.svg");
+    await Deno.writeTextFile(regularFile, "<svg/>");
+    const result = await resolvePublicFile(tmp.path, "/favicon.svg");
+    assertEquals(result, regularFile);
+  } finally {
+    await tmp.cleanup();
+    await sibling.cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------
 // serveStaticFile: typed errors
 // ---------------------------------------------------------------------------
 

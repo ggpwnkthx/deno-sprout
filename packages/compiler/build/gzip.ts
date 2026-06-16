@@ -35,15 +35,24 @@ export async function gzipBytes(input: Uint8Array): Promise<Uint8Array> {
 
 /**
  * Return gzipped bytes when `compress === "gzip"`, otherwise `null`.
- * The asset writer calls this once per asset to decide whether to
- * write a `.gz.js` / `.gz.css` companion.
+ * Returns `null` when compression did not shrink the input (gzip
+ * output is `>=` the raw byte length). This prevents writing a
+ * `.gz` companion that would be larger than the original and is the
+ * right behavior for already-compressed or trivially-compressible
+ * inputs (empty files, tiny boot stubs, PNG bytes, etc.). The asset
+ * writer calls this once per asset to decide whether to write a
+ * `.gz.js` / `.gz.css` companion.
  */
 export async function maybeGzip(
   input: Uint8Array,
   compress: false | "gzip",
 ): Promise<Uint8Array | null> {
-  if (compress === "gzip") {
-    return await gzipBytes(input);
+  if (compress !== "gzip") {
+    return null;
   }
-  return null;
+  const gz = await gzipBytes(input);
+  if (gz.length >= input.length) {
+    return null;
+  }
+  return gz;
 }

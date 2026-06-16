@@ -12,6 +12,7 @@ export type CacheKey = {
   readonly id: string;
   readonly mode: "development" | "production";
   readonly envHash: string;
+  readonly jsxImportSource: string;
 };
 
 /** A cached bundle plus the metadata that produced it. */
@@ -25,7 +26,14 @@ export type CacheEntry = {
 
 /** Compute the string form of a {@link CacheKey}. */
 export function keyOf(key: CacheKey): string {
-  return [key.entry, key.kind, key.id, key.mode, key.envHash].join("|");
+  return [
+    key.entry,
+    key.kind,
+    key.id,
+    key.mode,
+    key.envHash,
+    key.jsxImportSource,
+  ].join("|");
 }
 
 /**
@@ -48,15 +56,88 @@ export function hashInputs(
 }
 
 /**
+ * FIFO queue for bounded-concurrency permit acquisition.
+ * A permit represents one concurrent build slot. Callers dequeue
+ * a permit before building and call `release` when done.
+ * When `maxConcurrent` is `Infinity` the queue is never entered
+ * and every caller gets an immediate permit.
+ */
+class Semaphore {
+  readonly #max: number;
+  readonly #queue: Array<() => void> = [];
+  #running = 0;
+
+  constructor(maxConcurrent: number) {
+    this.#max = maxConcurrent;
+  }
+
+  /**
+   * Try to acquire a permit without waiting. Returns `true` if
+   * acquired immediately, `false` if the caller should await
+   * `acquire()` instead.
+   */
+  tryAcquire(): boolean {
+    if (this.#max === Infinity) return true;
+    if (this.#running < this.#max) {
+      this.#running++;
+      return true;
+    }
+    return false;
+  }
+
+  /** Acquire a permit. Queues if at capacity; never rejects. */
+  async acquire(): Promise<void> {
+    if (this.#max === Infinity) return;
+    if (this.#running < this.#max) {
+      this.#running++;
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      this.#queue.push(resolve);
+    });
+    this.#running++;
+  }
+
+  /** Release a permit and dequeue the next waiter if any. */
+  release(): void {
+    if (this.#max === Infinity) return;
+    this.#running--;
+    const next = this.#queue.shift();
+    if (next !== undefined) {
+      // Schedule asynchronously so the next permit is granted
+      // after the current call stack unwinds, matching the
+      // FIFO order of the queue.
+      Promise.resolve().then(next);
+    }
+  }
+
+  /** Current number of running builds. Exposed for tests. */
+  get running(): number {
+    return this.#running;
+  }
+}
+
+/**
  * Single-flight dev build cache.
  *
  * Concurrent calls with the same key share one in-flight build.
  * After a build settles, the entry is stored in the internal map
  * and the next call short-circuits to a stat-check.
+ *
+ * @param maxConcurrent - Maximum number of distinct builds that run
+ *   concurrently across all keys. Use `Infinity` (the default) for
+ *   unbounded concurrency. Finite values bound thundering-herd
+ *   spikes by queuing excess calls in FIFO order until a slot
+ *   opens.
  */
 export class SingleFlightCache {
   readonly #map: Map<string, CacheEntry> = new Map();
   readonly #inflight: Map<string, Promise<CacheEntry>> = new Map();
+  readonly #sem: Semaphore;
+
+  constructor(maxConcurrent: number = Infinity) {
+    this.#sem = new Semaphore(maxConcurrent);
+  }
 
   /**
    * Get the cached entry for `key`, or build a new one. Concurrent
@@ -69,18 +150,41 @@ export class SingleFlightCache {
     build: () => Promise<EsbuildBundleResult>,
   ): Promise<CacheEntry> {
     const k = keyOf(key);
+
+    // Fast path: return a shared promise for an in-flight build
+    // without acquiring a semaphore slot.
     const existing = this.#inflight.get(k);
     if (existing !== undefined) {
       return existing;
     }
+
+    // Try to acquire a permit synchronously. If the cache is busy,
+    // we MUST wait for a slot before creating another in-flight
+    // entry so that concurrent distinct builds are bounded.
+    const acquired = this.#sem.tryAcquire();
+    if (!acquired) {
+      await this.#sem.acquire();
+    }
+
+    // Re-check the in-flight slot after acquiring: another
+    // request may have started the same build while we were
+    // waiting for a permit.
+    const inflight = this.#inflight.get(k);
+    if (inflight !== undefined) {
+      this.#sem.release();
+      return inflight;
+    }
+
     const cached = this.#map.get(k);
     if (cached !== undefined && await this.#isStillValid(cached)) {
+      this.#sem.release();
       return cached;
     }
     if (cached !== undefined) {
       // Stale; drop and rebuild.
       this.#map.delete(k);
     }
+
     const promise = (async (): Promise<CacheEntry> => {
       const result = await build();
       const entry: CacheEntry = {
@@ -91,7 +195,19 @@ export class SingleFlightCache {
       this.#map.set(k, entry);
       return entry;
     })();
+
     this.#inflight.set(k, promise);
+
+    // Attach the semaphore release to the build promise settlement.
+    // This runs when the build resolves OR rejects, not when the
+    // caller returns. This is correct for semaphore accounting:
+    // the permit is held for the lifetime of the actual build,
+    // not for the synchronous setup phase.
+    promise.then(
+      () => this.#sem.release(),
+      () => this.#sem.release(),
+    );
+
     // Ensure the in-flight slot is cleared on settle so the next
     // call (after a stat-miss) gets to build again. Use
     // `then(onFulfilled, onRejected)` rather than `finally`:
@@ -109,6 +225,7 @@ export class SingleFlightCache {
         this.#inflight.delete(k);
       },
     );
+
     return promise;
   }
 

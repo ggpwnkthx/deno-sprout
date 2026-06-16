@@ -145,11 +145,19 @@ Deno.test("buildProduction: writes a complete outDir with manifest and hashed as
     // 1 app stylesheet = 4 assets.
     assertEquals(onDisk.assets.length, 4);
 
-    // Every asset has a `gzipFile` because the default config compresses.
-    for (const asset of onDisk.assets) {
-      assertExists(asset.gzipFile, `${asset.publicPath} should have a gzip companion`);
-    }
-    assertEquals(summary.gzipAssets, 4);
+    // Assets that benefit from compression have a gzipFile; tiny assets
+    // (where gzip overhead would make the companion larger than the
+    // raw bytes) do not. The basic-app CSS fixture is small enough
+    // to fall into the latter category. The summary's gzipAssets
+    // count must equal the number of assets that actually have a
+    // gzipFile — these are two views of the same fact.
+    const assetsWithGzip = onDisk.assets.filter((a) => a.gzipFile !== undefined);
+    assertEquals(assetsWithGzip.length, summary.gzipAssets);
+    assert(assetsWithGzip.length > 0, "at least one asset should benefit from compression");
+    assert(
+      assetsWithGzip.length < onDisk.assets.length,
+      "at least one asset should not benefit from compression (the CSS fixture is tiny)",
+    );
 
     // The hashed JS files are non-empty and look like JS.
     for (const asset of onDisk.assets) {
@@ -312,11 +320,23 @@ Deno.test("buildProduction: compress gzip -> gzip companions are written and rec
   try {
     const config = fixtureConfig(tmp.path);
     const summary = await buildProduction({ config });
-    assertEquals(summary.gzipAssets, summary.assetsWritten);
+    // gzipAssets is the count of assets where compression actually
+    // shrank the input. assetsWritten is the total count. The two
+    // can differ when tiny assets (like the basic-app CSS) are
+    // present — gzip would produce a larger output.
+    assert(summary.gzipAssets > 0, "at least one asset should benefit from compression");
+    assert(
+      summary.gzipAssets < summary.assetsWritten,
+      "at least one asset should not benefit from compression",
+    );
     const files = await listSproutDir(tmp.path);
-    // At least one .gz.js and one .gz.css must be on disk.
-    assert(files.some((f) => f.endsWith(".gz.js")));
-    assert(files.some((f) => f.endsWith(".gz.css")));
+    // At least one .gz.js companion must be on disk (the runtime
+    // and both islands are large enough to benefit from gzip).
+    assert(
+      files.some((f) => f.endsWith(".gz.js")),
+      "at least one .gz.js companion should be written",
+    );
+    // (no .gz.css assertion: the basic-app CSS is too small to benefit from gzip)
   } finally {
     await tmp.cleanup();
   }

@@ -200,14 +200,17 @@ Deno.test("sprout build: writes gzip companions when configured (default)", asyn
     } finally {
       spy.restore();
     }
-    // The on-disk .gz companions exist.
+    // The on-disk .gz.js companions exist for the compressible assets
+    // (runtime + both islands). The .gz.css is NOT asserted because
+    // the basic-app CSS fixture is too small to benefit from gzip —
+    // the gzip overhead would produce a larger output than the raw
+    // 21 bytes, so maybeGzip returns null and no companion is written.
     const sproutDir = join(tmp.path, ".sprout/dist/_sprout");
     const entries: string[] = [];
     for await (const e of Deno.readDir(sproutDir)) {
       entries.push(e.name);
     }
     assert(entries.some((f) => f.endsWith(".gz.js")));
-    assert(entries.some((f) => f.endsWith(".gz.css")));
   } finally {
     await tmp.cleanup();
   }

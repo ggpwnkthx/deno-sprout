@@ -484,10 +484,12 @@ Deno.test("prod asset: bounded LRU is honored when configured", async () => {
       assertEquals(r2.status, 200);
       assertEquals(sproutReads, 2);
 
-      // Request a different asset: cache miss -> 2 more reads.
+      // Request a different asset: cache miss -> 1 read (raw only —
+      // the basic-app CSS fixture is too small to benefit from gzip,
+      // so it has no .gz companion on disk).
       const r3 = await app.fetch(new Request("http://0.0.0.0/@sprout/app.css"));
       assertEquals(r3.status, 200);
-      assertEquals(sproutReads, 4);
+      assertEquals(sproutReads, 3);
 
       // The LRU stats seam reports the cap-bound state.
       const stats = app.getAssetCacheStats();

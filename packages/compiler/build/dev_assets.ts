@@ -100,10 +100,14 @@ async function findNearestDenoConfig(startDir: string): Promise<string | null> {
 // parallel) will need to move this cache into a per-`createApp`
 // instance. The interface (`getCache` returning a `SingleFlightCache`)
 // is shaped so that swap is local.
+//
+// 8 = 2x default esbuild concurrency headroom; queues spikes rather
+// than spawning unlimited parallel esbuild processes on the main thread.
+const DEV_CACHE_MAX_CONCURRENT = 8;
 let cache: SingleFlightCache | null = null;
 function getCache(): SingleFlightCache {
   if (cache === null) {
-    cache = new SingleFlightCache();
+    cache = new SingleFlightCache(DEV_CACHE_MAX_CONCURRENT);
   }
   return cache;
 }
@@ -335,6 +339,7 @@ export async function compileDevAsset(
       id: input.id,
       mode: input.mode,
       envHash,
+      jsxImportSource: input.jsxImportSource,
     },
     () => buildForKind(input),
   );
@@ -368,6 +373,7 @@ export async function compileDevSourceMap(
       id: input.id,
       mode: input.mode,
       envHash,
+      jsxImportSource: input.jsxImportSource,
     },
     () => buildForKind(input),
   );
