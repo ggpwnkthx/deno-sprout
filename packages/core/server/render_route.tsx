@@ -10,7 +10,7 @@
 // `warmupIslands` in `warmup_islands.ts`, not per-request.
 //
 import { toFileUrl } from "@std/path";
-import { NOSNIFF } from "@sprout/utils";
+import { causeMessage, NOSNIFF } from "@sprout/utils";
 import type { ResolvedConfig } from "@sprout/config";
 import type { Manifest, RouteEntry } from "@sprout/compiler";
 import { htmlShell } from "./html_shell.tsx";
@@ -78,11 +78,10 @@ async function loadRouteModule(file: string): Promise<RouteModule> {
   try {
     mod = await import(fileUrl);
   } catch (cause) {
-    const message = cause instanceof Error ? cause.message : String(cause);
     throw new CoreError(
       "ROUTE_IMPORT_FAILED",
       `failed to import route module ${file}`,
-      { file, cause: message },
+      { file, cause: causeMessage(cause) },
     );
   }
   return asRouteModule(mod);
@@ -119,20 +118,45 @@ function wrapHtml(
   shellInfo: ShellInfo,
   requestInit?: ResponseInit,
 ): Response {
-  const body: JSXNode = htmlShell({
-    title: undefined,
-    body: value,
-    stylesheetPublicPath: shellInfo.stylesheetPublicPath,
-    runtimePublicPath: shellInfo.runtimePublicPath,
-  });
-  return new Response(String(body), {
-    ...requestInit,
-    headers: new Headers({
-      "content-type": "text/html; charset=utf-8",
-      "x-content-type-options": NOSNIFF,
-      ...(requestInit?.headers ? Object.fromEntries(new Headers(requestInit.headers)) : {}),
-    }),
-  });
+  if (value === null || value === undefined) {
+    throw new CoreError(
+      "ROUTE_RENDER_FAILED",
+      "page did not return a renderable value; the default export must return a JSX node, a string, or a Response",
+      { value: String(value) },
+    );
+  }
+  let body: JSXNode;
+  try {
+    body = htmlShell({
+      title: undefined,
+      body: value,
+      stylesheetPublicPath: shellInfo.stylesheetPublicPath,
+      runtimePublicPath: shellInfo.runtimePublicPath,
+    });
+  } catch (cause) {
+    throw new CoreError(
+      "ROUTE_RENDER_FAILED",
+      `html shell construction threw: ${causeMessage(cause)}`,
+      { cause: causeMessage(cause) },
+    );
+  }
+  try {
+    const html = String(body);
+    return new Response(html, {
+      ...requestInit,
+      headers: new Headers({
+        "content-type": "text/html; charset=utf-8",
+        "x-content-type-options": NOSNIFF,
+        ...(requestInit?.headers ? Object.fromEntries(new Headers(requestInit.headers)) : {}),
+      }),
+    });
+  } catch (cause) {
+    throw new CoreError(
+      "ROUTE_RENDER_FAILED",
+      `html serialization threw: ${causeMessage(cause)}`,
+      { cause: causeMessage(cause) },
+    );
+  }
 }
 
 /**
@@ -193,11 +217,10 @@ export async function renderRoute(options: RenderRouteOptions): Promise<Response
     try {
       result = await module.default(pageProps);
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause);
       throw new CoreError(
         "ROUTE_RENDER_FAILED",
         `page default for ${url.pathname} threw during render`,
-        { pathname: url.pathname, cause: message },
+        { pathname: url.pathname, cause: causeMessage(cause) },
       );
     }
     if (result instanceof Response) {
@@ -268,11 +291,10 @@ async function invokeHandler(
   try {
     result = await handler(ctx);
   } catch (cause) {
-    const message = cause instanceof Error ? cause.message : String(cause);
     throw new CoreError(
       "ROUTE_RENDER_FAILED",
       `handler for ${ctx.url.pathname} threw`,
-      { pathname: ctx.url.pathname, method, cause: message },
+      { pathname: ctx.url.pathname, method, cause: causeMessage(cause) },
     );
   }
   if (result instanceof Response) {

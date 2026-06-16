@@ -5,6 +5,7 @@
 // the element as mounted. Any error thrown by the component or the
 // renderer is caught and re-thrown as a typed `RuntimeError` so callers
 // can convert it into an `IslandMountResult` failure.
+import { causeMessage } from "@sprout/utils";
 import { jsx, render } from "@sprout/jsx/dom";
 import { RuntimeError } from "@sprout/jsx/shared";
 
@@ -65,9 +66,8 @@ export function mountComponent<Props extends Record<string, unknown>>(
     );
     renderImpl(node, element);
   } catch (cause) {
-    const message = cause instanceof Error ? cause.message : String(cause);
-    throw new RuntimeError("MOUNT_FAILED", `component mount failed: ${message}`, {
-      cause: message,
+    throw new RuntimeError("MOUNT_FAILED", `component mount failed: ${causeMessage(cause)}`, {
+      cause: causeMessage(cause),
     });
   }
   element.setAttribute("data-sprout-mounted", "true");

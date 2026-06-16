@@ -12,5 +12,9 @@ export { buildProduction, formatBuildSummary } from "./production.ts";
 export type { BuildOptions, BuildSummary } from "./production.ts";
 export { loadFrozenIndex } from "./frozen_index.ts";
 export type { FrozenIndex } from "../manifest/types.ts";
-export { readFrozenAsset, readFrozenAssetFromOutDir } from "./frozen_reader.ts";
+export {
+  FROZEN_ASSET_MAX_BUFFER_BYTES,
+  readFrozenAsset,
+  readFrozenAssetFromOutDir,
+} from "./frozen_reader.ts";
 export type { ReadFrozenAssetResult } from "./frozen_reader.ts";

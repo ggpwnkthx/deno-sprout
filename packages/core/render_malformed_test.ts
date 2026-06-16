@@ -203,6 +203,47 @@ Deno.test("M8 render: a route that returns a primitive number is wrapped as text
   }
 });
 
+Deno.test("M8 render: a route that returns null throws ROUTE_RENDER_FAILED → 500", async () => {
+  // A null return from a route handler must produce a 500
+  // ROUTE_RENDER_FAILED — not a 200 with the literal text "null".
+  const project = await makeProject("sprout-m8-rt-null-", {
+    "src/routes/index.tsx": `export default function Home() { return null; }\n`,
+  });
+  try {
+    const app: App = await createApp({ root: project.dir, mode: "development" });
+    const res = await app.fetch(new Request("http://0.0.0.0/"));
+    assertEquals(res.status, 500);
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
+    const body = await res.text();
+    // The literal text "null" must NOT appear in the body.
+    assert(!body.includes("null"), `body should not contain "null", got: ${body}`);
+  } finally {
+    await project.cleanup();
+  }
+});
+
+Deno.test("M8 render: a route that returns undefined throws ROUTE_RENDER_FAILED → 500", async () => {
+  // An undefined return from a route handler must produce a 500
+  // ROUTE_RENDER_FAILED — not a 200 with the literal text "undefined".
+  const project = await makeProject("sprout-m8-rt-undefined-", {
+    "src/routes/index.tsx": `export default function Home() { return undefined; }\n`,
+  });
+  try {
+    const app: App = await createApp({ root: project.dir, mode: "development" });
+    const res = await app.fetch(new Request("http://0.0.0.0/"));
+    assertEquals(res.status, 500);
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
+    const body = await res.text();
+    // The literal text "undefined" must NOT appear in the body.
+    assert(
+      !body.includes("undefined"),
+      `body should not contain "undefined", got: ${body}`,
+    );
+  } finally {
+    await project.cleanup();
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Unsupported HTTP method returns 405 with Allow header
 // ---------------------------------------------------------------------------

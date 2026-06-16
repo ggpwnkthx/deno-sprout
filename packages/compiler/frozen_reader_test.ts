@@ -37,6 +37,7 @@ import { resetDevCacheForTests } from "./build/dev_assets_test_utils.ts";
 import {
   buildProduction,
   CompilerError,
+  FROZEN_ASSET_MAX_BUFFER_BYTES,
   loadFrozenIndex,
   readFrozenAsset,
   readFrozenAssetFromOutDir,
@@ -514,6 +515,44 @@ Deno.test("readFrozenAsset: empty outDir throws FROZEN_MANIFEST_MISSING", async 
       CompilerError,
     );
     assertEquals(err.code, "FROZEN_MANIFEST_MISSING");
+  } finally {
+    await tmp.cleanup();
+  }
+});
+
+Deno.test("readFrozenAsset: asset smaller than cap reads successfully with explicit cap", async () => {
+  resetDevCacheForTests();
+  const tmp = await makeTempDir("sprout-m7-at-cap-");
+  try {
+    await buildProduction({ config: fixtureConfig(tmp.path) });
+    // Read the smallest asset (the runtime is small enough to be well under the cap).
+    // Confirm the cap parameter is plumbed through by using the default cap.
+    const result = await readFrozenAssetFromOutDir(
+      tmp.path,
+      "/@sprout/runtime.js",
+      FROZEN_ASSET_MAX_BUFFER_BYTES,
+    );
+    assert(result.bytes.byteLength > 0);
+  } finally {
+    await tmp.cleanup();
+  }
+});
+
+Deno.test("readFrozenAsset: asset larger than cap throws FROZEN_ASSET_TOO_LARGE", async () => {
+  resetDevCacheForTests();
+  const tmp = await makeTempDir("sprout-m7-oversized-");
+  try {
+    await buildProduction({ config: fixtureConfig(tmp.path) });
+    // Use a tiny cap to trigger the error without allocating a huge file.
+    const tinyCap = 16;
+    const err = await assertRejects(
+      () => readFrozenAssetFromOutDir(tmp.path, "/@sprout/runtime.js", tinyCap),
+      CompilerError,
+    );
+    assertEquals(err.code, "FROZEN_ASSET_TOO_LARGE");
+    const details = err.details as { size: number; max: number };
+    assert(details.size > tinyCap);
+    assertEquals(details.max, tinyCap);
   } finally {
     await tmp.cleanup();
   }

@@ -34,6 +34,7 @@
 import * as esbuild from "esbuild";
 import { denoPlugin } from "@ggpwnkthx/esbuild-plugin-deno";
 import { dirname, fromFileUrl, isAbsolute, join } from "@std/path";
+import { causeMessage } from "@sprout/utils";
 import { CompilerError } from "../errors.ts";
 import { resolveRelativeImport } from "./resolve_relative.ts";
 
@@ -315,8 +316,7 @@ export async function esbuildBundle(
       throw cause;
     }
     const errors = (cause as { errors?: unknown }).errors;
-    const message = cause instanceof Error ? cause.message : String(cause);
-    throw new CompilerError("BUILD_FAILED", message, {
+    throw new CompilerError("BUILD_FAILED", causeMessage(cause), {
       errors: errors as unknown,
     });
   } finally {

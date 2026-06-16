@@ -22,13 +22,22 @@
 // The public-file behavior is also asserted: a GET to
 // /favicon.svg in production mode returns the same
 // `cache-control: public, max-age=3600` as in dev mode.
-import { assert, assertEquals, assertExists, assertStringIncludes } from "jsr:@std/assert@1";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertRejects,
+  assertStringIncludes,
+} from "jsr:@std/assert@1";
 import { copy } from "jsr:@std/fs@1/copy";
 import { fromFileUrl, join } from "@std/path";
-import { buildProduction } from "@sprout/compiler";
+import { buildProduction, CompilerError } from "@sprout/compiler";
+import type { FrozenIndex } from "@sprout/compiler";
 import type { ResolvedConfig } from "@sprout/config";
 import { createApp } from "./mod.ts";
 import type { App } from "./mod.ts";
+import { serveFrozenAsset } from "./server/prod_assets.ts";
+import { CoreError } from "./server/errors.ts";
 import { resetDevCacheForTests } from "../compiler/build/dev_assets_test_utils.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
@@ -538,6 +547,59 @@ Deno.test("prod asset: missing manifest -> 404 with a typed STATIC_FILE_NOT_FOUN
   } finally {
     await tmp.cleanup();
   }
+});
+
+// ---------------------------------------------------------------------------
+// serveFrozenAsset: CompilerError catch path
+// ---------------------------------------------------------------------------
+
+Deno.test("serveFrozenAsset: FROZEN_ASSET_TOO_LARGE from readFn is converted to typed CoreError", async () => {
+  // Synthetic FrozenIndex with a single runtime asset entry.
+  const fakeIndex: FrozenIndex = {
+    version: 1,
+    outDir: "/tmp",
+    assets: new Map([
+      ["/@sprout/runtime.js", {
+        kind: "runtime",
+        id: "runtime",
+        publicPath: "/@sprout/runtime.js",
+        file: "_sprout/runtime.0123456789abcdef.js",
+        contentType: "text/javascript; charset=utf-8",
+        hash: "0123456789abcdef",
+      }],
+    ]),
+  };
+  // A readFn that always rejects with a FROZEN_ASSET_TOO_LARGE CompilerError.
+  const failReader = () =>
+    Promise.reject(
+      new CompilerError("FROZEN_ASSET_TOO_LARGE", "asset is too large", {
+        size: 100,
+        max: 50,
+      }),
+    );
+  // serveFrozenAsset throws CoreError("ROUTE_RENDER_FAILED", ...) when
+  // readFn rejects with CompilerError. The caller (app.ts via Hono) is
+  // responsible for converting it to a 500 response.
+  const err = await assertRejects(() =>
+    serveFrozenAsset(
+      {
+        frozenIndex: fakeIndex,
+        publicPath: "/@sprout/runtime.js",
+        request: new Request("http://0.0.0.0/@sprout/runtime.js"),
+      },
+      // deno-lint-ignore no-explicit-any
+      failReader as any,
+    )
+  );
+  assert(err instanceof CoreError, "should throw CoreError");
+  assertEquals(err.code, "ROUTE_RENDER_FAILED");
+  assertStringIncludes(err.message, "frozen asset could not be read");
+  // Security regression: the file path must not leak into error details.
+  const details = err.details as { readonly publicPath?: string };
+  assert(
+    !details.publicPath?.includes("_sprout/runtime.0123456789abcdef.js"),
+    "file path must not leak into error details",
+  );
 });
 
 // ---------------------------------------------------------------------------

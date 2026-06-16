@@ -10,6 +10,7 @@
 //
 // Both functions throw `RuntimeError` with stable codes so callers can
 // distinguish validation failures from size limits.
+import { causeMessage } from "@sprout/utils";
 import { RuntimeError } from "./errors.ts";
 import type { JsonRecord, JsonValue } from "./types.ts";
 
@@ -207,10 +208,9 @@ export function parseJsonProps(text: string): JsonRecord {
   try {
     parsed = JSON.parse(text);
   } catch (cause) {
-    const message = cause instanceof Error ? cause.message : String(cause);
     throw new RuntimeError("INVALID_PROPS", PROPS_NOT_JSON_MESSAGE, {
       reason: "json_parse",
-      cause: message,
+      cause: causeMessage(cause),
     });
   }
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {

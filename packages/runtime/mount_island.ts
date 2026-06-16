@@ -7,6 +7,7 @@
 // result. On any failure the element is marked with
 // `data-sprout-error="<CODE>"` and the function resolves (does not
 // throw) with `ok: false`.
+import { causeMessage } from "@sprout/utils";
 import { parseJsonProps, RuntimeError, validateIslandPublicPath } from "@sprout/jsx/shared";
 import type { IslandMountResult } from "./module_contract.ts";
 
@@ -154,7 +155,6 @@ export async function mountIsland(
   try {
     module = await importer(safeSrc);
   } catch (cause) {
-    const message = cause instanceof Error ? cause.message : String(cause);
     element.setAttribute("data-sprout-error", "MOUNT_FAILED");
     return {
       ok: false,
@@ -164,7 +164,7 @@ export async function mountIsland(
       error: new RuntimeError("MOUNT_FAILED", "island module not found", {
         id,
         src: safeSrc,
-        cause: message,
+        cause: causeMessage(cause),
       }),
     };
   }
@@ -194,17 +194,16 @@ export async function mountIsland(
       await result;
     }
   } catch (cause) {
-    const message = cause instanceof Error ? cause.message : String(cause);
     element.setAttribute("data-sprout-error", "MOUNT_FAILED");
     return {
       ok: false,
       id,
       src: safeSrc,
       element,
-      error: new RuntimeError("MOUNT_FAILED", `island mount threw: ${message}`, {
+      error: new RuntimeError("MOUNT_FAILED", `island mount threw: ${causeMessage(cause)}`, {
         id,
         src: safeSrc,
-        cause: message,
+        cause: causeMessage(cause),
       }),
     };
   }

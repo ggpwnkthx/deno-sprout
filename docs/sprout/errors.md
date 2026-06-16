@@ -46,6 +46,7 @@ error codes of its own. The other packages extend it.
 | `BUILD_OUTDIR_UNSAFE`           | `buildProduction`                              | The `outDir` is non-empty and contains a foreign file (not a prior `sprout.manifest.json`). `details.entries` lists the offending entries. |
 | `FROZEN_MANIFEST_MISSING`       | `loadFrozenIndex`, `readFrozenAsset`           | `<outDir>/sprout.manifest.json` does not exist; run `sprout build` first. `details.outDir` and `details.manifestPath` are the paths. |
 | `FROZEN_MANIFEST_UNSUPPORTED`   | `loadFrozenIndex`, `readFrozenAsset`           | The manifest exists but is unreadable, has the wrong version, is missing assets / files, has a duplicate publicPath, or references a missing on-disk file. `details` carries the offending field. |
+| `FROZEN_ASSET_TOO_LARGE`        | `readFrozenAsset`                               | The asset file on disk is larger than the per-asset buffer cap (`FROZEN_ASSET_MAX_BUFFER_BYTES`, default 64 MB). `details.size` is the file size; `details.max` is the cap. The production serve must use a streaming path for oversized assets (future work). |
 
 ## `@sprout/jsx`
 

@@ -18,6 +18,15 @@ import { type FrozenIndex } from "../manifest/types.ts";
 import { loadFrozenIndex } from "./frozen_index.ts";
 
 /**
+ * The LRU caps the total cache size, but a single oversized asset can
+ * still blow past the cap momentarily when read into a Uint8Array.
+ * This constant is the per-asset upper bound for the buffered read;
+ * assets larger than this must be served via the streaming path (future
+ * work) and reject with `FROZEN_ASSET_TOO_LARGE`.
+ */
+export const FROZEN_ASSET_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
+
+/**
  * The result of reading a single frozen asset.
  *
  * `bytes` is always set: it is the raw, content-hashed asset
@@ -56,6 +65,7 @@ export type ReadFrozenAssetResult = {
 export async function readFrozenAsset(
   index: FrozenIndex,
   publicPath: string,
+  maxBufferBytes?: number,
 ): Promise<ReadFrozenAssetResult> {
   if (index === null || index === undefined) {
     throw new CompilerError(
@@ -104,6 +114,14 @@ export async function readFrozenAsset(
       { outDir, publicPath, file: filePath },
     );
   }
+  const cap = maxBufferBytes ?? FROZEN_ASSET_MAX_BUFFER_BYTES;
+  if (stat.size > cap) {
+    throw new CompilerError(
+      "FROZEN_ASSET_TOO_LARGE",
+      `frozen asset ${publicPath} is larger than the per-asset buffer cap (${stat.size} > ${cap})`,
+      { outDir, publicPath, file: filePath, size: stat.size, max: cap },
+    );
+  }
   const bytes = await Deno.readFile(filePath);
 
   // Read the gzip companion when present. A missing file is
@@ -148,7 +166,8 @@ export async function readFrozenAsset(
 export async function readFrozenAssetFromOutDir(
   outDir: string,
   publicPath: string,
+  maxBufferBytes?: number,
 ): Promise<ReadFrozenAssetResult> {
   const index = await loadFrozenIndex(outDir);
-  return await readFrozenAsset(index, publicPath);
+  return await readFrozenAsset(index, publicPath, maxBufferBytes);
 }

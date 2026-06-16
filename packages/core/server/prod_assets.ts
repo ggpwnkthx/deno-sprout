@@ -22,7 +22,7 @@
 // LRU and the index lifetime; this helper is the per-request
 // `ETag` / `Accept-Encoding` / 304 decision.
 import { acceptsGzip, NOSNIFF } from "@sprout/utils";
-import { readFrozenAsset } from "@sprout/compiler";
+import { CompilerError, readFrozenAsset } from "@sprout/compiler";
 import type { FrozenIndex, ReadFrozenAssetResult } from "@sprout/compiler";
 import { CoreError, coreErrorToResponse } from "./errors.ts";
 
@@ -78,6 +78,7 @@ export type FrozenAssetLookup = {
  */
 export async function serveFrozenAsset(
   opts: ServeFrozenAssetOptions,
+  readFn: typeof readFrozenAsset = readFrozenAsset,
 ): Promise<Response> {
   const asset = opts.frozenIndex.assets.get(opts.publicPath);
   if (asset === undefined) {
@@ -93,8 +94,23 @@ export async function serveFrozenAsset(
   // keeps this from happening on every request; this helper does
   // not cache. A pre-loaded result (from the LRU) bypasses the
   // disk read.
-  const result = opts.preloaded ??
-    await readFrozenAsset(opts.frozenIndex, opts.publicPath);
+  let result: ReadFrozenAssetResult;
+  if (opts.preloaded) {
+    result = opts.preloaded;
+  } else {
+    try {
+      result = await readFn(opts.frozenIndex, opts.publicPath);
+    } catch (cause) {
+      if (cause instanceof CompilerError) {
+        throw new CoreError(
+          "ROUTE_RENDER_FAILED",
+          "frozen asset could not be read",
+          { publicPath: opts.publicPath, cause: cause.code },
+        );
+      }
+      throw cause;
+    }
+  }
 
   const etag = `"${asset.hash}"`;
   // Gzip negotiation. A missing companion (result.gzipBytes ===
@@ -125,7 +141,15 @@ export async function serveFrozenAsset(
   // `ArrayBufferLike` a typed `Uint8Array` carries). Copy through
   // `slice().buffer` to satisfy the strict type without changing
   // the bytes.
-  const source = sendGzip ? result.gzipBytes : result.bytes;
+  // The redundant `result.gzipBytes !== null` guard is intentional:
+  // it lets TypeScript narrow the type to `Uint8Array` in each
+  // branch, avoiding a `!` assertion on the ternary result.
+  let source: Uint8Array;
+  if (sendGzip && result.gzipBytes !== null) {
+    source = result.gzipBytes;
+  } else {
+    source = result.bytes;
+  }
   const body: ArrayBuffer = source.slice().buffer;
 
   const headers = new Headers({

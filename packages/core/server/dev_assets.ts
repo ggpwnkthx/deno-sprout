@@ -22,7 +22,7 @@ import {
   CompilerError,
   resolveRuntimeEntryFile,
 } from "@sprout/compiler";
-import { NOSNIFF } from "@sprout/utils";
+import { causeMessage, NOSNIFF } from "@sprout/utils";
 import { CoreError, coreErrorToResponse } from "./errors.ts";
 
 /** Headers attached to every dev asset response. */
@@ -168,11 +168,10 @@ function toCoreError(cause: unknown, publicPath: string): CoreError {
       { publicPath, cause: cause.code },
     );
   }
-  const message = cause instanceof Error ? cause.message : String(cause);
   return new CoreError(
     "ROUTE_RENDER_FAILED",
-    `failed to compile dev asset ${publicPath}: ${message}`,
-    { publicPath, cause: message },
+    `failed to compile dev asset ${publicPath}: ${causeMessage(cause)}`,
+    { publicPath, cause: causeMessage(cause) },
   );
 }
 

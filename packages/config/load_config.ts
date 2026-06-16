@@ -12,7 +12,7 @@
 // filesystem. `loadConfig` is a thin wrapper around `resolveConfig`
 // that performs the import and the file existence check first.
 import { isAbsolute, join, toFileUrl } from "@std/path";
-import { isInsideRoot, slash } from "@sprout/utils";
+import { causeMessage, isInsideRoot, slash } from "@sprout/utils";
 import { ConfigError } from "./errors.ts";
 import { DEFAULT_FROZEN_ASSET_CACHE_MAX_BYTES, DEFAULTS } from "./defaults.ts";
 import type { ConfigInput, Mode, ResolvedConfig } from "./types.ts";
@@ -521,11 +521,10 @@ export async function loadConfig(
     try {
       mod = await import(fileUrl) as Record<string, unknown>;
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause);
       throw new ConfigError(
         "CONFIG_IMPORT_FAILED",
         `failed to import config file ${configFile}`,
-        { path: configFile, cause: message },
+        { path: configFile, cause: causeMessage(cause) },
       );
     }
     if (!("default" in mod)) {

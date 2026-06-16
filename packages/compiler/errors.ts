@@ -20,7 +20,8 @@ export type CompilerErrorCode =
   | "BUILD_OUTPUT_MISSING"
   | "BUILD_OUTDIR_UNSAFE"
   | "FROZEN_MANIFEST_MISSING"
-  | "FROZEN_MANIFEST_UNSUPPORTED";
+  | "FROZEN_MANIFEST_UNSUPPORTED"
+  | "FROZEN_ASSET_TOO_LARGE";
 
 /**
  * Typed error for @sprout/compiler. The code is one of

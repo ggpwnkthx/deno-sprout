@@ -14,6 +14,7 @@
 // honest?" gate; the reader is the "is the on-disk file honest?"
 // gate.
 import { join } from "@std/path";
+import { causeMessage } from "@sprout/utils";
 import { CompilerError } from "../errors.ts";
 import type { FrozenAsset, FrozenAssetKind, FrozenIndex } from "../manifest/types.ts";
 
@@ -97,22 +98,20 @@ export async function loadFrozenIndex(outDir: string): Promise<FrozenIndex> {
   try {
     raw = await Deno.readTextFile(manifestPath);
   } catch (cause) {
-    const message = cause instanceof Error ? cause.message : String(cause);
     throw new CompilerError(
       "FROZEN_MANIFEST_UNSUPPORTED",
       `failed to read frozen manifest at ${manifestPath}`,
-      { outDir, cause: message },
+      { outDir, cause: causeMessage(cause) },
     );
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch (cause) {
-    const message = cause instanceof Error ? cause.message : String(cause);
     throw new CompilerError(
       "FROZEN_MANIFEST_UNSUPPORTED",
       "frozen manifest is not valid JSON",
-      { outDir, cause: message },
+      { outDir, cause: causeMessage(cause) },
     );
   }
 
