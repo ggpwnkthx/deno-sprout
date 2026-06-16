@@ -16,8 +16,8 @@
 // The doctype is emitted via Hono's `raw()` helper so it is written
 // verbatim (no HTML escaping) at the start of the document.
 import { Fragment, jsx } from "@sprout/jsx";
-import { raw } from "jsr:@hono/hono@4.12.24/html";
-import type { Child, JSXNode } from "jsr:@hono/hono@4.12.24/jsx";
+import { raw } from "@hono/hono/html";
+import type { Child, JSXNode } from "@hono/hono/jsx";
 
 /** Options accepted by {@link htmlShell}. */
 export type HtmlShellOptions = {

@@ -12,22 +12,15 @@
 // the manifest validator does not reject a path that is otherwise
 // well-formed; the M3 server renderer will tighten this up.
 import { relative } from "@std/path";
-import { slash } from "@sprout/utils";
+import { slash, SUPPORTED_HTTP_METHODS } from "@sprout/utils";
+import type { HttpMethod } from "@sprout/utils";
 import type { ResolvedConfig } from "@sprout/config";
 import { CompilerError } from "../errors.ts";
 import { routeFileToPattern } from "../manifest/paths.ts";
 import { stripExtension, walkForDiscovery } from "./glob.ts";
 import type { DiscoveredRoute } from "../manifest/types.ts";
 
-const HTTP_METHODS = new Set([
-  "GET",
-  "POST",
-  "PUT",
-  "PATCH",
-  "DELETE",
-  "OPTIONS",
-  "HEAD",
-]);
+const HTTP_METHODS = new Set(SUPPORTED_HTTP_METHODS);
 
 /**
  * Discover all route files in the project.
@@ -129,7 +122,7 @@ function hasMethodExport(text: string): boolean {
   const re = /(^|\n)\s*export\s+(?:async\s+)?function\s+([A-Z][A-Z0-9_]*)\b/g;
   for (let m = re.exec(text); m !== null; m = re.exec(text)) {
     const name = m[2];
-    if (name !== undefined && HTTP_METHODS.has(name)) {
+    if (name !== undefined && HTTP_METHODS.has(name as HttpMethod)) {
       return true;
     }
   }

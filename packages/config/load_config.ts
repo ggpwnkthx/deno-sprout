@@ -11,7 +11,7 @@
 // tooling) can validate a config object without touching the
 // filesystem. `loadConfig` is a thin wrapper around `resolveConfig`
 // that performs the import and the file existence check first.
-import { fromFileUrl, isAbsolute, join, toFileUrl } from "@std/path";
+import { isAbsolute, join, toFileUrl } from "@std/path";
 import { isInsideRoot, slash } from "@sprout/utils";
 import { ConfigError } from "./errors.ts";
 import { DEFAULT_FROZEN_ASSET_CACHE_MAX_BYTES, DEFAULTS } from "./defaults.ts";
@@ -550,4 +550,3 @@ export async function loadConfig(
 // module — `loadConfig` and `resolveConfig` do not use it directly.
 // Other packages should import it from `@sprout/utils`.
 export { FrameworkError } from "@sprout/utils";
-export { fromFileUrl };

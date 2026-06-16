@@ -64,7 +64,7 @@ export class SingleFlightCache {
    * exactly once and all callers resolve with the same
    * `CacheEntry`.
    */
-  getOrBuild(
+  async getOrBuild(
     key: CacheKey,
     build: () => Promise<EsbuildBundleResult>,
   ): Promise<CacheEntry> {
@@ -74,8 +74,8 @@ export class SingleFlightCache {
       return existing;
     }
     const cached = this.#map.get(k);
-    if (cached !== undefined && this.#isStillValid(cached)) {
-      return Promise.resolve(cached);
+    if (cached !== undefined && await this.#isStillValid(cached)) {
+      return cached;
     }
     if (cached !== undefined) {
       // Stale; drop and rebuild.
@@ -139,21 +139,18 @@ export class SingleFlightCache {
     return this.#map.size;
   }
 
-  #isStillValid(entry: CacheEntry): boolean {
-    for (const input of entry.result.inputs) {
-      let mtime = 0;
-      try {
-        const stat = Deno.statSync(input.path);
-        mtime = stat.mtime?.getTime() ?? 0;
-      } catch (_cause) {
-        // The file went away; treat as invalid so the next call
-        // rebuilds.
-        return false;
-      }
-      if (mtime !== input.mtime) {
-        return false;
-      }
-    }
-    return true;
+  #isStillValid(entry: CacheEntry): Promise<boolean> {
+    return Promise.all(
+      entry.result.inputs.map(async (input) => {
+        try {
+          const stat = await Deno.stat(input.path);
+          return stat.mtime?.getTime() === input.mtime;
+        } catch (_cause) {
+          // The file went away; treat as invalid so the next call
+          // rebuilds.
+          return false;
+        }
+      }),
+    ).then((results) => results.every(Boolean));
   }
 }

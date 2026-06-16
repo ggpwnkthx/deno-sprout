@@ -1,18 +1,20 @@
 // Frozen asset reader for the M7 production serve.
 //
-// `readFrozenAsset` returns the raw bytes and (when present) the
-// gzip companion bytes of a single frozen asset. The reader is
-// stateless: every call re-loads the manifest via `loadFrozenIndex`
-// and re-reads the on-disk files. The serve layer is expected to
-// cache the `FrozenIndex` once at startup and call this helper
-// only on a cache miss.
+// `readFrozenAsset` takes a pre-built `FrozenIndex` (typically
+// built once at process start by `loadFrozenIndex` and held in a
+// closure for the lifetime of the serve loop) and returns the raw
+// bytes and (when present) the gzip companion bytes of a single
+// frozen asset. The helper does NOT re-parse the manifest on
+// every call; that is the serve layer's job.
 //
-// Reading the manifest on every call keeps the helper honest
-// (its pre-condition is "the manifest is well-formed") and avoids
-// a hidden process-global in `@sprout/compiler`. The serve layer
-// owns the index lifetime; the helper owns the byte I/O.
+// `readFrozenAssetFromOutDir` is a thin convenience wrapper that
+// calls `loadFrozenIndex` first, then `readFrozenAsset`. Use it
+// when you have an `outDir` and a one-shot read (CLI tools, tests).
+// The serve layer should build the index once and pass it
+// directly to `readFrozenAsset`.
 import { join } from "@std/path";
 import { CompilerError } from "../errors.ts";
+import { type FrozenIndex } from "../manifest/types.ts";
 import { loadFrozenIndex } from "./frozen_index.ts";
 
 /**
@@ -38,24 +40,31 @@ export type ReadFrozenAssetResult = {
 /**
  * Read a single frozen asset's bytes (raw and optionally gzip).
  *
+ * The caller passes a pre-built `FrozenIndex` (typically built
+ * once at process start by `loadFrozenIndex` and held in a
+ * closure for the lifetime of the serve loop). The helper
+ * does NOT re-parse the manifest on every call; that is the
+ * serve layer's job.
+ *
  * Throws `FROZEN_MANIFEST_MISSING` when the manifest file is
  * missing, `FROZEN_MANIFEST_UNSUPPORTED` when the manifest is
- * malformed or `publicPath` is not in the manifest, and a generic
+ * malformed or `publicPath` is not in the manifest, and a
  * `CompilerError("FROZEN_MANIFEST_UNSUPPORTED", ...)` when the
  * on-disk file is missing. A missing gzip companion degrades to
  * `null` (with a `console.warn`) rather than throwing.
  */
 export async function readFrozenAsset(
-  outDir: string,
+  index: FrozenIndex,
   publicPath: string,
 ): Promise<ReadFrozenAssetResult> {
-  if (typeof outDir !== "string" || outDir.length === 0) {
+  if (index === null || index === undefined) {
     throw new CompilerError(
       "FROZEN_MANIFEST_UNSUPPORTED",
-      "outDir must be a non-empty string",
-      { outDir },
+      "index must be a FrozenIndex",
+      {},
     );
   }
+  const outDir = index.outDir;
   if (typeof publicPath !== "string" || publicPath.length === 0) {
     throw new CompilerError(
       "FROZEN_MANIFEST_UNSUPPORTED",
@@ -64,12 +73,9 @@ export async function readFrozenAsset(
     );
   }
 
-  // Load the index. This re-validates the manifest on every call;
-  // the serve layer is expected to hold a single `FrozenIndex` in
-  // a closure and call this helper only on a miss. The double
-  // work is intentional: the helper is the byte-I/O layer, not
-  // the index-cache layer.
-  const index = await loadFrozenIndex(outDir);
+  // The caller already built the FrozenIndex (typically once at
+  // process start). The byte-I/O helper does NOT re-parse the
+  // manifest on every call; that is the serve layer's job.
   const asset = index.assets.get(publicPath);
   if (asset === undefined) {
     throw new CompilerError(
@@ -128,4 +134,21 @@ export async function readFrozenAsset(
     hash: asset.hash,
     gzipBytes,
   };
+}
+
+/**
+ * Convenience wrapper: load the frozen index, then call
+ * `readFrozenAsset` with the result.
+ *
+ * Use this when you have an `outDir` and a one-shot read (for
+ * example, a CLI tool or a test). The serve layer should
+ * build the index once and pass it directly to
+ * `readFrozenAsset`.
+ */
+export async function readFrozenAssetFromOutDir(
+  outDir: string,
+  publicPath: string,
+): Promise<ReadFrozenAssetResult> {
+  const index = await loadFrozenIndex(outDir);
+  return await readFrozenAsset(index, publicPath);
 }

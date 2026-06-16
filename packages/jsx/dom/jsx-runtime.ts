@@ -15,5 +15,5 @@
 //
 // `render` is re-exported from `hono/jsx/dom` (the package index)
 // by the package's `mod.ts`.
-export { Fragment, jsx, jsxs } from "jsr:@hono/hono@4.12.24/jsx/dom/jsx-runtime";
-export type { JSX } from "jsr:@hono/hono@4.12.24/jsx/dom/jsx-runtime";
+export { Fragment, jsx, jsxs } from "@hono/hono/jsx/dom/jsx-runtime";
+export type { JSX } from "@hono/hono/jsx/dom/jsx-runtime";

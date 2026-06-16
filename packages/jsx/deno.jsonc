@@ -5,6 +5,13 @@
   "version": "0.2.0",
   "description": "Server and browser JSX runtimes for Sprout. Server emits island placeholders; browser mounts the placeholders into the DOM.",
   "license": "MIT",
+  "imports": {
+    "@hono/hono": "jsr:@hono/hono@4.12.24",
+    "@hono/hono/jsx": "jsr:@hono/hono@4.12.24/jsx",
+    "@hono/hono/jsx/dom": "jsr:@hono/hono@4.12.24/jsx/dom",
+    "@hono/hono/jsx/dom/jsx-runtime": "jsr:@hono/hono@4.12.24/jsx/dom/jsx-runtime",
+    "@hono/hono/html": "jsr:@hono/hono@4.12.24/html"
+  },
   "exports": {
     ".": "./mod.ts",
     "./dom": "./dom/mod.ts",

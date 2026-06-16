@@ -22,7 +22,7 @@ import { fromFileUrl, join } from "@std/path";
 import { loadConfig } from "@sprout/config";
 import { resolveRuntimeEntryFile } from "./source_paths.ts";
 import { compileDevAsset, compileDevSourceMap, resolveIslandEntryFile } from "./mod.ts";
-import { _resetDevCacheForTests } from "./build/mod.ts";
+import { resetDevCacheForTests } from "./build/dev_assets_test_utils.ts";
 import { esbuildBundle, VIRTUAL_ENTRY_DIR } from "./build/esbuild.ts";
 import { encodeHex } from "@std/encoding/hex";
 import type { ResolvedConfig } from "@sprout/config";
@@ -65,7 +65,7 @@ async function makeTempDir(
 }
 
 Deno.test("compileDevAsset: runtime asset compiles to non-empty JS", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const result = await compileDevAsset({
     kind: "runtime",
     id: "runtime",
@@ -84,7 +84,7 @@ Deno.test("compileDevAsset: runtime asset compiles to non-empty JS", async () =>
 });
 
 Deno.test("compileDevAsset: island asset produces a wrapper that calls mountComponent", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-iso-");
   try {
     const islandPath = join(tmp.path, "Counter.tsx");
@@ -112,7 +112,7 @@ Deno.test("compileDevAsset: island asset produces a wrapper that calls mountComp
 });
 
 Deno.test("compileDevAsset: style asset returns the source CSS", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-css-");
   try {
     const cssPath = join(tmp.path, "app.css");
@@ -140,7 +140,7 @@ Deno.test("compileDevAsset: style asset returns the source CSS", async () => {
 });
 
 Deno.test("compileDevAsset: second call with the same key returns cached entry", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-cache-");
   try {
     const entryPath = join(tmp.path, "main.tsx");
@@ -170,7 +170,7 @@ Deno.test("compileDevAsset: second call with the same key returns cached entry",
 });
 
 Deno.test("compileDevAsset: editing the entry file invalidates the cache", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-edit-");
   try {
     const entryPath = join(tmp.path, "X.tsx");
@@ -207,7 +207,7 @@ Deno.test("compileDevAsset: editing the entry file invalidates the cache", async
 });
 
 Deno.test("compileDevAsset: editing a transitive import invalidates the cache", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-trans-");
   try {
     const helperPath = join(tmp.path, "helper.ts");
@@ -244,7 +244,7 @@ Deno.test("compileDevAsset: editing a transitive import invalidates the cache", 
 });
 
 Deno.test("compileDevAsset: source map is produced and the JS references it", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const result = await compileDevAsset({
     kind: "runtime",
     id: "runtime",
@@ -263,7 +263,7 @@ Deno.test("compileDevAsset: source map is produced and the JS references it", as
 });
 
 Deno.test("compileDevSourceMap: returns the same map as compileDevAsset's map field", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const input = {
     kind: "runtime" as const,
     id: "runtime",
@@ -284,7 +284,7 @@ Deno.test("compileDevSourceMap: returns the same map as compileDevAsset's map fi
 });
 
 Deno.test("compileDevAsset: cache key changes when entry or id changes", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const a = await compileDevAsset({
     kind: "runtime",
     id: "runtime",
@@ -342,7 +342,7 @@ Deno.test("resolveIslandEntryFile: finds .tsx and .ts files", async () => {
 Deno.test(
   "compileDevAsset: virtual entry tmp file is written outside the user's project dir",
   async () => {
-    _resetDevCacheForTests();
+    resetDevCacheForTests();
     // Build a tmp project with one island in <tmp>/src/islands/.
     // The tmp dir is rooted under the repo's tests/.tmp/ so the
     // deno-resolver can walk up to the workspace `deno.jsonc`;
@@ -383,7 +383,7 @@ Deno.test(
 Deno.test(
   "compileDevAsset: virtual entry tmp file is not in the cache input set",
   async () => {
-    _resetDevCacheForTests();
+    resetDevCacheForTests();
     // The dev cache must NOT track the virtual island entry
     // tmp file. The virtual entry is a build implementation
     // detail: its lifetime is bounded by the bundler, not the

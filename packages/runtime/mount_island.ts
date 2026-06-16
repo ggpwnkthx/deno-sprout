@@ -7,12 +7,8 @@
 // result. On any failure the element is marked with
 // `data-sprout-error="<CODE>"` and the function resolves (does not
 // throw) with `ok: false`.
-import { parseJsonProps, RuntimeError } from "@sprout/jsx/shared";
+import { parseJsonProps, RuntimeError, validateIslandPublicPath } from "@sprout/jsx/shared";
 import type { IslandMountResult } from "./module_contract.ts";
-
-const ISLAND_SRC_PREFIX = "/@sprout/island/";
-const ISLAND_SRC_SUFFIX = ".js";
-const ISLAND_SRC_PATTERN = /^\/@sprout\/island\/.+\.js$/;
 
 /**
  * Dynamic importer shape. The default implementation uses the global
@@ -49,7 +45,10 @@ export interface MountIslandOptions {
  * or a `RuntimeError` describing the failure. The error carries a
  * stable `code` so callers can map it to a UI marker.
  */
-function validateIslandSrc(src: string | null, id: string): RuntimeError | null {
+function validateIslandSrcAttribute(
+  src: string | null,
+  id: string,
+): RuntimeError | null {
   if (src === null || src === undefined) {
     return new RuntimeError("INVALID_PLACEHOLDER", "missing data-sprout-src attribute", {
       id,
@@ -62,54 +61,51 @@ function validateIslandSrc(src: string | null, id: string): RuntimeError | null 
       src: String(src),
     });
   }
-  if (src.includes("\0")) {
-    return new RuntimeError("INVALID_PLACEHOLDER", "data-sprout-src contains a NUL byte", {
-      id,
-      src,
-      reason: "nul_byte",
-    });
-  }
-  if (!src.startsWith(ISLAND_SRC_PREFIX)) {
-    return new RuntimeError(
-      "INVALID_PLACEHOLDER",
-      "data-sprout-src must start with /@sprout/island/",
-      {
-        id,
-        src,
-        reason: "missing_prefix",
-      },
-    );
-  }
-  if (!src.endsWith(ISLAND_SRC_SUFFIX)) {
-    return new RuntimeError("INVALID_PLACEHOLDER", "data-sprout-src must end with .js", {
-      id,
-      src,
-      reason: "missing_extension",
-    });
-  }
-  if (!ISLAND_SRC_PATTERN.test(src)) {
-    return new RuntimeError(
-      "INVALID_PLACEHOLDER",
-      "data-sprout-src is not a canonical /@sprout/island/<id>.js path",
-      {
-        id,
-        src,
-        reason: "bad_shape",
-      },
-    );
-  }
-  const tail = src.slice(ISLAND_SRC_PREFIX.length, -ISLAND_SRC_SUFFIX.length);
-  for (const segment of tail.split("/")) {
-    if (segment === "." || segment === "..") {
-      return new RuntimeError(
-        "INVALID_PLACEHOLDER",
-        "data-sprout-src must not contain '.' or '..' path segments",
-        {
+  const result = validateIslandPublicPath(src);
+  if (!result.ok) {
+    switch (result.reason) {
+      case "nul_byte":
+        return new RuntimeError("INVALID_PLACEHOLDER", "data-sprout-src contains a NUL byte", {
           id,
           src,
-          reason: "dot_segment",
-        },
-      );
+          reason: result.reason,
+        });
+      case "missing_prefix":
+        return new RuntimeError(
+          "INVALID_PLACEHOLDER",
+          "data-sprout-src must start with /@sprout/island/",
+          { id, src, reason: result.reason },
+        );
+      case "missing_extension":
+        return new RuntimeError("INVALID_PLACEHOLDER", "data-sprout-src must end with .js", {
+          id,
+          src,
+          reason: result.reason,
+        });
+      case "bad_shape":
+        return new RuntimeError(
+          "INVALID_PLACEHOLDER",
+          "data-sprout-src is not a canonical /@sprout/island/<id>.js path",
+          { id, src, reason: result.reason },
+        );
+      case "empty_id":
+        return new RuntimeError(
+          "INVALID_PLACEHOLDER",
+          "data-sprout-src has an empty island id",
+          { id, src, reason: result.reason },
+        );
+      case "dot_segment":
+        return new RuntimeError(
+          "INVALID_PLACEHOLDER",
+          "data-sprout-src must not contain '.' or '..' path segments",
+          { id, src, reason: result.reason },
+        );
+      default:
+        return new RuntimeError(
+          "INVALID_PLACEHOLDER",
+          "data-sprout-src is not a valid island path",
+          { id, src, reason: result.reason },
+        );
     }
   }
   return null;
@@ -128,7 +124,7 @@ export async function mountIsland(
   const importer = options._import ?? defaultImporter;
 
   // 1. Validate the src. On failure, mark the element and resolve.
-  const srcError = validateIslandSrc(src, id);
+  const srcError = validateIslandSrcAttribute(src, id);
   if (srcError !== null) {
     element.setAttribute("data-sprout-error", "INVALID_PLACEHOLDER");
     return { ok: false, id, src: src ?? "", element, error: srcError };

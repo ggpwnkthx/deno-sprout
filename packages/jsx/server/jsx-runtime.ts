@@ -12,11 +12,11 @@
 // — so that user-authored JSX with multiple children renders correctly
 // even though Hono's `JSXNode.toStringToBuffer` reads `this.children`
 // rather than `this.props.children`.
-import { Fragment, jsx as honoJsx } from "jsr:@hono/hono@4.12.24/jsx";
-import type { Child, JSXNode } from "jsr:@hono/hono@4.12.24/jsx";
+import { Fragment, jsx as honoJsx } from "@hono/hono/jsx";
+import type { Child, JSXNode } from "@hono/hono/jsx";
 import { buildIslandPlaceholder } from "./island_placeholder.ts";
-import { lookupIslandMetadata } from "./island_registry.ts";
-import type { IslandMetadata } from "./island_registry.ts";
+import { lookupIslandMetadata } from "./island-registry.ts";
+import type { IslandMetadata } from "./island-registry.ts";
 
 /**
  * Normalize the `children` argument into a positional array.
@@ -98,5 +98,5 @@ function jsx(
 const jsxs: typeof jsx = jsx;
 
 export { Fragment, jsx, jsxs };
-export type { JSX } from "jsr:@hono/hono@4.12.24/jsx";
-export type { IslandMetadata } from "./island_registry.ts";
+export type { JSX } from "@hono/hono/jsx";
+export type { IslandMetadata } from "./island-registry.ts";

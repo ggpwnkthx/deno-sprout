@@ -10,9 +10,9 @@
 // 405 with an `Allow` header for method mismatches, 500 for anything
 // else. The M7 production serve may upgrade the 500 path with
 // `X-Content-Type-Options: nosniff` and stricter bodies.
-import { FrameworkError } from "@sprout/utils";
-import { SUPPORTED_METHODS } from "./http_methods.ts";
-import type { HttpMethod } from "./http_methods.ts";
+import { FrameworkError, NOSNIFF } from "@sprout/utils";
+import { SUPPORTED_HTTP_METHODS } from "@sprout/utils";
+import type { HttpMethod } from "@sprout/utils";
 
 /** Stable error codes for the `@sprout/core` package. */
 export type CoreErrorCode =
@@ -81,7 +81,10 @@ export function coreErrorToResponse(err: CoreError): Response {
     case "STATIC_FILE_NOT_FOUND": {
       return new Response(coreErrorBody(err, "Not Found"), {
         status: 404,
-        headers: { "content-type": "text/plain; charset=utf-8" },
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+          "x-content-type-options": NOSNIFF,
+        },
       });
     }
     case "STATIC_FILE_OUTSIDE_ROOT": {
@@ -89,18 +92,22 @@ export function coreErrorToResponse(err: CoreError): Response {
       // for server-side logs.
       return new Response("Not Found", {
         status: 404,
-        headers: { "content-type": "text/plain; charset=utf-8" },
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+          "x-content-type-options": NOSNIFF,
+        },
       });
     }
     case "ROUTE_METHOD_NOT_ALLOWED": {
       const allowed = (err.details as { readonly methods?: readonly HttpMethod[] }).methods ??
-        SUPPORTED_METHODS;
+        SUPPORTED_HTTP_METHODS;
       const allow = allowed.join(", ");
       return new Response(coreErrorBody(err, "Method Not Allowed"), {
         status: 405,
         headers: {
           "allow": allow,
           "content-type": "text/plain; charset=utf-8",
+          "x-content-type-options": NOSNIFF,
         },
       });
     }
@@ -109,7 +116,10 @@ export function coreErrorToResponse(err: CoreError): Response {
     case "ROUTE_RENDER_FAILED": {
       return new Response(coreErrorBody(err, default500Body()), {
         status: 500,
-        headers: { "content-type": "text/plain; charset=utf-8" },
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+          "x-content-type-options": NOSNIFF,
+        },
       });
     }
   }

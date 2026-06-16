@@ -33,6 +33,7 @@ Deno.test("dev asset: GET /@sprout/runtime.js returns JS with no-store", async (
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("content-type"), "text/javascript; charset=utf-8");
     assertEquals(res.headers.get("cache-control"), "no-store");
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const body = await res.text();
     assert(body.length > 0, "runtime bundle should not be empty");
     // The runtime entry exports `start` per the M3 stub. The
@@ -49,6 +50,7 @@ Deno.test("dev asset: GET /@sprout/runtime.js.map returns JSON map with no-store
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("content-type"), "application/json; charset=utf-8");
     assertEquals(res.headers.get("cache-control"), "no-store");
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const body = await res.text();
     assert(body.length > 0);
     assertStringIncludes(body, "version");
@@ -63,6 +65,7 @@ Deno.test("dev asset: GET /@sprout/app.css returns the global stylesheet", async
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("content-type"), "text/css; charset=utf-8");
     assertEquals(res.headers.get("cache-control"), "no-store");
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const body = await res.text();
     assertStringIncludes(body, "body");
     assertStringIncludes(body, "color: black");
@@ -77,6 +80,7 @@ Deno.test("dev asset: GET /@sprout/island/Counter.js returns island wrapper JS",
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("content-type"), "text/javascript; charset=utf-8");
     assertEquals(res.headers.get("cache-control"), "no-store");
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const body = await res.text();
     // The wrapper imports the user's island component and exposes
     // a `mount(element, props)` object that calls mountComponent.
@@ -93,6 +97,7 @@ Deno.test("dev asset: GET /@sprout/island/cart/AddButton.js returns island wrapp
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("content-type"), "text/javascript; charset=utf-8");
     assertEquals(res.headers.get("cache-control"), "no-store");
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const body = await res.text();
     assertStringIncludes(body, "mount");
   });
@@ -104,6 +109,7 @@ Deno.test("dev asset: GET /@sprout/island/Missing.js returns 404", async () => {
       new Request("http://0.0.0.0/@sprout/island/Missing.js"),
     );
     assertEquals(res.status, 404);
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
   });
 });
 
@@ -115,6 +121,7 @@ Deno.test("dev asset: GET /@sprout/island/Counter.js.map returns JSON map", asyn
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("content-type"), "application/json; charset=utf-8");
     assertEquals(res.headers.get("cache-control"), "no-store");
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
   });
 });
 
@@ -139,7 +146,7 @@ Deno.test("dev asset: GET / on a real App returns HTML that references the runti
   });
 });
 
-Deno.test("dev asset: every dev asset response sets cache-control: no-store", async () => {
+Deno.test("dev asset: every dev asset response sets cache-control: no-store and x-content-type-options", async () => {
   await withBasicApp(async (app) => {
     const urls = [
       "/@sprout/runtime.js",
@@ -155,6 +162,11 @@ Deno.test("dev asset: every dev asset response sets cache-control: no-store", as
         res.headers.get("cache-control"),
         "no-store",
         `${path} should set cache-control: no-store`,
+      );
+      assertEquals(
+        res.headers.get("x-content-type-options"),
+        "nosniff",
+        `${path} should set x-content-type-options: nosniff`,
       );
     }
   });

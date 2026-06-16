@@ -74,6 +74,13 @@ export class BoundedLru<K, V> implements Iterable<[K, LruEntry<V>]> {
    * Look up a key. On hit, the entry is moved to the end of the
    * iteration order (most-recently-used). On miss, returns
    * `undefined`.
+   *
+   * Concurrency: the delete+set pair is two separate Map operations
+   * and is therefore subject to a subtle TOCTOU under concurrent
+   * async contexts. The Deno runtime is single-threaded so the race
+   * does not occur in practice; the contract is "best-effort MRU
+   * promotion." Callers that need strict MRU semantics should
+   * serialize access (e.g., via a wrapper around this LRU).
    */
   get(key: K): V | undefined {
     const entry = this.#store.get(key);

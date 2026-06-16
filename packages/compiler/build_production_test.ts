@@ -33,7 +33,7 @@ import {
 } from "jsr:@std/assert@1";
 import { fromFileUrl, join } from "@std/path";
 import type { ResolvedConfig } from "@sprout/config";
-import { _resetDevCacheForTests } from "./build/mod.ts";
+import { resetDevCacheForTests } from "./build/dev_assets_test_utils.ts";
 import { buildProduction, CompilerError, formatBuildSummary, validateManifest } from "./mod.ts";
 import type { BuildSummary, FrozenAsset, FrozenManifest } from "./mod.ts";
 
@@ -111,7 +111,7 @@ async function listSproutDir(outDir: string): Promise<readonly string[]> {
 // ---------------------------------------------------------------------------
 
 Deno.test("buildProduction: writes a complete outDir with manifest and hashed assets", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m6-build-");
   try {
     const config = fixtureConfig(tmp.path);
@@ -182,7 +182,7 @@ Deno.test("buildProduction: writes a complete outDir with manifest and hashed as
 });
 
 Deno.test("buildProduction: filenames follow the canonical hashed shape", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m6-shape-");
   try {
     const summary = await buildProduction({ config: fixtureConfig(tmp.path) });
@@ -216,7 +216,7 @@ Deno.test("buildProduction: filenames follow the canonical hashed shape", async 
 // ---------------------------------------------------------------------------
 
 Deno.test("buildProduction: outDir missing -> creates the dir and builds", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m6-missing-");
   try {
     const outDir = join(tmp.path, "fresh");
@@ -231,7 +231,7 @@ Deno.test("buildProduction: outDir missing -> creates the dir and builds", async
 });
 
 Deno.test("buildProduction: outDir empty -> builds without throwing", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m6-empty-");
   try {
     const outDir = join(tmp.path, "out");
@@ -245,7 +245,7 @@ Deno.test("buildProduction: outDir empty -> builds without throwing", async () =
 });
 
 Deno.test("buildProduction: outDir contains prior manifest -> builds and overwrites", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m6-prior-");
   try {
     const outDir = join(tmp.path, "out");
@@ -265,7 +265,7 @@ Deno.test("buildProduction: outDir contains prior manifest -> builds and overwri
 });
 
 Deno.test("buildProduction: outDir with a foreign file -> BUILD_OUTDIR_UNSAFE", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m6-unsafe-");
   try {
     const outDir = join(tmp.path, "out");
@@ -289,7 +289,7 @@ Deno.test("buildProduction: outDir with a foreign file -> BUILD_OUTDIR_UNSAFE", 
 // ---------------------------------------------------------------------------
 
 Deno.test("buildProduction: compress false -> no gzip companions", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m6-nogz-");
   try {
     const config = fixtureConfigNoGzip(tmp.path);
@@ -307,7 +307,7 @@ Deno.test("buildProduction: compress false -> no gzip companions", async () => {
 });
 
 Deno.test("buildProduction: compress gzip -> gzip companions are written and recorded", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m6-gz-");
   try {
     const config = fixtureConfig(tmp.path);
@@ -458,7 +458,7 @@ Deno.test("ensureSafeOutDir: classifies missing / empty / prior-manifest / unsaf
 // ---------------------------------------------------------------------------
 
 Deno.test("buildProduction: rejects when manifest validation fails", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m6-bad-");
   try {
     // Build a tmp project that has no islands (default config), no
@@ -508,7 +508,7 @@ Deno.test("buildProduction: rejects when manifest validation fails", async () =>
 // ---------------------------------------------------------------------------
 
 Deno.test("buildProduction: identical inputs produce identical hashes", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp1 = await makeTempDir("sprout-m6-hash1-");
   const tmp2 = await makeTempDir("sprout-m6-hash2-");
   try {

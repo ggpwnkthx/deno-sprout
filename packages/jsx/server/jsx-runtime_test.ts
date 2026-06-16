@@ -7,10 +7,10 @@ import {
   assertThrows,
 } from "jsr:@std/assert@1";
 import { Fragment, jsx } from "./jsx-runtime.ts";
-import { clearIslandRegistry, registerIslandComponent } from "./island_registry.ts";
+import { clearIslandRegistry, registerIslandComponent } from "./island-registry.ts";
 import { RuntimeError } from "../shared/mod.ts";
-import type { IslandMetadata } from "./island_registry.ts";
-import type { JSXNode } from "jsr:@hono/hono@4.12.24/jsx";
+import type { IslandMetadata } from "./island-registry.ts";
+import type { JSXNode } from "@hono/hono/jsx";
 
 // Each test starts with a clean registry.
 function reset(): void {

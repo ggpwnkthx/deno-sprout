@@ -48,12 +48,17 @@
 import { Hono } from "@hono/hono";
 import type { ResolvedConfig } from "@sprout/config";
 import { loadConfig } from "@sprout/config";
-import { type FrozenIndex, loadFrozenIndex, type ReadFrozenAssetResult } from "@sprout/compiler";
+import {
+  type FrozenIndex,
+  loadFrozenIndex,
+  readFrozenAsset,
+  type ReadFrozenAssetResult,
+} from "@sprout/compiler";
 import { discoverProject, validateManifest } from "@sprout/compiler";
 import type { Manifest } from "@sprout/compiler";
 import { CoreError, coreErrorToResponse } from "./errors.ts";
-import { patternToHono } from "./pattern_to_hono.ts";
 import { renderRoute } from "./render_route.tsx";
+import { warmupIslands } from "./warmup_islands.ts";
 import { resolvePublicFile, serveStaticFile } from "./static_files.ts";
 import {
   runtimeServeOptions,
@@ -63,8 +68,8 @@ import {
 } from "./dev_assets.ts";
 import { serveFrozenAsset } from "./prod_assets.ts";
 import { BoundedLru } from "./lru.ts";
-import { FrameworkError } from "@sprout/utils";
-import type { App, CreateAppOptions, ServeOptions } from "./types.ts";
+import { FrameworkError, NOSNIFF } from "@sprout/utils";
+import type { App, AppAdvanced, CreateAppOptions, ServeOptions } from "./types.ts";
 
 const RUNTIME_PUBLIC_PATH = "/@sprout/runtime.js";
 const APP_STYLESHEET_PUBLIC_PATH = "/@sprout/app.css";
@@ -104,6 +109,10 @@ type ProductionState = {
 async function buildApp(config: ResolvedConfig): Promise<App> {
   const discovered = await discoverProject(config);
   const manifest: Manifest = validateManifest(discovered);
+  // Pre-register every island so per-request rendering does not pay
+  // the dynamic-import cost. The registry is process-global and
+  // idempotent, so this is safe to call exactly once.
+  await warmupIslands(manifest);
 
   const hono = new Hono();
 
@@ -114,10 +123,23 @@ async function buildApp(config: ResolvedConfig): Promise<App> {
     if (err instanceof FrameworkError) {
       return new Response("Internal Server Error", {
         status: 500,
-        headers: { "content-type": "text/plain; charset=utf-8" },
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+          "x-content-type-options": NOSNIFF,
+        },
       });
     }
     throw err;
+  });
+
+  hono.notFound(() => {
+    return new Response("Not Found", {
+      status: 404,
+      headers: {
+        "content-type": "text/plain; charset=utf-8",
+        "x-content-type-options": NOSNIFF,
+      },
+    });
   });
 
   hono.use("*", async (c, next) => {
@@ -144,7 +166,7 @@ async function buildApp(config: ResolvedConfig): Promise<App> {
   }
 
   for (const route of manifest.routes) {
-    const honoPattern = patternToHono(route.pattern);
+    const honoPattern = route.pattern;
     hono.all(honoPattern, async (c) => {
       return await renderRoute({
         config,
@@ -163,7 +185,9 @@ async function buildApp(config: ResolvedConfig): Promise<App> {
   }
 
   return {
-    hono,
+    // Internal Hono reference; not exposed on the public App type.
+    // Advanced consumers access via getHono() from this package.
+    __hono: hono,
     fetch(request: Request): Response | Promise<Response> {
       return hono.fetch(request);
     },
@@ -176,7 +200,7 @@ async function buildApp(config: ResolvedConfig): Promise<App> {
         count: productionState.cache.lru.count,
       };
     },
-  };
+  } as unknown as App;
 }
 
 /**
@@ -310,13 +334,12 @@ async function registerProductionAssetRoutes(
   // size reported to the cache is the sum of the raw + gzip
   // companion sizes so a hit count is consistent with the
   // configured cap.
-  const { readFrozenAsset } = await import("@sprout/compiler");
   const lookup = async (
     publicPath: string,
   ): Promise<ReadFrozenAssetResult | null> => {
     if (!frozenIndex.assets.has(publicPath)) return null;
     if (cache.lru === null) {
-      return await readFrozenAsset(frozenIndex.outDir, publicPath);
+      return await readFrozenAsset(frozenIndex, publicPath);
     }
     const cached = cache.lru.get(publicPath);
     if (cached !== undefined) {
@@ -327,7 +350,7 @@ async function registerProductionAssetRoutes(
         gzipBytes: cached.gzipBytes,
       };
     }
-    const result = await readFrozenAsset(frozenIndex.outDir, publicPath);
+    const result = await readFrozenAsset(frozenIndex, publicPath);
     const totalSize = result.bytes.byteLength +
       (result.gzipBytes?.byteLength ?? 0);
     cache.lru.set(
@@ -450,4 +473,17 @@ export async function serve(options: ServeOptions = {}): Promise<void> {
     },
   }, (request) => app.fetch(request));
   await server.finished;
+}
+
+/**
+ * Returns the underlying Hono instance for advanced consumers who need
+ * to attach middleware, mount sub-apps, or read routing metadata.
+ *
+ * The Hono instance is not part of the public `App` type so Hono is
+ * opt-in for consumers who do not need it. This function is the
+ * supported escape hatch; the returned `AppAdvanced` type exposes the
+ * `hono` field.
+ */
+export function getHono(app: App): AppAdvanced {
+  return app as unknown as AppAdvanced;
 }

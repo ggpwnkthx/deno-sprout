@@ -5,6 +5,10 @@
   "version": "0.2.0",
   "description": "Defines and validates the Sprout project configuration. Produces a fully resolved config with absolute, slash-normalized paths.",
   "license": "MIT",
+  "imports": {
+    "@std/path": "jsr:@std/path@^1.0.8",
+    "@sprout/utils": "jsr:@sprout/utils@0.2.0"
+  },
   "exports": {
     ".": "./mod.ts"
   },

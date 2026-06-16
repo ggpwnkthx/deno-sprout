@@ -14,6 +14,7 @@
 export { createApp, serve } from "./server/app.ts";
 export type {
   App,
+  AppAdvanced,
   CreateAppOptions,
   PageProps,
   RequestContext,
@@ -22,6 +23,7 @@ export type {
   RoutePageComponent,
   ServeOptions,
 } from "./server/types.ts";
+export { getHono } from "./server/app.ts";
 export type { CoreErrorCode } from "./server/errors.ts";
 export { CoreError } from "./server/errors.ts";
 export { defineConfig } from "@sprout/config";

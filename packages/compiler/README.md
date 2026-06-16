@@ -62,9 +62,14 @@ production serve uses to look up assets in O(1).
 - `loadFrozenIndex(outDir)` — load the frozen manifest and return an O(1) `publicPath → FrozenAsset`
   index. A missing manifest throws `FROZEN_MANIFEST_MISSING`; a malformed manifest throws
   `FROZEN_MANIFEST_UNSUPPORTED`.
-- `readFrozenAsset(outDir, publicPath)` — read a single frozen asset's bytes (raw and optionally
-  gzip) from disk. Used by the production serve; the serve layer is expected to hold a single
-  `FrozenIndex` and call this helper only on a cache miss.
+- `readFrozenAsset(index, publicPath)` — read a single frozen asset's bytes (raw and optionally
+  gzip). The caller passes a pre-built `FrozenIndex` (typically held in a closure for the lifetime
+  of the serve loop). The function reads the on-disk file using the index's `outDir` and asset
+  metadata. A missing gzip companion degrades to `null` (with a `console.warn`) per the M7 spec.
+- `readFrozenAssetFromOutDir(outDir, publicPath)` — thin convenience wrapper that calls
+  `loadFrozenIndex` then `readFrozenAsset`. Use this when you have an `outDir` and a one-shot read
+  (CLI tools, tests). The serve layer should build the index once and pass it directly to
+  `readFrozenAsset`.
 - `resolveIslandEntryFile(id, root)` — resolve the on-disk path of an island source file given its
   slash-normalized id and a project root. Returns `null` when neither `<id>.tsx` nor `<id>.ts`
   exists.

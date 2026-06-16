@@ -29,7 +29,7 @@ import { buildProduction } from "@sprout/compiler";
 import type { ResolvedConfig } from "@sprout/config";
 import { createApp } from "./mod.ts";
 import type { App } from "./mod.ts";
-import { _resetDevCacheForTests } from "../compiler/build/mod.ts";
+import { resetDevCacheForTests } from "../compiler/build/dev_assets_test_utils.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
 const FIXTURE = join(REPO_ROOT, "tests/fixtures/basic-app");
@@ -79,7 +79,7 @@ async function buildProjectAt(
     readonly frozenAssetCache?: ResolvedConfig["build"]["frozenAssetCache"];
   },
 ): Promise<void> {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   // Load the resolved config (production mode) for the
   // copied fixture.
   const configMod = await import("@sprout/config");
@@ -99,7 +99,7 @@ async function bootProductionApp(root: string): Promise<App> {
 // serveFrozenAsset end-to-end
 // ---------------------------------------------------------------------------
 
-Deno.test("prod asset: GET /@sprout/runtime.js returns 200, etag, immutable cache", async () => {
+Deno.test("prod asset: GET /@sprout/runtime.js returns 200, etag, immutable cache, nosniff", async () => {
   const tmp = await makeTempDir("sprout-m7-runtime-");
   try {
     await copyFixtureTo(tmp.path);
@@ -109,6 +109,7 @@ Deno.test("prod asset: GET /@sprout/runtime.js returns 200, etag, immutable cach
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("content-type"), "text/javascript; charset=utf-8");
     assertEquals(res.headers.get("cache-control"), "public, max-age=31536000, immutable");
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const etag = res.headers.get("etag");
     assertExists(etag);
     assert(etag.startsWith('"') && etag.endsWith('"'), `ETag should be quoted, got ${etag}`);
@@ -139,6 +140,7 @@ Deno.test("prod asset: GET /@sprout/runtime.js with If-None-Match returns 304", 
     assertEquals(second.status, 304);
     assertEquals(second.headers.get("etag"), etag);
     assertEquals(second.headers.get("cache-control"), "public, max-age=31536000, immutable");
+    assertEquals(second.headers.get("x-content-type-options"), "nosniff");
     const body = await second.text();
     assertEquals(body, "");
   } finally {
@@ -162,6 +164,7 @@ Deno.test("prod asset: If-None-Match: * returns 304", async () => {
       res.headers.get("etag"),
       '"' + (await firstEtag(app, "/@sprout/runtime.js")) + '"',
     );
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
   } finally {
     await tmp.cleanup();
   }
@@ -264,6 +267,7 @@ Deno.test("prod asset: /@sprout/island/Counter.js and cart/AddButton.js are serv
       assertEquals(res.status, 200, `${path} should be 200`);
       assertEquals(res.headers.get("content-type"), "text/javascript; charset=utf-8");
       assertEquals(res.headers.get("cache-control"), "public, max-age=31536000, immutable");
+      assertEquals(res.headers.get("x-content-type-options"), "nosniff");
       const body = await res.text();
       assert(body.length > 0);
     }
@@ -281,6 +285,7 @@ Deno.test("prod asset: /@sprout/app.css returns text/css", async () => {
     const res = await app.fetch(new Request("http://0.0.0.0/@sprout/app.css"));
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("content-type"), "text/css; charset=utf-8");
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const body = await res.text();
     assertStringIncludes(body, "body");
   } finally {
@@ -400,6 +405,7 @@ Deno.test("prod asset: public files use max-age=3600 (not immutable, not no-stor
     const res = await app.fetch(new Request("http://0.0.0.0/favicon.svg"));
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("cache-control"), "public, max-age=3600");
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
   } finally {
     await tmp.cleanup();
   }
@@ -409,7 +415,7 @@ Deno.test("prod asset: public files use max-age=3600 (not immutable, not no-stor
 // 304 path: body is empty and the ETag is preserved
 // ---------------------------------------------------------------------------
 
-Deno.test("prod asset: 304 response has empty body, ETag, and cache headers", async () => {
+Deno.test("prod asset: 304 response has empty body, ETag, nosniff, content-type, and cache headers", async () => {
   const tmp = await makeTempDir("sprout-m7-304-");
   try {
     await copyFixtureTo(tmp.path);
@@ -425,8 +431,12 @@ Deno.test("prod asset: 304 response has empty body, ETag, and cache headers", as
       res.headers.get("etag"),
       '"' + (await firstEtag(app, "/@sprout/runtime.js")) + '"',
     );
+    // Per RFC 7232 §4.1, 304 should include the same content-type
+    // the 200 would have (text/javascript for runtime.js).
+    assertEquals(res.headers.get("content-type"), "text/javascript; charset=utf-8");
     assertEquals(res.headers.get("cache-control"), "public, max-age=31536000, immutable");
     assertEquals(res.headers.get("vary"), "accept-encoding");
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const body = await res.text();
     assertEquals(body, "");
   } finally {

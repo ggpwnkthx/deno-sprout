@@ -26,8 +26,6 @@ export type RunInspectOptions = {
   readonly root?: string;
   /** Optional path to a custom `sprout.config.ts`. */
   readonly configFile?: string;
-  /** When true, run with `--debug` semantics (currently unused; reserved). */
-  readonly debug?: boolean;
 };
 
 /**

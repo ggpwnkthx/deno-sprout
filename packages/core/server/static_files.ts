@@ -15,62 +15,20 @@
 //
 // The content-type map is intentionally small. M3 covers the common
 // cases; the M7 production serve may swap this for `jsr:@std/media-types`.
-import { isInsideRoot, slash } from "@sprout/utils";
+import { contentTypeForFilename, isInsideRoot, NOSNIFF, slash } from "@sprout/utils";
 import { CoreError } from "./errors.ts";
-
-/** Common content-type lookup. Falls back to `application/octet-stream`. */
-const CONTENT_TYPES: Readonly<Record<string, string>> = {
-  ".html": "text/html; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".mjs": "text/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".svg": "image/svg+xml",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".ico": "image/x-icon",
-  ".txt": "text/plain; charset=utf-8",
-  ".woff": "font/woff",
-  ".woff2": "font/woff2",
-};
-
-const DEFAULT_CONTENT_TYPE = "application/octet-stream";
 
 /** Reserved framework URL namespace. Public files must not match it. */
 const RESERVED_PUBLIC_PREFIX = "/@sprout/";
-
-/**
- * Map a file extension (including the leading `.`) to a content
- * type. Returns `application/octet-stream` for unknown extensions.
- */
-function contentTypeForExtension(ext: string): string {
-  const lower = ext.toLowerCase();
-  return CONTENT_TYPES[lower] ?? DEFAULT_CONTENT_TYPE;
-}
-
-/**
- * Return the lowercase extension (including the leading `.`) of a
- * file path, or `""` for paths that have none. `foo` → `""`,
- * `foo.bar` → `.bar`, `foo.bar.baz` → `.baz`.
- */
-function extensionOf(filePath: string): string {
-  const slashIdx = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"));
-  const basename = slashIdx >= 0 ? filePath.slice(slashIdx + 1) : filePath;
-  const dotIdx = basename.lastIndexOf(".");
-  if (dotIdx <= 0) {
-    return "";
-  }
-  return basename.slice(dotIdx);
-}
 
 /**
  * Resolve a request URL path to a file inside `publicDir`.
  *
  * Returns `null` when:
  *   - the URL path is empty or `"/"`;
- *   - the URL path contains a NUL byte or a `..` segment;
+ *   - the URL path contains a NUL byte or a `..` segment
+ *     (percent-encoded sequences like `%2e%2e` are decoded
+ *     before the check; invalid percent encoding is rejected);
  *   - the URL path starts with `/@sprout/` (the framework reserves
  *     this namespace; public files are not allowed to shadow it);
  *   - the resulting path does not exist on disk.
@@ -103,11 +61,20 @@ export async function resolvePublicFile(
   if (rel.length === 0) {
     return null;
   }
+  // Decode percent-encoded sequences so a literal `%2e%2e` becomes
+  // `..` and is caught by the segment check below. Invalid percent
+  // encoding (e.g. `%zz`) is rejected outright.
+  let decoded: string;
+  try {
+    decoded = decodeURI(rel);
+  } catch (_cause) {
+    return null;
+  }
   // Reject any `..` segment after slash normalization. We do not
   // re-resolve symlinks here; the `isInsideRoot` check below catches
   // any path that escapes the public dir, but symlink targets are
   // only resolved at stat time.
-  const normalized = slash(rel);
+  const normalized = slash(decoded);
   for (const seg of normalized.split("/")) {
     if (seg === ".." || seg === ".") {
       return null;
@@ -196,8 +163,7 @@ export async function serveStaticFile(
     );
   }
   const file = await Deno.open(filePath, { read: true });
-  const ext = extensionOf(filePath);
-  const contentType = contentTypeForExtension(ext);
+  const contentType = contentTypeForFilename(filePath);
   const headers = new Headers(init?.headers);
   if (!headers.has("content-type")) {
     headers.set("content-type", contentType);
@@ -212,9 +178,17 @@ export async function serveStaticFile(
     // `server/prod_assets.ts`) and never reach this path.
     headers.set("cache-control", cacheControl ?? "public, max-age=3600");
   }
+  headers.set("x-content-type-options", NOSNIFF);
   // Wrap the file's `ReadableStream` so we can release the handle
   // when the consumer cancels the body. This keeps the file
   // descriptor from leaking when a client disconnects mid-stream.
+  //
+  // Cancellation contract: when the stream is cancelled (e.g., the
+  // client disconnects), the reader is abandoned and the next
+  // iteration of the pump's `while` loop sees the closed reader
+  // and exits through the `finally` block which closes the file.
+  // The pump's `finally` block is always reached, so the file
+  // descriptor is never leaked regardless of how the stream ends.
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
       const reader = file.readable.getReader();
@@ -241,15 +215,6 @@ export async function serveStaticFile(
         }
       };
       pump();
-    },
-    cancel() {
-      // Client cancelled; the start() pump's try/finally will close
-      // the file, but the call is also defensive.
-      try {
-        file.close();
-      } catch (_cause) {
-        // Already closed; ignore.
-      }
     },
   });
   return new Response(body, {

@@ -5,29 +5,32 @@
 // `URL` types are the only platform assumptions, so the surface is
 // portable to any Web-runtime that ships a fetch-compatible server.
 //
-// The `App` type intentionally exposes the underlying Hono instance
-// (so advanced users can attach Hono middleware) while keeping
-// `RequestContext` independent of Hono internals. The contract is
-// "Hono is the implementation; users get a framework-shaped context
-// inside route handlers".
-import type { Hono } from "jsr:@hono/hono@4.12.24";
+// The `App` type is intentionally narrow: it exposes only `fetch`
+// and `getAssetCacheStats`. Advanced consumers who need the
+// underlying Hono instance can call `getHono(app)` (re-exported from
+// this module) to access it. The Hono instance is never part of the
+// public `App` type so `@sprout/core` consumers who do not import
+// Hono directly are not forced to add it to their import map.
+import type { Hono } from "@hono/hono";
 
 /**
  * The framework HTTP app.
  *
- * `hono` exposes the underlying Hono instance so advanced consumers
- * can attach additional Hono middleware, mount sub-apps, or read
- * routing metadata. `fetch` is the canonical request entry point and
- * matches the `Deno.serve` handler signature: pass it directly to
+ * `fetch` is the canonical request entry point and matches the
+ * `Deno.serve` handler signature: pass it directly to
  * `Deno.serve({ ... }, app.fetch)` or to any fetch-style server.
  *
  * `getAssetCacheStats` is the M7 test seam: it returns the
  * resident-memory footprint of the optional bounded LRU that
  * caches frozen asset bytes. Returns `null` when
  * `config.build.frozenAssetCache` is `"none"` (the M2 default).
+ *
+ * Advanced consumers who need the underlying Hono instance may call
+ * `getHono(app)` (exported from this package) to access it. The Hono
+ * type is not part of `App` so users who do not need Hono are not
+ * forced to add it to their import map.
  */
 export type App = {
-  readonly hono: Hono;
   /** Run a request through the app and return a Response. */
   fetch(request: Request): Response | Promise<Response>;
   /**
@@ -36,6 +39,19 @@ export type App = {
    * not depend on this method.
    */
   getAssetCacheStats(): { readonly size: number; readonly count: number } | null;
+};
+
+/**
+ * The framework HTTP app, augmented with the underlying Hono
+ * instance for advanced middleware attachment or sub-app mounting.
+ *
+ * Constructed via `getHono(app)` from this package. The `hono`
+ * field is omitted from the base `App` type so Hono is opt-in for
+ * consumers who do not need it.
+ */
+export type AppAdvanced = App & {
+  /** The underlying Hono instance. */
+  readonly hono: Hono;
 };
 
 /** Options accepted by {@link import("./app.ts").createApp}. */

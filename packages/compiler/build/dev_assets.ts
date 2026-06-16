@@ -11,6 +11,7 @@ import type { EsbuildBundleInput, EsbuildBundleResult } from "./esbuild.ts";
 import { esbuildBundle, VIRTUAL_ENTRY_DIR } from "./esbuild.ts";
 import { hashInputs, SingleFlightCache } from "./cache.ts";
 import { buildIslandVirtualEntry } from "./virtual_modules.ts";
+import { resolveRelativeImport } from "./resolve_relative.ts";
 
 export type AssetKind = "runtime" | "island" | "style";
 
@@ -67,13 +68,13 @@ async function ensureVirtualEntryDir(): Promise<string> {
  * directory (the virtual island entry lives in a system tmp dir
  * so `discoverProject` cannot see it).
  */
-function findNearestDenoConfig(startDir: string): string | null {
+async function findNearestDenoConfig(startDir: string): Promise<string | null> {
   let dir = startDir;
   while (true) {
     for (const name of ["deno.json", "deno.jsonc"]) {
       const candidate = `${dir}/${name}`;
       try {
-        const stat = Deno.statSync(candidate);
+        const stat = await Deno.stat(candidate);
         if (stat.isFile) return candidate;
       } catch (_cause) {
         // not present; try the next name / parent dir
@@ -86,6 +87,19 @@ function findNearestDenoConfig(startDir: string): string | null {
   }
 }
 
+// Process-global dev asset cache.
+//
+// The dev asset pipeline is keyed on `(entry, kind, id, mode, envHash)`.
+// Across the lifetime of a single `deno task dev` (or `deno task
+// serve` in dev mode) the dev server runs exactly one project per
+// process, so a process-global cache is sound: there is no other
+// project whose `(entry, kind, id)` could collide.
+//
+// A future refactor that runs multiple projects per process (for
+// example, a workspace tool that boots several dev servers in
+// parallel) will need to move this cache into a per-`createApp`
+// instance. The interface (`getCache` returning a `SingleFlightCache`)
+// is shaped so that swap is local.
 let cache: SingleFlightCache | null = null;
 function getCache(): SingleFlightCache {
   if (cache === null) {
@@ -94,8 +108,11 @@ function getCache(): SingleFlightCache {
   return cache;
 }
 
-/** Reset the module-level cache (tests only). */
-export function _resetDevCacheForTests(): void {
+/** Drop the module-level cache (tests only). */
+// Denoted internal with __-prefix; JSR omits __-prefixed exports from
+// the published type declarations, and our publish.exclude also drops
+// the test-utils file that re-exports this symbol.
+export function __dropCacheForTesting(): void {
   if (cache !== null) {
     cache.clear();
   }
@@ -157,7 +174,7 @@ async function compileIsland(
   const entryParent = input.entry.includes("/")
     ? input.entry.slice(0, input.entry.lastIndexOf("/"))
     : ".";
-  const denoConfigPath = findNearestDenoConfig(entryParent);
+  const denoConfigPath = await findNearestDenoConfig(entryParent);
   await Deno.writeTextFile(tmpFile, generated.content);
   const bundle = await esbuildBundle({
     entryPoints: [tmpFile],
@@ -213,7 +230,7 @@ async function walkUserInputs(
     seen.add(file);
     let mtime = 0;
     try {
-      const stat = Deno.statSync(file);
+      const stat = await Deno.stat(file);
       mtime = stat.mtime?.getTime() ?? 0;
     } catch (_cause) {
       // File went away between reads; treat as unknown mtime.
@@ -232,53 +249,13 @@ async function walkUserInputs(
     while ((match = importRegex.exec(content)) !== null) {
       const specifier = match[1] as string;
       if (!specifier.startsWith(".")) continue; // skip bare / absolute specifiers
-      const resolved = resolveRelativeImport(specifier, dir);
+      const resolved = resolveRelativeImport(dir, specifier);
       if (resolved !== null && !seen.has(resolved)) {
         stack.push(resolved);
       }
     }
   }
   return out;
-}
-
-/**
- * Resolve a relative import specifier (`./x`, `../x/y`) against
- * the importing file's directory. Tries the path as-is, with
- * `.ts` / `.tsx`, and as a directory containing `index.ts` /
- * `index.tsx`. Returns the first file that exists on disk, or
- * `null` when nothing matches.
- */
-function resolveRelativeImport(
-  specifier: string,
-  dir: string,
-): string | null {
-  const parts = specifier.split("/");
-  const baseParts = dir.split("/");
-  for (const part of parts) {
-    if (part === "" || part === ".") continue;
-    if (part === "..") {
-      if (baseParts.length > 1) baseParts.pop();
-      continue;
-    }
-    baseParts.push(part);
-  }
-  const basePath = baseParts.join("/") || "/";
-  const candidates = [
-    basePath,
-    `${basePath}.ts`,
-    `${basePath}.tsx`,
-    `${basePath}/index.ts`,
-    `${basePath}/index.tsx`,
-  ];
-  for (const candidate of candidates) {
-    try {
-      const stat = Deno.statSync(candidate);
-      if (stat.isFile) return candidate;
-    } catch (_cause) {
-      // try the next candidate
-    }
-  }
-  return null;
 }
 
 async function compileStyle(
@@ -293,7 +270,7 @@ async function compileStyle(
   const code = await Deno.readFile(input.entry);
   let mtime = 0;
   try {
-    const stat = Deno.statSync(input.entry);
+    const stat = await Deno.stat(input.entry);
     mtime = stat.mtime?.getTime() ?? 0;
   } catch (_cause) {
     mtime = 0;
@@ -323,7 +300,7 @@ async function buildForKind(
 ): Promise<EsbuildBundleResult> {
   switch (input.kind) {
     case "runtime": {
-      const denoConfigPath = findNearestDenoConfig(input.config.root);
+      const denoConfigPath = await findNearestDenoConfig(input.config.root);
       return await esbuildBundle({
         entryPoints: [input.entry],
         jsxImportSource: input.jsxImportSource,

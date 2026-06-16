@@ -33,8 +33,14 @@ import {
 } from "jsr:@std/assert@1";
 import { fromFileUrl, join } from "@std/path";
 import type { ResolvedConfig } from "@sprout/config";
-import { _resetDevCacheForTests } from "./build/mod.ts";
-import { buildProduction, CompilerError, loadFrozenIndex, readFrozenAsset } from "./mod.ts";
+import { resetDevCacheForTests } from "./build/dev_assets_test_utils.ts";
+import {
+  buildProduction,
+  CompilerError,
+  loadFrozenIndex,
+  readFrozenAsset,
+  readFrozenAssetFromOutDir,
+} from "./mod.ts";
 import type { FrozenIndex } from "./mod.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
@@ -90,7 +96,7 @@ function fixtureConfig(outDir: string): ResolvedConfig {
 // ---------------------------------------------------------------------------
 
 Deno.test("loadFrozenIndex: returns the canonical v1 index shape with the right count", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m7-load-");
   try {
     await buildProduction({ config: fixtureConfig(tmp.path) });
@@ -338,7 +344,7 @@ Deno.test("loadFrozenIndex: rejects NUL bytes and '..' in publicPath / file", as
 // ---------------------------------------------------------------------------
 
 Deno.test("loadFrozenIndex: does not read asset bytes from the _sprout/ directory", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m7-no-preload-");
   try {
     await buildProduction({ config: fixtureConfig(tmp.path) });
@@ -371,11 +377,11 @@ Deno.test("loadFrozenIndex: does not read asset bytes from the _sprout/ director
 // ---------------------------------------------------------------------------
 
 Deno.test("readFrozenAsset: returns raw bytes + gzipBytes for a runtime asset", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m7-read-");
   try {
     await buildProduction({ config: fixtureConfig(tmp.path) });
-    const result = await readFrozenAsset(tmp.path, "/@sprout/runtime.js");
+    const result = await readFrozenAssetFromOutDir(tmp.path, "/@sprout/runtime.js");
     assertEquals(result.contentType, "text/javascript; charset=utf-8");
     assertEquals(result.hash.length, 16);
     assertEquals(/^[0-9a-f]{16}$/.test(result.hash), true);
@@ -392,11 +398,11 @@ Deno.test("readFrozenAsset: returns raw bytes + gzipBytes for a runtime asset", 
 });
 
 Deno.test("readFrozenAsset: returns raw bytes for an island asset", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m7-read-island-");
   try {
     await buildProduction({ config: fixtureConfig(tmp.path) });
-    const result = await readFrozenAsset(tmp.path, "/@sprout/island/cart/AddButton.js");
+    const result = await readFrozenAssetFromOutDir(tmp.path, "/@sprout/island/cart/AddButton.js");
     assertEquals(result.contentType, "text/javascript; charset=utf-8");
     assert(result.bytes.byteLength > 0);
     // The on-disk file under _sprout/ starts with the deterministic
@@ -409,11 +415,11 @@ Deno.test("readFrozenAsset: returns raw bytes for an island asset", async () => 
 });
 
 Deno.test("readFrozenAsset: returns raw bytes for the app stylesheet", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m7-read-css-");
   try {
     await buildProduction({ config: fixtureConfig(tmp.path) });
-    const result = await readFrozenAsset(tmp.path, "/@sprout/app.css");
+    const result = await readFrozenAssetFromOutDir(tmp.path, "/@sprout/app.css");
     assertEquals(result.contentType, "text/css; charset=utf-8");
     assert(result.bytes.byteLength > 0);
   } finally {
@@ -426,12 +432,12 @@ Deno.test("readFrozenAsset: returns raw bytes for the app stylesheet", async () 
 // ---------------------------------------------------------------------------
 
 Deno.test("readFrozenAsset: missing publicPath throws FROZEN_MANIFEST_UNSUPPORTED", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m7-read-missing-pp-");
   try {
     await buildProduction({ config: fixtureConfig(tmp.path) });
     const err = await assertRejects(
-      () => readFrozenAsset(tmp.path, "/@sprout/island/NotThere.js"),
+      () => readFrozenAssetFromOutDir(tmp.path, "/@sprout/island/NotThere.js"),
       CompilerError,
     );
     assertEquals(err.code, "FROZEN_MANIFEST_UNSUPPORTED");
@@ -443,7 +449,7 @@ Deno.test("readFrozenAsset: missing publicPath throws FROZEN_MANIFEST_UNSUPPORTE
 });
 
 Deno.test("readFrozenAsset: missing asset file on disk throws FROZEN_MANIFEST_UNSUPPORTED", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m7-read-missing-file-");
   try {
     await buildProduction({ config: fixtureConfig(tmp.path) });
@@ -453,7 +459,7 @@ Deno.test("readFrozenAsset: missing asset file on disk throws FROZEN_MANIFEST_UN
     assertExists(runtime);
     await Deno.remove(join(tmp.path, runtime.file));
     const err = await assertRejects(
-      () => readFrozenAsset(tmp.path, "/@sprout/runtime.js"),
+      () => readFrozenAssetFromOutDir(tmp.path, "/@sprout/runtime.js"),
       CompilerError,
     );
     assertEquals(err.code, "FROZEN_MANIFEST_UNSUPPORTED");
@@ -463,7 +469,7 @@ Deno.test("readFrozenAsset: missing asset file on disk throws FROZEN_MANIFEST_UN
 });
 
 Deno.test("readFrozenAsset: missing gzip companion degrades to raw asset", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m7-no-gz-");
   try {
     await buildProduction({ config: fixtureConfig(tmp.path) });
@@ -480,7 +486,7 @@ Deno.test("readFrozenAsset: missing gzip companion degrades to raw asset", async
       warns.push(args);
     };
     try {
-      const result = await readFrozenAsset(tmp.path, "/@sprout/runtime.js");
+      const result = await readFrozenAssetFromOutDir(tmp.path, "/@sprout/runtime.js");
       assert(result.bytes.byteLength > 0, "raw bytes must still be readable");
       assertEquals(result.gzipBytes, null, "gzip companion should degrade to null");
       assert(warns.length >= 1, "missing gzip companion should produce a warning");
@@ -494,7 +500,7 @@ Deno.test("readFrozenAsset: missing gzip companion degrades to raw asset", async
 
 Deno.test("readFrozenAsset: missing manifest throws FROZEN_MANIFEST_MISSING", async () => {
   const err = await assertRejects(
-    () => readFrozenAsset("/nope", "/@sprout/runtime.js"),
+    () => readFrozenAssetFromOutDir("/nope", "/@sprout/runtime.js"),
     CompilerError,
   );
   assertEquals(err.code, "FROZEN_MANIFEST_MISSING");
@@ -504,7 +510,7 @@ Deno.test("readFrozenAsset: empty outDir throws FROZEN_MANIFEST_MISSING", async 
   const tmp = await makeTempDir("sprout-m7-read-empty-");
   try {
     const err = await assertRejects(
-      () => readFrozenAsset(tmp.path, "/@sprout/runtime.js"),
+      () => readFrozenAssetFromOutDir(tmp.path, "/@sprout/runtime.js"),
       CompilerError,
     );
     assertEquals(err.code, "FROZEN_MANIFEST_MISSING");
@@ -518,13 +524,13 @@ Deno.test("readFrozenAsset: empty outDir throws FROZEN_MANIFEST_MISSING", async 
 // ---------------------------------------------------------------------------
 
 Deno.test("loadFrozenIndex + readFrozenAsset: every manifest entry has readable bytes", async () => {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m7-roundtrip-");
   try {
     await buildProduction({ config: fixtureConfig(tmp.path) });
     const index = await loadFrozenIndex(tmp.path);
     for (const [publicPath, asset] of index.assets) {
-      const result = await readFrozenAsset(tmp.path, publicPath);
+      const result = await readFrozenAsset(index, publicPath);
       assertEquals(result.contentType, asset.contentType);
       assertEquals(result.hash, asset.hash);
       assert(result.bytes.byteLength > 0);

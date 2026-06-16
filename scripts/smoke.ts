@@ -74,6 +74,14 @@ try {
       jsxImportSource: "@sprout/jsx",
     },
     imports: {
+      // Preserve Hono subpath mappings from the init template; the
+      // build pipeline runs in the generated project's context and
+      // needs them to resolve bare @hono/hono/* imports.
+      "@hono/hono": "jsr:@hono/hono@4.12.24",
+      "@hono/hono/jsx": "jsr:@hono/hono@4.12.24/jsx",
+      "@hono/hono/jsx/dom": "jsr:@hono/hono@4.12.24/jsx/dom",
+      "@hono/hono/jsx/dom/jsx-runtime": "jsr:@hono/hono@4.12.24/jsx/dom/jsx-runtime",
+      "@hono/hono/html": "jsr:@hono/hono@4.12.24/html",
       "@sprout/core": workspaceImportUrl("packages/core/mod.ts"),
       "@sprout/config": workspaceImportUrl("packages/config/mod.ts"),
       "@sprout/compiler": workspaceImportUrl("packages/compiler/mod.ts"),

@@ -6,6 +6,13 @@
   "version": "0.2.0",
   "description": "Command-line UX: `init`, `dev`, `build`, `serve`, `inspect`, and `help`. Thin orchestrator over `@sprout/core`, `@sprout/config`, and `@sprout/compiler`.",
   "license": "MIT",
+  "imports": {
+    "@std/path": "jsr:@std/path@^1.0.8",
+    "@sprout/config": "jsr:@sprout/config@0.2.0",
+    "@sprout/compiler": "jsr:@sprout/compiler@0.2.0",
+    "@sprout/core": "jsr:@sprout/core@0.2.0",
+    "@sprout/utils": "jsr:@sprout/utils@0.2.0"
+  },
   "exports": {
     ".": "./mod.ts"
   },

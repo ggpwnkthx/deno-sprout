@@ -19,8 +19,10 @@ import {
   compileDevAsset,
   type CompileDevAssetInput,
   compileDevSourceMap,
+  CompilerError,
   resolveRuntimeEntryFile,
 } from "@sprout/compiler";
+import { NOSNIFF } from "@sprout/utils";
 import { CoreError, coreErrorToResponse } from "./errors.ts";
 
 /** Headers attached to every dev asset response. */
@@ -28,6 +30,7 @@ function noStoreHeaders(contentType: string): Headers {
   return new Headers({
     "content-type": contentType,
     "cache-control": "no-store",
+    "x-content-type-options": NOSNIFF,
   });
 }
 
@@ -138,14 +141,36 @@ export async function serveDevSourceMap(
   }
 }
 
-/** Convert any thrown value into a CoreError the caller can render. */
+/**
+ * Convert any thrown value into a CoreError the caller can render.
+ *
+ * The returned error carries a code that maps to the correct HTTP
+ * status via `coreErrorToResponse`:
+ *
+ *   - `CoreError` → preserved as-is (already typed)
+ *   - `CompilerError` (e.g. `BUILD_FAILED` from esbuild) → preserved
+ *     as-is (the `ROUTE_RENDER_FAILED` code maps to 500)
+ *   - any other `Error` → `ROUTE_RENDER_FAILED` (500), not
+ *     `STATIC_FILE_NOT_FOUND` (404), so a syntax error in user
+ *     code does not masquerade as a missing file
+ */
 function toCoreError(cause: unknown, publicPath: string): CoreError {
   if (cause instanceof CoreError) {
     return cause;
   }
+  if (cause instanceof CompilerError) {
+    // Preserve the CompilerError so `coreErrorToResponse` sees the
+    // typed code. The `ROUTE_RENDER_FAILED` / 500 path handles it
+    // (CompilerError codes are not in the 404 branch).
+    return new CoreError(
+      "ROUTE_RENDER_FAILED",
+      cause.message,
+      { publicPath, cause: cause.code },
+    );
+  }
   const message = cause instanceof Error ? cause.message : String(cause);
   return new CoreError(
-    "STATIC_FILE_NOT_FOUND",
+    "ROUTE_RENDER_FAILED",
     `failed to compile dev asset ${publicPath}: ${message}`,
     { publicPath, cause: message },
   );

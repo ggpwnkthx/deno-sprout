@@ -16,7 +16,7 @@ import { assert, assertEquals, assertStringIncludes } from "jsr:@std/assert@1";
 import { fromFileUrl, join } from "@std/path";
 import { buildProduction } from "@sprout/compiler";
 import type { ResolvedConfig } from "@sprout/config";
-import { _resetDevCacheForTests } from "../compiler/build/mod.ts";
+import { resetDevCacheForTests } from "../compiler/build/dev_assets_test_utils.ts";
 import { createApp } from "./mod.ts";
 import type { App } from "./mod.ts";
 
@@ -55,7 +55,7 @@ async function copyFixtureTo(target: string): Promise<void> {
 }
 
 async function buildProjectAt(root: string): Promise<void> {
-  _resetDevCacheForTests();
+  resetDevCacheForTests();
   const configMod = await import("@sprout/config");
   const cfg: ResolvedConfig = await configMod.loadConfig({
     root,
@@ -86,6 +86,7 @@ Deno.test("M8 collision: dev /@sprout/runtime.js returns the framework asset, no
     // max-age=3600`. The dev asset header proves which handler
     // ran.
     assertEquals(res.headers.get("cache-control"), "no-store");
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const body = await res.text();
     assertStringIncludes(body, "start");
     // The public file's magic string must NOT appear in the
@@ -110,6 +111,7 @@ Deno.test("M8 collision: dev /@sprout/app.css returns the framework stylesheet, 
     const res = await app.fetch(new Request("http://0.0.0.0/@sprout/app.css"));
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("cache-control"), "no-store");
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const body = await res.text();
     assertStringIncludes(body, "body");
     assert(
@@ -132,6 +134,7 @@ Deno.test("M8 collision: dev /@sprout/island/Counter.js returns the framework is
     const res = await app.fetch(new Request("http://0.0.0.0/@sprout/island/Counter.js"));
     assertEquals(res.status, 200);
     assertEquals(res.headers.get("cache-control"), "no-store");
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const body = await res.text();
     // The framework island bundle includes `mountComponent`.
     assertStringIncludes(body, "mountComponent");
@@ -166,6 +169,7 @@ Deno.test("M8 collision: prod /@sprout/runtime.js returns the frozen asset, not 
       res.headers.get("cache-control"),
       "public, max-age=31536000, immutable",
     );
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const body = await res.text();
     assertStringIncludes(body, "start");
     assert(
@@ -196,6 +200,7 @@ Deno.test("M8 collision: public /favicon.svg is served normally in dev", async (
     // The public-file middleware uses
     // `cache-control: public, max-age=3600`.
     assertEquals(res.headers.get("cache-control"), "public, max-age=3600");
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const body = await res.text();
     assertStringIncludes(body, "FRAMEWORK_FAVICON");
   } finally {
@@ -220,6 +225,7 @@ Deno.test("M8 collision: a user route at / wins over public/index.html", async (
     const app: App = await createApp({ root: tmp.path, mode: "development" });
     const res = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(res.status, 200);
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const body = await res.text();
     // The route renders the shell + the counter placeholder.
     assertStringIncludes(body, 'data-sprout-island="Counter"');

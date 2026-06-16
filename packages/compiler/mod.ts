@@ -49,6 +49,7 @@ export {
   formatBuildSummary,
   loadFrozenIndex,
   readFrozenAsset,
+  readFrozenAssetFromOutDir,
 } from "./build/mod.ts";
 export type {
   AssetKind,

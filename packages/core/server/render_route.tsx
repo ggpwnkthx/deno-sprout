@@ -2,23 +2,24 @@
 //
 // One public function: `renderRoute`, which takes a parsed request,
 // the resolved manifest, and the matched route entry, loads the
-// route module, registers every island from the manifest with the
-// server-side island registry, dispatches to the right method
-// handler (with HEAD → GET fallback and body stripping), and wraps
-// the result in the HTML shell when the handler returns JSX.
+// route module, dispatches to the right method handler (with
+// HEAD → GET fallback and body stripping), and wraps the result
+// in the HTML shell when the handler returns JSX.
+//
+// Island registration is performed once at app startup via
+// `warmupIslands` in `warmup_islands.ts`, not per-request.
 //
 import { toFileUrl } from "@std/path";
-import { registerIslandComponent } from "@sprout/jsx/server/island-registry";
-import type { IslandMetadata } from "@sprout/jsx/server/island-registry";
+import { NOSNIFF } from "@sprout/utils";
 import type { ResolvedConfig } from "@sprout/config";
 import type { Manifest, RouteEntry } from "@sprout/compiler";
 import { htmlShell } from "./html_shell.tsx";
 import { buildRequestContext, type ShellInfo } from "./context.ts";
 import { CoreError } from "./errors.ts";
-import type { HttpMethod } from "./http_methods.ts";
-import { isHttpMethod, SUPPORTED_METHODS } from "./http_methods.ts";
+import type { HttpMethod } from "@sprout/utils";
+import { isHttpMethod, SUPPORTED_HTTP_METHODS } from "@sprout/utils";
 import type { PageProps, RequestContext, RouteHandler, RouteModule } from "./types.ts";
-import type { JSXNode } from "jsr:@hono/hono@4.12.24/jsx";
+import type { JSXNode } from "@hono/hono/jsx";
 
 /** Inputs to {@link renderRoute}. */
 export type RenderRouteOptions = {
@@ -70,40 +71,6 @@ function asRouteModule(value: unknown): RouteModule {
   };
 }
 
-/**
- * Pre-load and register every island from the manifest. Registration
- * is idempotent for a module identity, so repeated requests can safely
- * call this without clearing the process-global registry. Avoiding a
- * request-time clear keeps concurrent renders from observing an empty
- * or partial registry while another request awaits dynamic imports.
- */
-async function registerManifestIslands(manifest: Manifest): Promise<void> {
-  for (const island of manifest.islands) {
-    const fileUrl = toFileUrl(island.file).href;
-    const mod = await import(fileUrl) as Record<string, unknown>;
-    const component = mod[island.exportName];
-    if (component === undefined || component === null) {
-      throw new CoreError(
-        "ROUTE_RENDER_FAILED",
-        `island ${JSON.stringify(island.id)} has no default export`,
-        { id: island.id, file: island.file },
-      );
-    }
-    if (typeof component !== "function" && typeof component !== "object") {
-      throw new CoreError(
-        "ROUTE_RENDER_FAILED",
-        `island ${JSON.stringify(island.id)} default export is not a component`,
-        { id: island.id, file: island.file, type: typeof component },
-      );
-    }
-    const metadata: IslandMetadata = {
-      id: island.id,
-      src: island.publicPath,
-    };
-    registerIslandComponent(component, metadata);
-  }
-}
-
 /** Load a route module via dynamic import. */
 async function loadRouteModule(file: string): Promise<RouteModule> {
   const fileUrl = toFileUrl(file).href;
@@ -124,7 +91,7 @@ async function loadRouteModule(file: string): Promise<RouteModule> {
 /** Compute the set of methods present on a route module. */
 function supportedMethods(module: RouteModule): HttpMethod[] {
   const out: HttpMethod[] = [];
-  for (const m of SUPPORTED_METHODS) {
+  for (const m of SUPPORTED_HTTP_METHODS) {
     if (module[m] !== undefined) {
       out.push(m);
     }
@@ -162,6 +129,7 @@ function wrapHtml(
     ...requestInit,
     headers: new Headers({
       "content-type": "text/html; charset=utf-8",
+      "x-content-type-options": NOSNIFF,
       ...(requestInit?.headers ? Object.fromEntries(new Headers(requestInit.headers)) : {}),
     }),
   });
@@ -173,25 +141,28 @@ function wrapHtml(
  * because island registration requires dynamic imports.
  */
 export async function renderRoute(options: RenderRouteOptions): Promise<Response> {
-  const { manifest, route, request, url, params, locals, shellInfo } = options;
+  const { manifest: _manifest, route, request, url, params, locals, shellInfo } = options;
   const method = request.method.toUpperCase();
 
   // The framework accepts only known HTTP methods; everything else
-  // (custom verbs, typos) is treated as "no handler" and 404s.
+  // (custom verbs, typos) is treated as "method not implemented".
+  // RFC 7231 says 501 (Not Implemented) is the right status for an
+  // unknown method, but 405 (Method Not Allowed) with an Allow
+  // header listing the framework's supported methods is the
+  // closest match in the existing code family and gives operators
+  // a clear picture of what the server accepts.
   if (!isHttpMethod(method)) {
     throw new CoreError(
-      "ROUTE_NOT_FOUND",
+      "ROUTE_METHOD_NOT_ALLOWED",
       `unsupported HTTP method ${JSON.stringify(request.method)}`,
-      { method: request.method },
+      { method: request.method, methods: [...SUPPORTED_HTTP_METHODS] },
     );
   }
 
-  // Pre-load the route module and every island module referenced by
-  // the manifest. Both are dynamic imports, so the order matters
-  // for `registerIslandComponent` to see the route's component
-  // references by identity.
+  // Pre-load the route module. Islands are pre-registered at app
+  // startup via `warmupIslands`; the registry is process-global and
+  // idempotent, so no per-request registration is needed.
   const module = await loadRouteModule(route.file);
-  await registerManifestIslands(manifest);
 
   // Build the request context for handler invocation.
   const ctx: RequestContext = buildRequestContext({

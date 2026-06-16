@@ -41,6 +41,7 @@ async function rewriteGeneratedImportsToWorkspace(root: string): Promise<void> {
   const denoJsonc = JSON.parse(await Deno.readTextFile(denoJsoncPath)) as {
     readonly tasks?: Record<string, string>;
     readonly compilerOptions?: Record<string, unknown>;
+    readonly imports?: Record<string, string>;
   };
   await Deno.writeTextFile(
     denoJsoncPath,
@@ -48,6 +49,10 @@ async function rewriteGeneratedImportsToWorkspace(root: string): Promise<void> {
       {
         ...denoJsonc,
         imports: {
+          // Preserve Hono subpath mappings from the template; the dev
+          // asset pipeline runs in the generated project's context and
+          // needs them to resolve bare @hono/hono/* imports.
+          ...(denoJsonc.imports ?? {}),
           "@sprout/core": workspaceImportUrl("packages/core/mod.ts"),
           "@sprout/config": workspaceImportUrl("packages/config/mod.ts"),
           "@sprout/compiler": workspaceImportUrl("packages/compiler/mod.ts"),
@@ -172,10 +177,11 @@ Deno.test("init: scaffolds a runnable project", async () => {
       assert(stat.isFile, `expected file at ${file.relPath}`);
     }
 
-    // The generated `deno.jsonc` references the cli.
+    // The generated `deno.jsonc` references the cli (in the tasks
+    // block) and the framework core (in the imports block).
     const denoJsonc = await Deno.readTextFile(join(tmp, "deno.jsonc"));
     assertStringIncludes(denoJsonc, "@sprout/core");
-    assertStringIncludes(denoJsonc, "jsr:@sprout/cli");
+    assertStringIncludes(denoJsonc, "@sprout/cli dev");
 
     // The generated `sprout.config.ts` uses `defineConfig`.
     const config = await Deno.readTextFile(join(tmp, "sprout.config.ts"));
@@ -547,6 +553,17 @@ Deno.test("parseArgs: short flags throw CLI_INVALID_ARGS", () => {
   }
   assert(caught instanceof CliError);
   assertEquals((caught as CliError).code, "CLI_INVALID_ARGS");
+});
+
+Deno.test("run: --config with NUL byte throws CLI_INVALID_ARGS with NUL in message", async () => {
+  // configFileFromFlags rejects NUL bytes early rather than
+  // letting the failure surface in slash() or another utility.
+  const r = await run(["dev", "--config", "/tmp/foo\0.ts"], { silent: true });
+  assertEquals(r.ok, false);
+  if (r.ok) throw new Error("expected failure");
+  assert(r.error instanceof CliError);
+  assertEquals(r.error.code, "CLI_INVALID_ARGS");
+  assertStringIncludes(r.error.message, "NUL");
 });
 
 // ---------------------------------------------------------------------------

@@ -43,6 +43,11 @@ export const TEMPLATE_DENO_JSONC = `{
     "jsxImportSource": "@sprout/jsx"
   },
   "imports": {
+    "@hono/hono": "jsr:@hono/hono@4.12.24",
+    "@hono/hono/jsx": "jsr:@hono/hono@4.12.24/jsx",
+    "@hono/hono/jsx/dom": "jsr:@hono/hono@4.12.24/jsx/dom",
+    "@hono/hono/jsx/dom/jsx-runtime": "jsr:@hono/hono@4.12.24/jsx/dom/jsx-runtime",
+    "@hono/hono/html": "jsr:@hono/hono@4.12.24/html",
     "@sprout/core": "jsr:@sprout/core@0.2.0",
     "@sprout/config": "jsr:@sprout/config@0.2.0",
     "@sprout/compiler": "jsr:@sprout/compiler@0.2.0",

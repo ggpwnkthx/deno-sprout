@@ -1,4 +1,5 @@
-// `Accept-Encoding` header parser.
+/** Value for the `X-Content-Type-Options` response header. */
+export const NOSNIFF = "nosniff" as const;
 //
 // `acceptsGzip` is a pure, environment-safe helper that returns
 // whether the caller will accept a `gzip`-encoded response body.

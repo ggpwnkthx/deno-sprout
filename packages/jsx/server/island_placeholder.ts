@@ -13,10 +13,10 @@
 // The server-side `serializeJsonProps` call performs full prop
 // validation, so the placeholder builder doubles as the rejection
 // path for invalid props.
-import { jsx } from "jsr:@hono/hono@4.12.24/jsx";
-import type { JSXNode } from "jsr:@hono/hono@4.12.24/jsx";
+import { jsx } from "@hono/hono/jsx";
+import type { JSXNode } from "@hono/hono/jsx";
 import { serializeJsonProps } from "../shared/mod.ts";
-import type { IslandMetadata } from "./island_registry.ts";
+import type { IslandMetadata } from "./island-registry.ts";
 
 /**
  * Reserved client-runtime attributes that the server never emits.

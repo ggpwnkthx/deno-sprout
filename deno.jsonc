@@ -11,8 +11,7 @@
     "packages/compiler",
     "packages/jsx",
     "packages/runtime",
-    "packages/utils",
-    "examples/*"
+    "packages/utils"
   ],
   "nodeModulesDir": "none",
   "exclude": [
@@ -37,6 +36,7 @@
     "lint": "deno lint",
     "ci": "deno fmt --check && deno lint && deno task check && deno task test",
     "smoke": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run --allow-sys --allow-ffi scripts/smoke.ts",
+    "check-hono-sync": "deno run --allow-read scripts/check_hono_sync.ts",
     "publish-check": "deno publish --dry-run --config packages/utils/deno.jsonc --allow-dirty && deno publish --dry-run --config packages/config/deno.jsonc --allow-dirty && deno publish --dry-run --config packages/compiler/deno.jsonc --allow-dirty && deno publish --dry-run --config packages/jsx/deno.jsonc --allow-dirty && deno publish --dry-run --config packages/runtime/deno.jsonc --allow-dirty && deno publish --dry-run --config packages/core/deno.jsonc --allow-dirty && deno publish --dry-run --config packages/cli/deno.jsonc --allow-dirty"
   },
   "compilerOptions": {
@@ -61,7 +61,11 @@
     "esbuild": "jsr:@ggpwnkthx/esbuild@0.2.8",
     "@ggpwnkthx/esbuild-plugin-deno": "jsr:@ggpwnkthx/esbuild-plugin-deno@0.2.8",
     "@std/path": "jsr:@std/path@^1.0.8",
-    "@hono/hono": "jsr:@hono/hono@4.12.24"
+    "@hono/hono": "jsr:@hono/hono@4.12.24",
+    "@hono/hono/jsx": "jsr:@hono/hono@4.12.24/jsx",
+    "@hono/hono/jsx/dom": "jsr:@hono/hono@4.12.24/jsx/dom",
+    "@hono/hono/jsx/dom/jsx-runtime": "jsr:@hono/hono@4.12.24/jsx/dom/jsx-runtime",
+    "@hono/hono/html": "jsr:@hono/hono@4.12.24/html"
     // "@sprout/core": "./packages/core/mod.ts",
     // "@sprout/cli": "./packages/cli/mod.ts",
     // "@sprout/config": "./packages/config/mod.ts",

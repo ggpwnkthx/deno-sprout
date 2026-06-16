@@ -100,7 +100,6 @@ async function dispatch(parsed: ParsedArgs, options: CliOptions): Promise<CliRes
         hostname: hostnameFromFlags(parsed),
         port: portFromFlags(parsed),
         ...(configFile !== undefined ? { configFile } : {}),
-        debug: options.debug,
       });
       return { ok: true, code: 0 };
     }
@@ -111,7 +110,6 @@ async function dispatch(parsed: ParsedArgs, options: CliOptions): Promise<CliRes
         hostname: hostnameFromFlags(parsed),
         port: portFromFlags(parsed),
         ...(configFile !== undefined ? { configFile } : {}),
-        debug: options.debug,
       });
       return { ok: true, code: 0 };
     }
@@ -120,7 +118,6 @@ async function dispatch(parsed: ParsedArgs, options: CliOptions): Promise<CliRes
       await runBuild({
         root: parsed.positional[0],
         ...(configFile !== undefined ? { configFile } : {}),
-        debug: options.debug,
       });
       return { ok: true, code: 0 };
     }
@@ -129,7 +126,6 @@ async function dispatch(parsed: ParsedArgs, options: CliOptions): Promise<CliRes
       await runInspect({
         root: parsed.positional[0],
         ...(configFile !== undefined ? { configFile } : {}),
-        debug: options.debug,
       });
       return { ok: true, code: 0 };
     }
@@ -203,6 +199,13 @@ function configFileFromFlags(parsed: ParsedArgs): string | undefined {
       "CLI_INVALID_ARGS",
       "--config must be a non-empty string",
       { value: String(value) },
+    );
+  }
+  if (value.includes("\0")) {
+    throw new CliError(
+      "CLI_INVALID_ARGS",
+      "--config path must not contain NUL bytes",
+      { value },
     );
   }
   return value;

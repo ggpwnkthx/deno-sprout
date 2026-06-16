@@ -6,6 +6,10 @@
   "version": "0.2.0",
   "description": "Browser-only island mounting. The framework-owned mount loop: scans `[data-sprout-src]` placeholders, imports island modules, validates props, and mounts components.",
   "license": "MIT",
+  "imports": {
+    "@sprout/jsx/dom": "jsr:@sprout/jsx@0.2.0/dom",
+    "@sprout/jsx/shared": "jsr:@sprout/jsx@0.2.0/shared"
+  },
   "exports": {
     ".": "./mod.ts"
   },

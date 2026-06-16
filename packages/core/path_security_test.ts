@@ -53,6 +53,29 @@ Deno.test("M8 core: resolvePublicFile returns null for NUL bytes in the URL", as
   }
 });
 
+Deno.test("M8 core: resolvePublicFile returns null for invalid percent encoding", async () => {
+  // `%zz` is not valid UTF-8; `decodeURI` throws.
+  const tmp = await makeTempDir("sprout-m8-pub-pct-invalid-");
+  try {
+    const result = await resolvePublicFile(tmp.path, "/foo%zzbar");
+    assertEquals(result, null);
+  } finally {
+    await tmp.cleanup();
+  }
+});
+
+Deno.test("M8 core: resolvePublicFile returns null for percent-encoded .. in the URL", async () => {
+  // `%2e%2e` = `..` after decoding. A naive literal-`..` check would
+  // miss this; `resolvePublicFile` decodes before the segment check.
+  const tmp = await makeTempDir("sprout-m8-pub-pct-dotdot-");
+  try {
+    const result = await resolvePublicFile(tmp.path, "/%2e%2e/%2e%2e/secrets.txt");
+    assertEquals(result, null);
+  } finally {
+    await tmp.cleanup();
+  }
+});
+
 Deno.test("M8 core: resolvePublicFile returns null for .. in the URL", async () => {
   const tmp = await makeTempDir("sprout-m8-pub-dotdot-");
   try {

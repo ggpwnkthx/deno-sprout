@@ -75,6 +75,7 @@ Deno.test("M8 render: a route that throws on import returns 500 with ROUTE_IMPOR
     // First request triggers the dynamic import and the throw.
     const res = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(res.status, 500);
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const ctype = res.headers.get("content-type") ?? "";
     assertMatch(ctype, /^text\/plain/);
     const body = await res.text();
@@ -106,6 +107,7 @@ Deno.test("M8 render: a route with no default and no methods returns 404 ROUTE_N
     const app: App = await createApp({ root: project.dir, mode: "development" });
     const res = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(res.status, 404);
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
   } finally {
     await project.cleanup();
   }
@@ -136,6 +138,7 @@ Deno.test("M8 render: a route default that is not a function returns 404 ROUTE_N
     const app: App = await createApp({ root: project.dir, mode: "development" });
     const res = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(res.status, 404);
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
   } finally {
     await project.cleanup();
   }
@@ -161,6 +164,7 @@ Deno.test("M8 render: a route whose GET export is not a function returns 404 ROU
     const app: App = await createApp({ root: project.dir, mode: "development" });
     const res = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(res.status, 404);
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
   } finally {
     await project.cleanup();
   }
@@ -186,6 +190,7 @@ Deno.test("M8 render: a route that returns a primitive number is wrapped as text
     // (The shell renders arbitrary children; the literal `42`
     // becomes the text node "42".)
     assertEquals(res.status, 200);
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const ctype = res.headers.get("content-type") ?? "";
     assertMatch(ctype, /^text\/html/);
     const body = await res.text();
@@ -199,10 +204,42 @@ Deno.test("M8 render: a route that returns a primitive number is wrapped as text
 });
 
 // ---------------------------------------------------------------------------
+// Unsupported HTTP method returns 405 with Allow header
+// ---------------------------------------------------------------------------
+
+Deno.test("M8 render: an unsupported HTTP method returns 405 with Allow header", async () => {
+  // The render layer checks `isHttpMethod` before route matching.
+  // A method like BREW that is not in SUPPORTED_HTTP_METHODS should
+  // get ROUTE_METHOD_NOT_ALLOWED (405) with an Allow header listing
+  // the framework's supported methods.
+  const project = await makeProject("sprout-m8-rt-unsupported-method-", {
+    "src/routes/index.tsx": `export default function Home() { return <h1>hi</h1>; }\n`,
+  });
+  try {
+    const app: App = await createApp({ root: project.dir, mode: "development" });
+    const res = await app.fetch(
+      new Request("http://0.0.0.0/", { method: "BREW" }),
+    );
+    assertEquals(res.status, 405);
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
+    const allow = res.headers.get("allow") ?? "";
+    // The Allow header must list the framework's supported methods.
+    for (const m of ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]) {
+      assert(
+        allow.includes(m),
+        `Allow header should include ${m}, got ${allow}`,
+      );
+    }
+  } finally {
+    await project.cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------
 // coreErrorToResponse mapping
 // ---------------------------------------------------------------------------
 
-Deno.test("M8 render: coreErrorToResponse maps each CoreError code to the right status", () => {
+Deno.test("M8 render: coreErrorToResponse maps each CoreError code to the right status", async () => {
   // Direct unit test on the response converter. The full
   // pipeline is covered by the integration tests above; this
   // pins the code→status mapping for any future refactor.
@@ -223,22 +260,25 @@ Deno.test("M8 render: coreErrorToResponse maps each CoreError code to the right 
       expectedStatus,
       `code ${code} should map to ${expectedStatus}`,
     );
+    assertEquals(
+      res.headers.get("x-content-type-options"),
+      "nosniff",
+      `code ${code} should set x-content-type-options: nosniff`,
+    );
     // The body is either the message or the fallback.
-    const bodyPromise = res.text();
-    bodyPromise.then((body) => {
-      assert(body.length > 0, `body should be non-empty for ${code}`);
-      // The fallback text appears in the body for the 500
-      // paths when no message is set; otherwise the message
-      // does. Both are non-empty.
-      if (code === "STATIC_FILE_OUTSIDE_ROOT") {
-        // The 404 body for OUTSIDE_ROOT is the generic "Not Found"
-        // (path is hidden in details).
-        assert(
-          body === fallback || body === err.message,
-          `OUTSIDE_ROOT body should be the generic fallback, got ${body}`,
-        );
-      }
-    });
+    const body = await res.text();
+    assert(body.length > 0, `body should be non-empty for ${code}`);
+    // The fallback text appears in the body for the 500
+    // paths when no message is set; otherwise the message
+    // does. Both are non-empty.
+    if (code === "STATIC_FILE_OUTSIDE_ROOT") {
+      // The 404 body for OUTSIDE_ROOT is the generic "Not Found"
+      // (path is hidden in details).
+      assert(
+        body === fallback || body === err.message,
+        `OUTSIDE_ROOT body should be the generic fallback, got ${body}`,
+      );
+    }
   }
 });
 
@@ -252,6 +292,7 @@ Deno.test("M8 render: a successful route renders the HTML shell", async () => {
     const app: App = await createApp({ root: project.dir, mode: "development" });
     const res = await app.fetch(new Request("http://0.0.0.0/"));
     assertEquals(res.status, 200);
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const body = await res.text();
     assertMatch(body, /<!doctype html>/);
     assertMatch(body, /<h1>hi<\/h1>/);

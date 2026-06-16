@@ -22,7 +22,8 @@
 // These helpers are package-internal; `build/mod.ts` re-exports the
 // public-facing production build surface only.
 import { encodeHex } from "@std/encoding/hex";
-import { fromFileUrl, join } from "@std/path";
+import { join } from "@std/path";
+import { contentTypeForFilename } from "@sprout/utils";
 import { CompilerError } from "../errors.ts";
 import type { FrozenAsset, FrozenAssetKind } from "../manifest/types.ts";
 import { maybeGzip } from "./gzip.ts";
@@ -98,34 +99,14 @@ export async function emptyOutDir(outDir: string): Promise<void> {
   }
 }
 
-/** Content-type map. Mirrors the dev asset shape. */
-const CONTENT_TYPES: Readonly<Record<string, string>> = {
-  ".js": "text/javascript; charset=utf-8",
-  ".mjs": "text/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".map": "application/json; charset=utf-8",
-};
-
-const DEFAULT_CONTENT_TYPE = "application/octet-stream";
-
 /**
  * Map a filename to a content type. JS / MJS, CSS, and `.map` have
  * explicit entries; anything else returns `application/octet-stream`.
  *
- * The lookup is a `Map<string, string>` keyed on the lowercase
- * extension (including the leading dot). It is exposed (rather than
- * inlined) so tests can assert the map shape.
+ * The lookup delegates to `contentTypeForFilename` in `@sprout/utils`.
+ * It is exposed (rather than inlined) so tests can assert the map shape.
  */
-export function contentTypeFor(filename: string): string {
-  const slashIdx = Math.max(filename.lastIndexOf("/"), filename.lastIndexOf("\\"));
-  const basename = slashIdx >= 0 ? filename.slice(slashIdx + 1) : filename;
-  const dotIdx = basename.lastIndexOf(".");
-  if (dotIdx <= 0) {
-    return DEFAULT_CONTENT_TYPE;
-  }
-  const ext = basename.slice(dotIdx).toLowerCase();
-  return CONTENT_TYPES[ext] ?? DEFAULT_CONTENT_TYPE;
-}
+export const contentTypeFor = contentTypeForFilename;
 
 /** The on-disk filename for a hashed asset, no leading directory. */
 function hashedFileName(kind: FrozenAssetKind, id: string, hash: string): string {
@@ -220,9 +201,6 @@ export async function writeHashedAsset(
   }
   return base;
 }
-
-/** Re-export `fromFileUrl` so callers can avoid the double import. */
-export { fromFileUrl };
 
 /**
  * Throw `BUILD_OUTDIR_UNSAFE` with the offending entries in

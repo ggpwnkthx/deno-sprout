@@ -6,6 +6,17 @@
   "version": "0.2.0",
   "description": "Route / island / style discovery, internal manifest construction, on-demand dev asset compilation, and content-hashed production build with a frozen manifest.",
   "license": "MIT",
+  "imports": {
+    "@std/fs": "jsr:@std/fs@^1.0.24",
+    "@std/encoding": "jsr:@std/encoding@^1.0.5",
+    "@std/path": "jsr:@std/path@^1.0.8",
+    "esbuild": "jsr:@ggpwnkthx/esbuild@0.2.8",
+    "@ggpwnkthx/esbuild-plugin-deno": "jsr:@ggpwnkthx/esbuild-plugin-deno@0.2.8",
+    "@sprout/config": "jsr:@sprout/config@0.2.0",
+    "@sprout/jsx/shared": "jsr:@sprout/jsx@0.2.0/shared",
+    "@sprout/runtime": "jsr:@sprout/runtime@0.2.0",
+    "@sprout/utils": "jsr:@sprout/utils@0.2.0"
+  },
   "exports": {
     ".": "./mod.ts"
   },
@@ -19,6 +30,7 @@
       "**/*.test.tsx",
       "**/*.test.js",
       "**/*.test.jsx",
+      "build/dev_assets_test_utils.ts",
       ".DS_Store",
       ".github",
       ".vscode"

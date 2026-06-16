@@ -9,7 +9,16 @@
 // uses to negotiate gzip vs raw bytes. Hashing and bounded stream
 // helpers remain out of scope until a package that consumes them
 // exists.
+export { causeMessage } from "./cause.ts";
 export { FrameworkError } from "./errors.ts";
 export type { FrameworkErrorDetails } from "./errors.ts";
+export {
+  contentTypeForFilename,
+  DEFAULT_CONTENT_TYPE,
+  EXTENSION_CONTENT_TYPES,
+  extensionOf,
+} from "./media_types.ts";
 export { isInsideRoot, slash } from "./path.ts";
-export { acceptsGzip } from "./http.ts";
+export { acceptsGzip, NOSNIFF } from "./http.ts";
+export { isHttpMethod, SUPPORTED_HTTP_METHODS } from "./http_methods.ts";
+export type { HttpMethod } from "./http_methods.ts";

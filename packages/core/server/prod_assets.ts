@@ -21,7 +21,7 @@
 // not cache results. The serve layer (`server/app.ts`) owns the
 // LRU and the index lifetime; this helper is the per-request
 // `ETag` / `Accept-Encoding` / 304 decision.
-import { acceptsGzip } from "@sprout/utils";
+import { acceptsGzip, NOSNIFF } from "@sprout/utils";
 import { readFrozenAsset } from "@sprout/compiler";
 import type { FrozenIndex, ReadFrozenAssetResult } from "@sprout/compiler";
 import { CoreError, coreErrorToResponse } from "./errors.ts";
@@ -94,25 +94,33 @@ export async function serveFrozenAsset(
   // not cache. A pre-loaded result (from the LRU) bypasses the
   // disk read.
   const result = opts.preloaded ??
-    await readFrozenAsset(opts.frozenIndex.outDir, opts.publicPath);
+    await readFrozenAsset(opts.frozenIndex, opts.publicPath);
 
   const etag = `"${asset.hash}"`;
-  // 304 path: a matching `If-None-Match` short-circuits to an
-  // empty-body response that still carries the cache headers.
-  if (etagMatches(opts.request.headers.get("if-none-match"), etag)) {
-    const headers = new Headers({
-      "etag": etag,
-      "cache-control": CACHE_CONTROL,
-      "vary": "accept-encoding",
-    });
-    return new Response(null, { status: 304, headers });
-  }
-
   // Gzip negotiation. A missing companion (result.gzipBytes ===
   // null) means the manifest recorded no `gzipFile`; we fall
   // back to raw bytes without warning at this layer.
+  // Computed before the 304 check so the 304 response can also
+  // carry the correct content-type and content-encoding headers.
   const acceptGzip = acceptsGzip(opts.request.headers.get("accept-encoding"));
   const sendGzip = acceptGzip && result.gzipBytes !== null;
+  // 304 path: a matching `If-None-Match` short-circuits to an
+  // empty-body response that still carries the cache headers.
+  // Per RFC 7232 §4.1 the 304 SHOULD include the same content-type
+  // and content-encoding the 200 would have.
+  if (etagMatches(opts.request.headers.get("if-none-match"), etag)) {
+    const headers = new Headers({
+      "content-type": result.contentType,
+      "etag": etag,
+      "cache-control": CACHE_CONTROL,
+      "vary": "accept-encoding",
+      "x-content-type-options": NOSNIFF,
+    });
+    if (sendGzip) {
+      headers.set("content-encoding", "gzip");
+    }
+    return new Response(null, { status: 304, headers });
+  }
   // The `Response` body wants an `ArrayBuffer` (not the wider
   // `ArrayBufferLike` a typed `Uint8Array` carries). Copy through
   // `slice().buffer` to satisfy the strict type without changing
@@ -125,6 +133,7 @@ export async function serveFrozenAsset(
     "etag": etag,
     "cache-control": CACHE_CONTROL,
     "vary": "accept-encoding",
+    "x-content-type-options": NOSNIFF,
   });
   if (sendGzip) {
     headers.set("content-encoding", "gzip");

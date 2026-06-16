@@ -33,8 +33,9 @@
 // also need `--allow-net`.
 import * as esbuild from "esbuild";
 import { denoPlugin } from "@ggpwnkthx/esbuild-plugin-deno";
-import { dirname, fromFileUrl, isAbsolute, join, normalize } from "@std/path";
+import { dirname, fromFileUrl, isAbsolute, join } from "@std/path";
 import { CompilerError } from "../errors.ts";
+import { resolveRelativeImport } from "./resolve_relative.ts";
 
 /**
  * Absolute path of the directory that holds the virtual island
@@ -164,34 +165,6 @@ function importerToFilePath(importer: string): string | null {
   }
 }
 
-function resolveRelativeFile(baseDir: string, specifier: string): string | null {
-  const base = normalize(join(baseDir, specifier));
-  const candidates = [
-    base,
-    `${base}.ts`,
-    `${base}.tsx`,
-    `${base}.js`,
-    `${base}.jsx`,
-    `${base}.mjs`,
-    `${base}.mts`,
-    join(base, "index.ts"),
-    join(base, "index.tsx"),
-    join(base, "index.js"),
-    join(base, "index.jsx"),
-  ];
-  for (const candidate of candidates) {
-    try {
-      const stat = Deno.statSync(candidate);
-      if (stat.isFile) {
-        return candidate;
-      }
-    } catch (_cause) {
-      // Try the next candidate.
-    }
-  }
-  return null;
-}
-
 function relativeFileImportPlugin(): esbuild.Plugin {
   return {
     name: "sprout-relative-file-imports",
@@ -201,7 +174,9 @@ function relativeFileImportPlugin(): esbuild.Plugin {
         if (importer === null) {
           return null;
         }
-        const resolved = resolveRelativeFile(dirname(importer), args.path);
+        // esbuild's onResolve hook is synchronous; Deno.statSync here
+        // is bounded to one file per import edge and is acceptable.
+        const resolved = resolveRelativeImport(dirname(importer), args.path);
         if (resolved === null) {
           return null;
         }

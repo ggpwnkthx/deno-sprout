@@ -10,12 +10,11 @@
 // entries legitimately own `/@sprout/island/...`; the validator
 // accepts those and rejects any island `publicPath` that strays
 // from the canonical template or contains dot-segments / NUL bytes.
-import { isInsideRoot, slash } from "@sprout/utils";
+import { slash } from "@sprout/utils";
 import { CompilerError } from "../errors.ts";
+import { ISLAND_PUBLIC_PATTERN } from "@sprout/jsx/shared";
 import { isReservedAssetPath } from "./paths.ts";
 import type { DiscoveredProject, IslandEntry, Manifest, RouteEntry, StyleEntry } from "./types.ts";
-
-const ISLAND_PUBLIC_PATTERN = /^\/@sprout\/island\/.+\.js$/;
 
 /**
  * Validate a `DiscoveredProject` and produce the internal `Manifest`.
@@ -138,6 +137,3 @@ export function validateManifest(project: DiscoveredProject): Manifest {
     styles: { app: styleEntry },
   };
 }
-
-// Re-export for tests that want to assert on the helper directly.
-export { isInsideRoot };

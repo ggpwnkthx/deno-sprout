@@ -1,8 +1,11 @@
 // Typed runtime error for the JSX and runtime contract.
 //
-// `RuntimeError` carries a stable `code` and a `details` object that is
-// intended to be JSON-serializable so callers can log, return, or ship
-// details without leaking non-serializable values.
+// `RuntimeError` extends the shared `FrameworkError<Code>` base class
+// from `@sprout/utils` so callers can use `err instanceof FrameworkError`
+// to discriminate typed errors from generic ones. The `code` is a
+// stable, public member of `RuntimeErrorCode`; the `details` object is
+// shallowly frozen and intended to be JSON-serializable.
+import { FrameworkError } from "@sprout/utils";
 import type { RuntimeErrorCode } from "./types.ts";
 
 /**
@@ -10,11 +13,7 @@ import type { RuntimeErrorCode } from "./types.ts";
  * stable, public member of `RuntimeErrorCode`; the `details` object is
  * frozen and intended to be JSON-serializable.
  */
-export class RuntimeError extends Error {
-  /** Stable error code from the `RuntimeErrorCode` union. */
-  readonly code: RuntimeErrorCode;
-  /** JSON-serializable details describing the failure context. */
-  readonly details: Readonly<Record<string, unknown>>;
+export class RuntimeError extends FrameworkError<RuntimeErrorCode> {
   /**
    * Build a `RuntimeError`.
    *
@@ -28,9 +27,7 @@ export class RuntimeError extends Error {
     message: string,
     details: Record<string, unknown> = {},
   ) {
-    super(message);
+    super(code, message, details);
     this.name = "RuntimeError";
-    this.code = code;
-    this.details = Object.freeze({ ...details });
   }
 }

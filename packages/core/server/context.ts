@@ -11,9 +11,10 @@
 // future middlewares or unit tests), the shell metadata is passed
 // via an optional `shellInfo` field. When `shellInfo` is `null`,
 // `render` falls back to `html`.
+import { NOSNIFF } from "@sprout/utils";
 import type { RequestContext } from "./types.ts";
 import { htmlShell } from "./html_shell.tsx";
-import type { JSXNode } from "jsr:@hono/hono@4.12.24/jsx";
+import type { JSXNode } from "@hono/hono/jsx";
 
 /** Shell metadata captured by `createApp` for use in `render`. */
 export type ShellInfo = {
@@ -44,6 +45,7 @@ function withContentType(
   if (!headers.has("content-type")) {
     headers.set("content-type", contentType);
   }
+  headers.set("x-content-type-options", NOSNIFF);
   return { ...init, headers };
 }
 
@@ -96,12 +98,18 @@ export function buildRequestContext(
     if (typeof location !== "string" || location.length === 0) {
       return new Response("Bad Request: missing redirect location", {
         status: 400,
-        headers: { "content-type": "text/plain; charset=utf-8" },
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+          "x-content-type-options": NOSNIFF,
+        },
       });
     }
     return new Response(null, {
       status,
-      headers: { "location": location },
+      headers: {
+        "location": location,
+        "x-content-type-options": NOSNIFF,
+      },
     });
   };
 
