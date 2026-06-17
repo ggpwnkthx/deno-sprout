@@ -73,20 +73,31 @@ export function buildRequestContext(
     if (value instanceof Response) {
       return value;
     }
-    // Hono's `JSXNode` has a useful `toString()`. `String(value)`
-    // works for strings, numbers, booleans, and `null`. For
-    // `HtmlEscapedString` and `JSXNode`, the call dispatches to
-    // `toString()`. `undefined` is coerced to `""` so the response
-    // body is an empty string (not the literal `"undefined"`);
-    // the status is still 200.
-    const body = value === undefined
-      ? ""
-      : value === null
-      ? String(value)
-      : typeof value === "string"
-      ? value
-      : String(value);
-    return new Response(body, withSecurityHeaders(init, "text/html; charset=utf-8"));
+    // For Hono's JSXNode and HtmlEscapedString, pass directly — the
+    // ReadableStream wrapper below defers String() until the body is
+    // consumed, enabling streaming. For primitives, coerce to string.
+    if (typeof value === "string") {
+      return new Response(value, withSecurityHeaders(init, "text/html; charset=utf-8"));
+    }
+    if (value === undefined) {
+      // String(undefined) === "undefined"; we want an empty body.
+      return new Response("", withSecurityHeaders(init, "text/html; charset=utf-8"));
+    }
+    if (value === null) {
+      return new Response("null", withSecurityHeaders(init, "text/html; charset=utf-8"));
+    }
+    // JSXNode / HtmlEscapedString / number / boolean / bigint:
+    // wrap in a streaming ReadableStream that defers String(value).
+    return new Response(
+      new ReadableStream({
+        start(controller) {
+          const enc = new TextEncoder();
+          controller.enqueue(enc.encode(String(value)));
+          controller.close();
+        },
+      }),
+      withSecurityHeaders(init, "text/html; charset=utf-8"),
+    );
   };
 
   const json = <T>(value: T, init?: ResponseInit): Response => {

@@ -149,8 +149,7 @@ export async function serveFrozenAsset(
   } else {
     source = result.bytes;
   }
-  const body: ArrayBuffer = source.slice().buffer;
-
+  // `Uint8Array` is a valid BodyInit; pass directly without copy.
   const base = withSecurityHeaders({}, result.contentType);
   const headers = new Headers(base.headers);
   headers.set("etag", etag);
@@ -159,7 +158,7 @@ export async function serveFrozenAsset(
   if (sendGzip) {
     headers.set("content-encoding", "gzip");
   }
-  return new Response(body, { status: 200, headers });
+  return new Response(source as BodyInit, { status: 200, headers });
 }
 
 /**

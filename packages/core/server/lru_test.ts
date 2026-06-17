@@ -18,7 +18,7 @@ import { BoundedLru } from "./lru.ts";
 
 Deno.test("BoundedLru: empty cache has zero size and count", () => {
   const lru = new BoundedLru<string, string>(1024);
-  assertEquals(lru.size, 0);
+  assertEquals(lru.bytes, 0);
   assertEquals(lru.count, 0);
   assertEquals(lru.has("a"), false);
   assertEquals(lru.get("a"), undefined);
@@ -28,7 +28,7 @@ Deno.test("BoundedLru: set + get round-trip", () => {
   const lru = new BoundedLru<string, string>(1024);
   lru.set("a", "alpha", 4);
   assertEquals(lru.get("a"), "alpha");
-  assertEquals(lru.size, 4);
+  assertEquals(lru.bytes, 4);
   assertEquals(lru.count, 1);
 });
 
@@ -49,9 +49,9 @@ Deno.test("BoundedLru: get promotes the entry to most-recently-used", () => {
 Deno.test("BoundedLru: set with an existing key updates the value and the size", () => {
   const lru = new BoundedLru<string, string>(1024);
   lru.set("a", "alpha", 4);
-  assertEquals(lru.size, 4);
+  assertEquals(lru.bytes, 4);
   lru.set("a", "alphabet", 8);
-  assertEquals(lru.size, 8);
+  assertEquals(lru.bytes, 8);
   assertEquals(lru.count, 1);
   assertEquals(lru.get("a"), "alphabet");
 });
@@ -64,7 +64,7 @@ Deno.test("BoundedLru: set with an existing key whose size drops below the cap s
   const lru = new BoundedLru<string, Uint8Array>(100);
   lru.set("a", new Uint8Array(80), 80);
   lru.set("a", new Uint8Array(20), 20);
-  assertEquals(lru.size, 20);
+  assertEquals(lru.bytes, 20);
   assertEquals(lru.count, 1);
 });
 
@@ -77,7 +77,7 @@ Deno.test("BoundedLru: evicts least-recently-used when over capacity", () => {
   assertEquals(lru.has("a"), false);
   assertEquals(lru.has("b"), true);
   assertEquals(lru.has("c"), true);
-  assertEquals(lru.size, 8);
+  assertEquals(lru.bytes, 8);
   assertEquals(lru.count, 2);
 });
 
@@ -88,8 +88,8 @@ Deno.test("BoundedLru: size never exceeds maxBytes after set returns", () => {
   for (let i = 0; i < 20; i++) {
     lru.set(`k${i}`, i, 10);
     assert(
-      lru.size <= 50,
-      `size ${lru.size} exceeded cap 50 after set k${i}`,
+      lru.bytes <= 50,
+      `size ${lru.bytes} exceeded cap 50 after set k${i}`,
     );
   }
 });
@@ -101,7 +101,7 @@ Deno.test("BoundedLru: clear resets the state", () => {
   assertEquals(lru.count, 2);
   lru.clear();
   assertEquals(lru.count, 0);
-  assertEquals(lru.size, 0);
+  assertEquals(lru.bytes, 0);
   assertEquals(lru.has("a"), false);
   assertEquals(lru.has("b"), false);
 });
@@ -112,7 +112,7 @@ Deno.test("BoundedLru: set with size 0 still counts the entry as present", () =>
   // byte budget.
   const lru = new BoundedLru<string, string>(1024);
   lru.set("a", "alpha", 0);
-  assertEquals(lru.size, 0);
+  assertEquals(lru.bytes, 0);
   assertEquals(lru.has("a"), true);
   assertEquals(lru.get("a"), "alpha");
 });
@@ -122,7 +122,7 @@ Deno.test("BoundedLru: delete returns true on a present key, false otherwise", (
   lru.set("a", 1, 4);
   assertEquals(lru.delete("a"), true);
   assertEquals(lru.has("a"), false);
-  assertEquals(lru.size, 0);
+  assertEquals(lru.bytes, 0);
   assertEquals(lru.delete("a"), false);
 });
 
@@ -130,9 +130,9 @@ Deno.test("BoundedLru: delete decrements the byte total", () => {
   const lru = new BoundedLru<string, number>(1024);
   lru.set("a", 1, 100);
   lru.set("b", 2, 50);
-  assertEquals(lru.size, 150);
+  assertEquals(lru.bytes, 150);
   lru.delete("a");
-  assertEquals(lru.size, 50);
+  assertEquals(lru.bytes, 50);
   assertEquals(lru.count, 1);
 });
 
@@ -182,4 +182,23 @@ Deno.test("BoundedLru: negative set size throws RangeError", () => {
     () => lru.set("a", 1, -1),
     RangeError,
   );
+});
+
+Deno.test("BoundedLru: bytes and count are reported separately", () => {
+  // Insert 3 entries, each with 100 bytes.
+  const lru = new BoundedLru<string, number>(1024);
+  lru.set("a", 1, 100);
+  lru.set("b", 2, 100);
+  lru.set("c", 3, 100);
+  assertEquals(lru.count, 3);
+  assertEquals(lru.bytes, 300);
+});
+
+Deno.test("BoundedLru: bytes is the sum of size values across all entries", () => {
+  // Insert entries of sizes [50, 200, 75].
+  const lru = new BoundedLru<string, number>(1024);
+  lru.set("a", 1, 50);
+  lru.set("b", 2, 200);
+  lru.set("c", 3, 75);
+  assertEquals(lru.bytes, 325);
 });

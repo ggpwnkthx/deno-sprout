@@ -10,7 +10,7 @@ export { compileDevAsset, compileDevSourceMap } from "./dev_assets.ts";
 export type { AssetKind, CompileDevAssetInput, CompileDevAssetResult } from "./dev_assets.ts";
 export { buildProduction, formatBuildSummary } from "./production.ts";
 export type { BuildOptions, BuildSummary } from "./production.ts";
-export { loadFrozenIndex } from "./frozen_index.ts";
+export { FROZEN_MANIFEST_MAX_BYTES, loadFrozenIndex } from "./frozen_index.ts";
 export type { FrozenIndex } from "../manifest/types.ts";
 export {
   FROZEN_ASSET_MAX_BUFFER_BYTES,

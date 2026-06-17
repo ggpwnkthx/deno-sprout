@@ -324,70 +324,63 @@ async function walkUserInputs(
  *
  * Returns the raw specifier strings (unresolved).
  */
-/** @internal */
-export function extractImportSpecifiers(content: string): string[] {
-  const out: string[] = [];
-  let i = 0;
-  while (i < content.length) {
-    // Skip line comments
-    if (content[i] === "/" && content[i + 1] === "/") {
-      i += 2;
-      while (i < content.length && content[i] !== "\n") i++;
-      continue;
-    }
-    // Skip block comments
-    if (content[i] === "/" && content[i + 1] === "*") {
-      i += 2;
-      while (i < content.length - 1 && !(content[i] === "*" && content[i + 1] === "/")) i++;
-      i += 2; // skip the closing */
-      continue;
-    }
-    // Try to match an import keyword starting at position i
-    if (isImportKeywordAt(content, i)) {
-      // import "specifier"   (side-effect or dynamic)
-      // import x from "specifier"
-      // import { a } from "specifier"
-      // import * as x from "specifier"
-      // import(                    (dynamic)
-      const specifier = tryParseImportSpecifiers(content, i);
-      if (specifier !== null) out.push(specifier);
-      // Move past the import keyword (advance to the first non-space char
-      // after 'import')
-      i += 6; // "import".length
-      while (
-        i < content.length &&
-        (content[i] === " " || content[i] === "\t" || content[i] === "\n" || content[i] === "\r")
-      ) i++;
-      // If followed by `(`, extract the dynamic import's specifier
-      // (best-effort: only string-literal specifiers are followed)
-      if (content[i] === "(") {
-        i++; // skip '('
-        // Try to extract a string-literal specifier from inside the parens
-        while (i < content.length && content[i] !== ")") {
-          if (content[i] === '"' || content[i] === "'" || content[i] === "`") {
-            const quote = content[i];
-            i++;
-            let spec = "";
-            while (i < content.length && content[i] !== quote) {
-              if (content[i] === "\\") i++; // skip escaped char
-              if (i < content.length) {
-                spec += content[i];
-                i++;
-              }
-            }
-            if (spec) out.push(spec);
-            if (i < content.length && content[i] === quote) i++;
-          } else {
-            i++;
-          }
-        }
-        if (i < content.length && content[i] === ")") i++;
-      }
-      continue;
-    }
-    i++;
+/**
+ * Parser states for the import-specifier state machine.
+ * @internal
+ */
+enum ParseState {
+  NORMAL = "NORMAL",
+  LINE_COMMENT = "LINE_COMMENT",
+  BLOCK_COMMENT = "BLOCK_COMMENT",
+  SQUOTE = "SQUOTE",
+  DQUOTE = "DQUOTE",
+  TEMPLATE = "TEMPLATE",
+  REGEX = "REGEX",
+}
+
+/**
+ * True when content[i] is likely the opening `/` of a regex literal
+ * (i.e., the character before position i would reasonably precede a regex).
+ * Uses the standard JavaScript heuristic: after a token that cannot be
+ * followed by a division `/`, the `/` must be a regex opening delimiter.
+ */
+function isRegexPreceded(content: string, i: number): boolean {
+  let j = i - 1;
+  // Skip whitespace
+  while (j >= 0 && (content[j] === " " || content[j] === "\t")) j--;
+  if (j < 0) return true; // start of content is valid
+
+  const prev = content[j]!;
+  // Tokens that cannot be followed by a division `/`, so `/` here = regex
+  if ("=([,;:[!&|?{}]+-*%^~<>".includes(prev)) return true;
+
+  // Skip backward past whitespace/newlines to find preceding token
+  while (
+    j >= 0 &&
+    (content[j] === " " || content[j] === "\t" || content[j] === "\n" || content[j] === "\r")
+  ) j--;
+  if (j < 0) return true;
+
+  // Keywords that can precede a regex
+  const kw = [
+    "return",
+    "typeof",
+    "instanceof",
+    "in",
+    "of",
+    "void",
+    "delete",
+    "throw",
+    "new",
+    "yield",
+    "await",
+  ];
+  for (const keyword of kw) {
+    const start = j - keyword.length + 1;
+    if (start >= 0 && content.slice(start, j + 1) === keyword) return true;
   }
-  return out;
+
+  return false;
 }
 
 /** True when the next six characters starting at `i` form the word `import`. */
@@ -408,6 +401,236 @@ function isImportKeywordAt(content: string, i: number): boolean {
 /** True when `c` can appear in a TypeScript / JavaScript identifier. */
 function isIdentifierChar(c: string): boolean {
   return /[a-zA-Z0-9_$]/.test(c);
+}
+
+/**
+ * Scan content for all import specifiers it contains.
+ *
+ * Detects:
+ *   - import "specifier"              (side-effect)
+ *   - import x from "specifier"       (default)
+ *   - import { a, b } from "specifier"  (named)
+ *   - import * as x from "specifier"  (namespace)
+ *   - import("specifier")             (dynamic with string literal)
+ *
+ * Skips:
+ *   - Line comments (double-slash)
+ *   - Block comments
+ *   - String literals (single/double quoted)
+ *   - Template literals (backtick), including `${...}` interpolations
+ *   - Regex literals
+ *   - Dynamic imports whose specifier is not a string literal
+ *
+ * Returns the raw specifier strings (unresolved).
+ */
+/** @internal */
+export function extractImportSpecifiers(content: string): string[] {
+  const out: string[] = [];
+  let state: ParseState = ParseState.NORMAL;
+  // Track whether we are inside a `[...]` character class in REGEX state
+  let regexInCharClass = false;
+  let i = 0;
+
+  while (i < content.length) {
+    switch (state) {
+      case ParseState.NORMAL: {
+        const c = content[i];
+        if (c === "/" && content[i + 1] === "/") {
+          state = ParseState.LINE_COMMENT;
+          i += 2;
+          continue;
+        }
+        if (c === "/" && content[i + 1] === "*") {
+          state = ParseState.BLOCK_COMMENT;
+          i += 2;
+          continue;
+        }
+        // String / template literal openings — enter quoted states
+        if (c === "'") {
+          state = ParseState.SQUOTE;
+          i++;
+          continue;
+        }
+        if (c === '"') {
+          state = ParseState.DQUOTE;
+          i++;
+          continue;
+        }
+        if (c === "`") {
+          state = ParseState.TEMPLATE;
+          i++;
+          continue;
+        }
+        // Regex literal — enter REGEX state when preceded by a valid precursor
+        if (c === "/" && isRegexPreceded(content, i)) {
+          state = ParseState.REGEX;
+          regexInCharClass = false;
+          i++;
+          continue;
+        }
+        // Import keyword
+        if (isImportKeywordAt(content, i)) {
+          const specifier = tryParseImportSpecifiers(content, i);
+          if (specifier !== null) out.push(specifier);
+          // Move past the import keyword
+          i += 6; // "import".length
+          while (
+            i < content.length &&
+            (content[i] === " " || content[i] === "\t" || content[i] === "\n" ||
+              content[i] === "\r")
+          ) i++;
+          // If followed by `(`, extract the dynamic import's specifier
+          if (content[i] === "(") {
+            i++; // skip '('
+            while (i < content.length && content[i] !== ")") {
+              if (content[i] === '"' || content[i] === "'" || content[i] === "`") {
+                const quote = content[i];
+                i++;
+                let spec = "";
+                while (i < content.length && content[i] !== quote) {
+                  if (content[i] === "\\") i++; // skip escaped char
+                  if (i < content.length) {
+                    spec += content[i];
+                    i++;
+                  }
+                }
+                if (spec) out.push(spec);
+                if (i < content.length && content[i] === quote) i++;
+              } else {
+                i++;
+              }
+            }
+            if (i < content.length && content[i] === ")") i++;
+          }
+          continue;
+        }
+        i++;
+        continue;
+      }
+
+      case ParseState.TEMPLATE: {
+        if (content[i] === "\\") {
+          i += 2; // skip escaped char
+        } else if (content[i] === "`") {
+          i++;
+          state = ParseState.NORMAL;
+        } else if (content[i] === "$" && content[i + 1] === "{") {
+          // Skip the entire ${...} interpolation block, tracking nested braces
+          let depth = 1;
+          i += 2; // skip ${
+          while (i < content.length && depth > 0) {
+            if (content[i] === "\\") {
+              i += 2;
+            } else if (content[i] === "{") {
+              depth++;
+              i++;
+            } else if (content[i] === "}" && --depth === 0) {
+              i++; // skip closing }
+            } else if (content[i] === "`") {
+              // Unescaped backtick inside interpolation — skip (shouldn't happen in valid JS)
+              i++;
+            } else {
+              i++;
+            }
+          }
+        } else if (isImportKeywordAt(content, i)) {
+          // Found an import keyword inside the template
+          const specifier = tryParseImportSpecifiers(content, i);
+          if (specifier !== null && !specifier.includes("${")) {
+            // Not a dynamic import — include it
+            out.push(specifier);
+          }
+          // Advance past the import keyword
+          i += 6;
+          while (
+            i < content.length &&
+            (content[i] === " " || content[i] === "\t" || content[i] === "\n" ||
+              content[i] === "\r")
+          ) i++;
+          // Skip the following string literal if present
+          if (content[i] === '"' || content[i] === "'") {
+            const quote = content[i];
+            i++;
+            while (i < content.length && content[i] !== quote) {
+              if (content[i] === "\\") i++;
+              if (i < content.length) i++;
+            }
+            if (i < content.length) i++; // skip closing quote
+          }
+        } else {
+          i++;
+        }
+        continue;
+      }
+
+      case ParseState.SQUOTE:
+      case ParseState.DQUOTE: {
+        const quote = state === ParseState.SQUOTE ? "'" : '"';
+        if (content[i] === "\\") {
+          i += 2; // skip escaped char
+        } else if (content[i] === quote) {
+          i++;
+          state = ParseState.NORMAL;
+        } else {
+          i++;
+        }
+        continue;
+      }
+
+      case ParseState.REGEX: {
+        if (content[i] === "\\") {
+          i += 2; // skip escaped char
+        } else if (content[i] === "[") {
+          regexInCharClass = true;
+          i++;
+        } else if (content[i] === "]") {
+          regexInCharClass = false;
+          i++;
+        } else if (content[i] === "/" && !regexInCharClass) {
+          // Only exit REGEX state if this `/` is a valid regex closing delimiter:
+          // - followed by a regex flag letter (g, i, m, s, u, y, d), OR
+          // - followed by a non-identifier, non-dot character (whitespace, ;, ), ], +, -, *, /, %, =, !, <, >, &, |, ^, ~, ?, :, end-of-content)
+          const next = content[i + 1];
+          const isFlag = next === "g" || next === "i" || next === "m" ||
+            next === "s" || next === "u" || next === "y" || next === "d";
+          const isNonIdentifierNonDot = next !== undefined &&
+            !isIdentifierChar(next) && next !== ".";
+          if (isFlag || isNonIdentifierNonDot) {
+            i++;
+            state = ParseState.NORMAL;
+          } else {
+            // Literal `/` inside regex body — keep scanning
+            i++;
+          }
+        } else {
+          i++;
+        }
+        continue;
+      }
+
+      case ParseState.LINE_COMMENT: {
+        if (content[i] === "\n") {
+          i++;
+          state = ParseState.NORMAL;
+        } else {
+          i++;
+        }
+        continue;
+      }
+
+      case ParseState.BLOCK_COMMENT: {
+        if (content[i] === "*" && content[i + 1] === "/") {
+          i += 2;
+          state = ParseState.NORMAL;
+        } else {
+          i++;
+        }
+        continue;
+      }
+    }
+  }
+
+  return out;
 }
 
 /**

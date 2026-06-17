@@ -26,7 +26,9 @@ const honoImportLines: Record<keyof typeof HONO_IMPORTS, string> = {
   "@hono/hono/jsx/dom": `    "@hono/hono/jsx/dom": "jsr:@hono/hono@${HONO_VERSION}/jsx/dom",\n`,
   "@hono/hono/jsx/dom/jsx-runtime":
     `    "@hono/hono/jsx/dom/jsx-runtime": "jsr:@hono/hono@${HONO_VERSION}/jsx/dom/jsx-runtime",\n`,
-  "@hono/hono/html": `    "@hono/hono/html": "jsr:@hono/hono@${HONO_VERSION}/html"\n`,
+  "@hono/hono/html": `    "@hono/hono/html": "jsr:@hono/hono@${HONO_VERSION}/html",\n`,
+  "@hono/hono/utils/html":
+    `    "@hono/hono/utils/html": "jsr:@hono/hono@${HONO_VERSION}/utils/html"\n`,
 };
 
 const TARGETS: TargetFile[] = [
@@ -38,6 +40,7 @@ const TARGETS: TargetFile[] = [
       honoImportLines["@hono/hono/jsx/dom"],
       honoImportLines["@hono/hono/jsx/dom/jsx-runtime"],
       honoImportLines["@hono/hono/html"],
+      honoImportLines["@hono/hono/utils/html"],
     ],
   },
   {
@@ -45,7 +48,8 @@ const TARGETS: TargetFile[] = [
     expectedLines: [
       honoImportLines["@hono/hono"],
       honoImportLines["@hono/hono/jsx"],
-      honoImportLines["@hono/hono/html"],
+      // Last entry in this file — no trailing comma
+      `    "@hono/hono/html": "jsr:@hono/hono@${HONO_VERSION}/html"\n`,
     ],
   },
   {
@@ -55,7 +59,8 @@ const TARGETS: TargetFile[] = [
       honoImportLines["@hono/hono/jsx"],
       honoImportLines["@hono/hono/jsx/dom"],
       honoImportLines["@hono/hono/jsx/dom/jsx-runtime"],
-      honoImportLines["@hono/hono/html"],
+      // Last entry in this file — no trailing comma
+      `    "@hono/hono/html": "jsr:@hono/hono@${HONO_VERSION}/html"\n`,
     ],
   },
   {

@@ -242,8 +242,21 @@ export function wrapHtml(
     );
   }
   try {
-    const html = String(body);
-    return new Response(html, withSecurityHeaders(requestInit, "text/html; charset=utf-8"));
+    // Hono's JSXNode is not a standard BodyInit, but it implements
+    // the async iterable protocol that ReadableStream can consume.
+    // Wrapping it in a ReadableStream defers the String(body) call
+    // until the body is actually read — enabling streaming — rather
+    // than eagerly materializing the entire HTML string upfront.
+    return new Response(
+      new ReadableStream({
+        start(controller) {
+          const enc = new TextEncoder();
+          controller.enqueue(enc.encode(String(body)));
+          controller.close();
+        },
+      }),
+      withSecurityHeaders(requestInit, "text/html; charset=utf-8"),
+    );
   } catch (cause) {
     throw new CoreError(
       "ROUTE_RENDER_FAILED",
@@ -332,27 +345,13 @@ export async function renderRoute(options: RenderRouteOptions): Promise<Response
       return result;
     }
     if (method === "HEAD") {
-      // Compute the headers from the would-be HTML response and
-      // return an empty body with the same status and content-type.
-      try {
-        const body: JSXNode = htmlShell({
-          title: undefined,
-          body: result,
-          stylesheetPublicPath: shellInfo.stylesheetPublicPath,
-          runtimePublicPath: shellInfo.runtimePublicPath,
-        });
-        // Harvest the content-type from the serialized shell.
-        const sample = new Response(String(body), {
-          headers: { "content-type": "text/html; charset=utf-8" },
-        });
-        return stripBody(sample, "text/html; charset=utf-8");
-      } catch (cause) {
-        throw new CoreError(
-          "ROUTE_RENDER_FAILED",
-          `page default for ${url.pathname} threw during render`,
-          { pathname: url.pathname, cause: causeMessage(cause) },
-        );
-      }
+      return new Response(null, {
+        status: 200,
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "x-content-type-options": NOSNIFF,
+        },
+      });
     }
     return wrapHtml(result, shellInfo);
   }

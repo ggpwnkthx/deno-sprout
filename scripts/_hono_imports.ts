@@ -14,4 +14,5 @@ export const HONO_IMPORTS = {
   "@hono/hono/jsx/dom": `jsr:@hono/hono@${HONO_VERSION}/jsx/dom`,
   "@hono/hono/jsx/dom/jsx-runtime": `jsr:@hono/hono@${HONO_VERSION}/jsx/dom/jsx-runtime`,
   "@hono/hono/html": `jsr:@hono/hono@${HONO_VERSION}/html`,
+  "@hono/hono/utils/html": `jsr:@hono/hono@${HONO_VERSION}/utils/html`,
 } as const;

@@ -100,3 +100,52 @@ Deno.test("extractImportSpecifiers: handles mixed real and commented imports", (
   );
   assertEquals(specifiers, ["./real-a.ts", "./real-b.ts", "./real-c.ts"]);
 });
+
+Deno.test("extractImportSpecifiers: skips regex literal content", () => {
+  const specifiers = extractImportSpecifiers(
+    `const re = /import "./evil";/;\nimport { a } from "./real.ts";\n`,
+  );
+  assertEquals(specifiers, ["./real.ts"]);
+});
+
+Deno.test("extractImportSpecifiers: skips double-quoted string content", () => {
+  const specifiers = extractImportSpecifiers(
+    `const s = "import \"./evil\";";\nimport { a } from "./real.ts";\n`,
+  );
+  assertEquals(specifiers, ["./real.ts"]);
+});
+
+Deno.test("extractImportSpecifiers: skips single-quoted string content", () => {
+  const specifiers = extractImportSpecifiers(
+    `const s = 'import "./evil";';\nimport { a } from "./real.ts";\n`,
+  );
+  assertEquals(specifiers, ["./real.ts"]);
+});
+
+Deno.test("extractImportSpecifiers: extracts from template literal", () => {
+  const specifiers = extractImportSpecifiers(
+    'const x = `import "./real"`;\nimport { a } from "./other.ts";\n',
+  );
+  assertEquals(specifiers, ["./real", "./other.ts"]);
+});
+
+Deno.test("extractImportSpecifiers: handles template literal with interpolation", () => {
+  const specifiers = extractImportSpecifiers(
+    'const x = `import "./${name}"`;\nimport "./a.ts";\n',
+  );
+  assertEquals(specifiers, ["./a.ts"]);
+});
+
+Deno.test("extractImportSpecifiers: handles string with escaped quote", () => {
+  const specifiers = extractImportSpecifiers(
+    `const s = "he said \\"import \\\\\\"./x.ts\\\\\\"\\"";\nimport { a } from "./real.ts";\n`,
+  );
+  assertEquals(specifiers, ["./real.ts"]);
+});
+
+Deno.test("extractImportSpecifiers: regex with character class", () => {
+  const specifiers = extractImportSpecifiers(
+    `const re = /[ab]import "./evil"/i;\nimport "./real.ts";\n`,
+  );
+  assertEquals(specifiers, ["./real.ts"]);
+});

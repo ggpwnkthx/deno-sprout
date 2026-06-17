@@ -13,7 +13,7 @@
 // Hono directly are not forced to add it to their import map.
 import type { Hono } from "@hono/hono";
 import type { JSXNode } from "@hono/hono/jsx";
-import type { HtmlEscapedString } from "jsr:@hono/hono@4.12.24/utils/html";
+import type { HtmlEscapedString } from "@hono/hono/utils/html";
 
 /**
  * The framework HTTP app.

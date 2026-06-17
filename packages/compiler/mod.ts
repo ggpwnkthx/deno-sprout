@@ -57,6 +57,7 @@ export {
   compileDevSourceMap,
   formatBuildSummary,
   FROZEN_ASSET_MAX_BUFFER_BYTES,
+  FROZEN_MANIFEST_MAX_BYTES,
   loadFrozenIndex,
   readFrozenAsset,
   readFrozenAssetFromOutDir,

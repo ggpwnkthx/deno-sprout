@@ -35,6 +35,13 @@ export type LruEntry<V> = {
  * the entry to the back of the iteration order so the next `set`
  * sees it as most-recently-used.
  *
+ * `bytes` reports the total of all `size` values passed to `set`.
+ * For the production serve, an entry's `size` is
+ * `raw.byteLength + gzipBytes.byteLength` (when gzip is present),
+ * so `bytes` correctly bounds the peak in-memory footprint of the
+ * cache. `maxBytes` is the cap on `bytes`; eviction happens when
+ * `bytes > maxBytes`.
+ *
  * `set` with a `size: 0` value is allowed: the entry is recorded
  * as present (so a follow-up `get` hits) but does not contribute
  * to the byte budget. The intent is to let the serve layer
@@ -56,7 +63,7 @@ export class BoundedLru<K, V> implements Iterable<[K, LruEntry<V>]> {
   }
 
   /** The current total byte size of all stored entries. */
-  get size(): number {
+  get bytes(): number {
     return this.#bytes;
   }
 

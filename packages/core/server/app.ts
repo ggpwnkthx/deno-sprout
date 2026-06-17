@@ -221,7 +221,7 @@ async function buildApp(config: ResolvedConfig): Promise<AppInternal> {
         return null;
       }
       return {
-        size: productionState.cache.lru.size,
+        size: productionState.cache.lru.bytes,
         count: productionState.cache.lru.count,
       };
     },
@@ -359,6 +359,13 @@ async function registerProductionAssetRoutes(
   // size reported to the cache is the sum of the raw + gzip
   // companion sizes so a hit count is consistent with the
   // configured cap.
+  //
+  // Report the per-entry size as the sum of raw + gzip bytes. The
+  // cache holds BOTH representations in memory for an asset, so this
+  // correctly bounds peak RSS: the LRU evicts when the total of
+  // every entry's (raw + gzip) exceeds the configured cap. The
+  // alternative (keying on encoding or counting only one) would
+  // either double the entry count or understate the cap.
   const lookup = async (
     publicPath: string,
   ): Promise<ReadFrozenAssetResult | null> => {

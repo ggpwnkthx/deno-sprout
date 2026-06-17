@@ -38,6 +38,7 @@ import {
   buildProduction,
   CompilerError,
   FROZEN_ASSET_MAX_BUFFER_BYTES,
+  FROZEN_MANIFEST_MAX_BYTES,
   loadFrozenIndex,
   readFrozenAsset,
   readFrozenAssetFromOutDir,
@@ -574,6 +575,50 @@ Deno.test("loadFrozenIndex + readFrozenAsset: every manifest entry has readable 
       assertEquals(result.hash, asset.hash);
       assert(result.bytes.byteLength > 0);
     }
+  } finally {
+    await tmp.cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// loadFrozenIndex: manifest size cap
+// ---------------------------------------------------------------------------
+
+Deno.test("loadFrozenIndex: manifest of normal size (a few KB) parses successfully", async () => {
+  resetDevCacheForTests();
+  const tmp = await makeTempDir("sprout-m7-normalsize-");
+  try {
+    await buildProduction({ config: fixtureConfig(tmp.path) });
+    const index = await loadFrozenIndex(tmp.path);
+    assertEquals(index.version, 1);
+    assert(index.assets.size > 0);
+  } finally {
+    await tmp.cleanup();
+  }
+});
+
+Deno.test("loadFrozenIndex: manifest exceeding FROZEN_MANIFEST_MAX_BYTES rejects with FROZEN_MANIFEST_UNSUPPORTED", async () => {
+  const tmp = await makeTempDir("sprout-m7-oversized-manifest-");
+  try {
+    await Deno.mkdir(tmp.path, { recursive: true });
+    // Write a manifest that is larger than the cap. Since the rejection
+    // happens before parsing, the content does not need to be valid JSON.
+    // Use a binary blob padded to exceed the cap by 1 KB.
+    const oversized = "x".repeat(FROZEN_MANIFEST_MAX_BYTES + 1024);
+    await Deno.writeTextFile(
+      join(tmp.path, "sprout.manifest.json"),
+      oversized,
+    );
+    const err = await assertRejects(
+      () => loadFrozenIndex(tmp.path),
+      CompilerError,
+    );
+    assertEquals(err.code, "FROZEN_MANIFEST_UNSUPPORTED");
+    const details = err.details as { size: number; max: number };
+    assert(details.size > FROZEN_MANIFEST_MAX_BYTES);
+    assertEquals(details.max, FROZEN_MANIFEST_MAX_BYTES);
+    assertStringIncludes(err.message, String(details.size));
+    assertStringIncludes(err.message, String(details.max));
   } finally {
     await tmp.cleanup();
   }
