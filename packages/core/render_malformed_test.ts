@@ -18,7 +18,9 @@
 // to the other failure modes.
 import { assert, assertEquals, assertInstanceOf, assertMatch } from "jsr:@std/assert@1";
 import { fromFileUrl, join } from "@std/path";
+import { discoverProject, validateManifest } from "@sprout/compiler";
 import { createApp } from "./mod.ts";
+import { loadRouteModules } from "./server/render_route.tsx";
 import { CoreError, coreErrorToResponse } from "./server/errors.ts";
 import type { App } from "./mod.ts";
 
@@ -65,28 +67,26 @@ async function makeProject(
 // Route module that throws on import
 // ---------------------------------------------------------------------------
 
-Deno.test("M8 render: a route that throws on import returns 500 with ROUTE_IMPORT_FAILED", async () => {
+Deno.test("M8 render: a route that throws on import surfaces the error at startup", async () => {
   const project = await makeProject("sprout-m8-rt-import-", {
     "src/routes/index.tsx":
       `throw new Error("kaboom at import time");\nexport default function Home() { return null; };\n`,
   });
   try {
-    const app: App = await createApp({ root: project.dir, mode: "development" });
-    // First request triggers the dynamic import and the throw.
-    const res = await app.fetch(new Request("http://0.0.0.0/"));
-    assertEquals(res.status, 500);
-    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
-    const ctype = res.headers.get("content-type") ?? "";
-    assertMatch(ctype, /^text\/plain/);
-    const body = await res.text();
-    assert(body.length > 0);
-    // The 500 body includes the error message; the typed
-    // `ROUTE_IMPORT_FAILED` code is in the FrameworkError
-    // details, but the spec wires the message into the
-    // response body. The cause "kaboom at import time"
-    // surfaces in the body so the developer can locate the
-    // failure.
-    assertMatch(body, /kaboom|import/i);
+    // With pre-loaded route modules, the error surfaces during
+    // createApp (startup), not on the first request. This is the
+    // intended behavior: surface syntax errors at startup so they
+    // are visible before any request is made.
+    let err: CoreError | undefined;
+    try {
+      await createApp({ root: project.dir, mode: "development" });
+      assert(false, "createApp should have thrown");
+    } catch (e) {
+      assert(e instanceof CoreError, `expected CoreError, got ${e}`);
+      err = e;
+    }
+    assertEquals(err.code, "ROUTE_IMPORT_FAILED");
+    assertMatch(err.message, /kaboom|import/i);
   } finally {
     await project.cleanup();
   }
@@ -117,27 +117,18 @@ Deno.test("M8 render: a route with no default and no methods returns 404 ROUTE_N
 // Route module whose default is not a function
 // ---------------------------------------------------------------------------
 
-Deno.test("M8 render: a route default that is not a function returns 404 ROUTE_NOT_FOUND", async () => {
-  // The render layer coerces the default export via
-  // `asRouteModule`, which requires `default` to be a function.
-  // A non-function default (an object) is silently filtered
-  // out to `undefined` by `asRouteModule` (the function check
-  // is the contract: a non-function default is "not a page").
-  // The dispatcher then has no handlers, which is the
-  // "no route" case → 404 ROUTE_NOT_FOUND.
-  //
-  // This is a deliberate surface trade-off: a route module
-  // that exports an object as default is treated as "not a
-  // route at all" rather than "a route that failed to
-  // render". The test pins the behavior so a future change
-  // to surface a 500 here is a visible, intentional choice.
+Deno.test("M8 render: a route default that is not a function throws ROUTE_INVALID_EXPORT → 500", async () => {
+  // The render layer validates route modules via `asRouteModule`
+  // and its `isRouteModuleShape` predicate. A non-function default
+  // export (an object) fails the shape check and throws
+  // `ROUTE_INVALID_EXPORT`, which the error handler converts to 500.
   const project = await makeProject("sprout-m8-rt-bad-default-", {
     "src/routes/index.tsx": `export default { foo: 1 };\n`,
   });
   try {
     const app: App = await createApp({ root: project.dir, mode: "development" });
     const res = await app.fetch(new Request("http://0.0.0.0/"));
-    assertEquals(res.status, 404);
+    assertEquals(res.status, 500);
     assertEquals(res.headers.get("x-content-type-options"), "nosniff");
   } finally {
     await project.cleanup();
@@ -148,23 +139,24 @@ Deno.test("M8 render: a route default that is not a function returns 404 ROUTE_N
 // Route module whose GET export is not a function
 // ---------------------------------------------------------------------------
 
-Deno.test("M8 render: a route whose GET export is not a function returns 404 ROUTE_NOT_FOUND", async () => {
-  // A non-function GET export is filtered out to `undefined`
-  // by `asRouteModule` (the function check is the contract: a
-  // non-function export is "not a method handler"). The
-  // dispatcher falls through to the "no handler for this
-  // method" path. With the page default also missing, the
-  // dispatcher reports the route as "no route at all"
-  // (ROUTE_NOT_FOUND, 404). The test pins that behavior so
-  // future refactors of the dispatcher are caught.
+Deno.test("M8 render: a route whose GET export is not a function throws at startup", async () => {
+  // With pre-loaded route modules, a non-function GET export is
+  // caught by `isRouteModuleShape` during `loadRouteModules` and
+  // throws `ROUTE_INVALID_EXPORT` before `createApp` returns.
   const project = await makeProject("sprout-m8-rt-bad-get-", {
     "src/routes/index.tsx": `export const GET = 42;\n`,
   });
   try {
-    const app: App = await createApp({ root: project.dir, mode: "development" });
-    const res = await app.fetch(new Request("http://0.0.0.0/"));
-    assertEquals(res.status, 404);
-    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
+    let err: CoreError | undefined;
+    try {
+      await createApp({ root: project.dir, mode: "development" });
+      assert(false, "createApp should have thrown");
+    } catch (e) {
+      assert(e instanceof CoreError, `expected CoreError, got ${e}`);
+      err = e;
+    }
+    assertEquals(err.code, "ROUTE_INVALID_EXPORT");
+    assertMatch(err.message, /GET.*not a function/i);
   } finally {
     await project.cleanup();
   }
@@ -245,14 +237,14 @@ Deno.test("M8 render: a route that returns undefined throws ROUTE_RENDER_FAILED 
 });
 
 // ---------------------------------------------------------------------------
-// Unsupported HTTP method returns 405 with Allow header
+// Unsupported (unknown) HTTP method returns 501 without Allow header
 // ---------------------------------------------------------------------------
 
-Deno.test("M8 render: an unsupported HTTP method returns 405 with Allow header", async () => {
-  // The render layer checks `isHttpMethod` before route matching.
-  // A method like BREW that is not in SUPPORTED_HTTP_METHODS should
-  // get ROUTE_METHOD_NOT_ALLOWED (405) with an Allow header listing
-  // the framework's supported methods.
+Deno.test("M8 render: an unknown HTTP method returns 501 without Allow header", async () => {
+  // RFC 7231 §6.6.2: 501 (Not Implemented) is correct for a method
+  // not in the server's closed list of known methods (e.g. BREW, FOOBAR).
+  // Unlike 405 there is no `Allow` header because the method is not
+  // a valid HTTP verb at all on this server.
   const project = await makeProject("sprout-m8-rt-unsupported-method-", {
     "src/routes/index.tsx": `export default function Home() { return <h1>hi</h1>; }\n`,
   });
@@ -261,16 +253,66 @@ Deno.test("M8 render: an unsupported HTTP method returns 405 with Allow header",
     const res = await app.fetch(
       new Request("http://0.0.0.0/", { method: "BREW" }),
     );
+    assertEquals(res.status, 501);
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
+    // There must be no Allow header for a truly unknown method.
+    assertEquals(res.headers.get("allow"), null);
+    // FOOBAR also returns 501.
+    const res2 = await app.fetch(
+      new Request("http://0.0.0.0/", { method: "FOOBAR" }),
+    );
+    assertEquals(res2.status, 501);
+    assertEquals(res2.headers.get("allow"), null);
+  } finally {
+    await project.cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Known HTTP method not on the route returns 405 with Allow header
+// ---------------------------------------------------------------------------
+
+Deno.test("M8 render: POST to a GET-only route returns 405 with Allow header", async () => {
+  // A known method (POST) that is not exported on the matched route
+  // returns 405 Method Not Allowed with an Allow header listing the
+  // methods that ARE present on the route.
+  const project = await makeProject("sprout-m8-rt-known-method-not-on-route-", {
+    "src/routes/index.tsx": `export default function Home() { return <h1>hi</h1>; }\n`,
+  });
+  try {
+    const app: App = await createApp({ root: project.dir, mode: "development" });
+    const res = await app.fetch(
+      new Request("http://0.0.0.0/", { method: "POST" }),
+    );
     assertEquals(res.status, 405);
     assertEquals(res.headers.get("x-content-type-options"), "nosniff");
     const allow = res.headers.get("allow") ?? "";
-    // The Allow header must list the framework's supported methods.
-    for (const m of ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]) {
-      assert(
-        allow.includes(m),
-        `Allow header should include ${m}, got ${allow}`,
-      );
-    }
+    // The page default implicitly provides GET and HEAD.
+    assert(allow.includes("GET"), `Allow header should include GET, got ${allow}`);
+    assert(allow.includes("HEAD"), `Allow header should include HEAD, got ${allow}`);
+    // POST must NOT be in the Allow header since it's not on the route.
+    assert(!allow.includes("POST"), `Allow header should NOT include POST, got ${allow}`);
+  } finally {
+    await project.cleanup();
+  }
+});
+
+Deno.test("M8 render: OPTIONS on a route without OPTIONS handler returns 405 with Allow header", async () => {
+  // A route with GET but no explicit OPTIONS handler: the server
+  // returns 405 with Allow listing the methods present (GET, HEAD).
+  const project = await makeProject("sprout-m8-rt-options-", {
+    "src/routes/index.tsx": `export default function Home() { return <h1>hi</h1>; }\n`,
+  });
+  try {
+    const app: App = await createApp({ root: project.dir, mode: "development" });
+    const res = await app.fetch(
+      new Request("http://0.0.0.0/", { method: "OPTIONS" }),
+    );
+    assertEquals(res.status, 405);
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
+    const allow = res.headers.get("allow") ?? "";
+    assert(allow.includes("GET"), `Allow header should include GET, got ${allow}`);
+    assert(allow.includes("HEAD"), `Allow header should include HEAD, got ${allow}`);
   } finally {
     await project.cleanup();
   }
@@ -289,6 +331,7 @@ Deno.test("M8 render: coreErrorToResponse maps each CoreError code to the right 
     ["STATIC_FILE_NOT_FOUND", 404, "Not Found"],
     ["STATIC_FILE_OUTSIDE_ROOT", 404, "Not Found"],
     ["ROUTE_METHOD_NOT_ALLOWED", 405, "Method Not Allowed"],
+    ["ROUTE_METHOD_NOT_IMPLEMENTED", 501, "Not Implemented"],
     ["ROUTE_IMPORT_FAILED", 500, "Internal Server Error"],
     ["ROUTE_INVALID_EXPORT", 500, "Internal Server Error"],
     ["ROUTE_RENDER_FAILED", 500, "Internal Server Error"],
@@ -306,6 +349,14 @@ Deno.test("M8 render: coreErrorToResponse maps each CoreError code to the right 
       "nosniff",
       `code ${code} should set x-content-type-options: nosniff`,
     );
+    // ROUTE_METHOD_NOT_IMPLEMENTED (501) must not have an Allow header.
+    if (code === "ROUTE_METHOD_NOT_IMPLEMENTED") {
+      assertEquals(
+        res.headers.get("allow"),
+        null,
+        "501 must not have an Allow header",
+      );
+    }
     // The body is either the message or the fallback.
     const body = await res.text();
     assert(body.length > 0, `body should be non-empty for ${code}`);
@@ -341,6 +392,61 @@ Deno.test("M8 render: a successful route renders the HTML shell", async () => {
       body,
       /<script type="module" src="\/@sprout\/runtime.js">/,
     );
+  } finally {
+    await project.cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// loadRouteModules: startup pre-loading invariant
+// ---------------------------------------------------------------------------
+
+Deno.test("loadRouteModules: throws ROUTE_IMPORT_FAILED when a route throws on import", async () => {
+  const project = await makeProject("sprout-m8-lrm-throws-", {
+    "src/routes/index.tsx":
+      `throw new Error("syntax error at load");\nexport default function Home() { return null; }\n`,
+  });
+  try {
+    const config = { root: project.dir, mode: "development" as const };
+    const configMod = await import("@sprout/config");
+    const resolved = await configMod.loadConfig(config);
+    const discovered = await discoverProject(resolved);
+    const manifest = validateManifest(discovered);
+    let err: CoreError | undefined;
+    try {
+      await loadRouteModules(manifest);
+      assert(false, "loadRouteModules should have thrown");
+    } catch (e) {
+      assert(e instanceof CoreError, `expected CoreError, got ${e}`);
+      err = e;
+    }
+    assertEquals(err.code, "ROUTE_IMPORT_FAILED");
+    assertMatch(err.message, /failed to import|syntax error/i);
+  } finally {
+    await project.cleanup();
+  }
+});
+
+Deno.test("loadRouteModules: returns a map with one entry per route file and a valid RouteModule value", async () => {
+  const project = await makeProject("sprout-m8-lrm-ok-", {
+    "src/routes/index.tsx": `export default function Home() { return <h1>hi</h1>; }\n`,
+    "src/routes/about.tsx": `export default function About() { return <h1>about</h1>; }\n`,
+  });
+  try {
+    const config = { root: project.dir, mode: "development" as const };
+    const configMod = await import("@sprout/config");
+    const resolved = await configMod.loadConfig(config);
+    const discovered = await discoverProject(resolved);
+    const manifest = validateManifest(discovered);
+    const routeModules = await loadRouteModules(manifest);
+    // One entry per route file.
+    assertEquals(routeModules.size, manifest.routes.length);
+    // Each key is a route file path.
+    for (const route of manifest.routes) {
+      assert(routeModules.has(route.file), `map should have key for ${route.file}`);
+      const mod = routeModules.get(route.file);
+      assert(mod !== undefined, `RouteModule for ${route.file} should not be undefined`);
+    }
   } finally {
     await project.cleanup();
   }

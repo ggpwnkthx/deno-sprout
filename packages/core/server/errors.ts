@@ -10,14 +10,25 @@
 // 405 with an `Allow` header for method mismatches, 500 for anything
 // else. The M7 production serve may upgrade the 500 path with
 // `X-Content-Type-Options: nosniff` and stricter bodies.
-import { FrameworkError, NOSNIFF } from "@sprout/utils";
+import { FrameworkError } from "@sprout/utils";
 import { SUPPORTED_HTTP_METHODS } from "@sprout/utils";
 import type { HttpMethod } from "@sprout/utils";
+import { withSecurityHeaders } from "./context.ts";
 
-/** Stable error codes for the `@sprout/core` package. */
+/**
+ * Stable error codes for the `@sprout/core` package.
+ *
+ * `ROUTE_METHOD_NOT_ALLOWED` — HTTP method is known to the framework
+ *   but not exported on the matched route (405 with `Allow` header).
+ * `ROUTE_METHOD_NOT_IMPLEMENTED` — HTTP method is not in the
+ *   framework's closed list of supported methods (501, no `Allow`).
+ *   Per RFC 7231 §6.6.2 a 501 is correct for truly unknown verbs;
+ *   405 is reserved for known methods that are not allowed on a route.
+ */
 export type CoreErrorCode =
   | "ROUTE_NOT_FOUND"
   | "ROUTE_METHOD_NOT_ALLOWED"
+  | "ROUTE_METHOD_NOT_IMPLEMENTED"
   | "ROUTE_IMPORT_FAILED"
   | "ROUTE_INVALID_EXPORT"
   | "ROUTE_RENDER_FAILED"
@@ -86,48 +97,48 @@ export function coreErrorToResponse(err: CoreError): Response {
   switch (err.code) {
     case "ROUTE_NOT_FOUND":
     case "STATIC_FILE_NOT_FOUND": {
-      return new Response(coreErrorBody(err, "Not Found"), {
-        status: 404,
-        headers: {
-          "content-type": "text/plain; charset=utf-8",
-          "x-content-type-options": NOSNIFF,
-        },
-      });
+      return new Response(
+        coreErrorBody(err, "Not Found"),
+        withSecurityHeaders({ status: 404 }, "text/plain; charset=utf-8"),
+      );
     }
     case "STATIC_FILE_OUTSIDE_ROOT": {
       // Use a generic message; the requested path stays in `details`
       // for server-side logs.
-      return new Response("Not Found", {
-        status: 404,
-        headers: {
-          "content-type": "text/plain; charset=utf-8",
-          "x-content-type-options": NOSNIFF,
-        },
-      });
+      return new Response(
+        "Not Found",
+        withSecurityHeaders({ status: 404 }, "text/plain; charset=utf-8"),
+      );
     }
     case "ROUTE_METHOD_NOT_ALLOWED": {
       const allowed = (err.details as { readonly methods?: readonly HttpMethod[] }).methods ??
         SUPPORTED_HTTP_METHODS;
       const allow = allowed.join(", ");
+      const base = withSecurityHeaders({ status: 405 }, "text/plain; charset=utf-8");
+      const headers = new Headers(base.headers);
+      headers.set("allow", allow);
       return new Response(coreErrorBody(err, "Method Not Allowed"), {
         status: 405,
-        headers: {
-          "allow": allow,
-          "content-type": "text/plain; charset=utf-8",
-          "x-content-type-options": NOSNIFF,
-        },
+        headers,
       });
+    }
+    case "ROUTE_METHOD_NOT_IMPLEMENTED": {
+      // RFC 7231 §6.6.2: 501 (Not Implemented) is correct for an
+      // HTTP method the server does not recognise. Unlike 405 there
+      // is no `Allow` header because the method is not a valid
+      // HTTP verb in any context on this server.
+      return new Response(
+        coreErrorBody(err, "Not Implemented"),
+        withSecurityHeaders({ status: 501 }, "text/plain; charset=utf-8"),
+      );
     }
     case "ROUTE_IMPORT_FAILED":
     case "ROUTE_INVALID_EXPORT":
     case "ROUTE_RENDER_FAILED": {
-      return new Response(coreErrorBody(err, default500Body()), {
-        status: 500,
-        headers: {
-          "content-type": "text/plain; charset=utf-8",
-          "x-content-type-options": NOSNIFF,
-        },
-      });
+      return new Response(
+        coreErrorBody(err, default500Body()),
+        withSecurityHeaders({ status: 500 }, "text/plain; charset=utf-8"),
+      );
     }
   }
 }

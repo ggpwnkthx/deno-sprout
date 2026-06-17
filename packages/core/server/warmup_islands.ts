@@ -18,8 +18,13 @@ import { CoreError } from "./errors.ts";
  * Called once at app startup to avoid per-request import overhead.
  */
 export async function warmupIslands(manifest: Manifest): Promise<void> {
-  for (const island of manifest.islands) {
+  await Promise.all(manifest.islands.map(async (island) => {
     const fileUrl = toFileUrl(island.file).href;
+    // The specifier is the user's own island module file, pre-loaded at
+    // startup. JSR's `publish` analyzer cannot statically analyze this
+    // dynamic import; the resulting `unanalyzable-dynamic-import` warning
+    // is expected and harmless (the specifier is resolved at startup in
+    // the consumer's own environment).
     const mod = await import(fileUrl) as Record<string, unknown>;
     const component = mod[island.exportName];
     if (component === undefined || component === null) {
@@ -41,5 +46,5 @@ export async function warmupIslands(manifest: Manifest): Promise<void> {
       src: island.publicPath,
     };
     registerIslandComponent(component, metadata);
-  }
+  }));
 }

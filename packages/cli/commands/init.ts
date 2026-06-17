@@ -18,10 +18,11 @@
 //     are NOT deleted. This matches the spec's safety rule:
 //     "init --force only deletes files it created or clearly
 //     prompts/refuses."
-//   - The function only ever creates `target` and writes files
-//     inside it. It does not follow symlinks, it does not read
-//     the host filesystem outside `target`, and it does not run
-//     user code.
+//   - The function uses `Deno.lstatSync` (not `Deno.statSync`) to
+//     detect symlinks at the target before writing. If the target
+//     is a symlink, `CLI_INIT_FAILED` is thrown immediately so a
+//     malicious symlink at the init target cannot redirect writes.
+//     Files outside the target are never read or written.
 //
 // Permissions required: `--allow-read --allow-write`.
 import { dirname, isAbsolute, join } from "@std/path";
@@ -60,8 +61,18 @@ export async function runInit(options: RunInitOptions): Promise<void> {
   // 1. Ensure the target directory exists.
   let existed = true;
   try {
-    const stat = Deno.statSync(target);
-    if (!stat.isDirectory) {
+    // Use lstatSync so we detect (and refuse) symlinks.
+    // Deno.statSync would follow the link, which could redirect
+    // writes to an arbitrary location.
+    const lstat = Deno.lstatSync(target);
+    if (lstat.isSymlink) {
+      throw new CliError(
+        "CLI_INIT_FAILED",
+        `init target is a symlink; refusing to follow: ${target}`,
+        { target },
+      );
+    }
+    if (!lstat.isDirectory) {
       throw new CliError(
         "CLI_INIT_FAILED",
         `init target is not a directory: ${target}`,

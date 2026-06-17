@@ -14,8 +14,10 @@ import {
   assertStringIncludes,
 } from "jsr:@std/assert@1";
 import { fromFileUrl, join } from "@std/path";
-import { createApp } from "./mod.ts";
+import { createApp, getHono } from "./mod.ts";
 import type { App } from "./mod.ts";
+import { Hono } from "@hono/hono";
+import { buildRequestContext } from "./server/context.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
 const BASIC_APP = join(REPO_ROOT, "tests/fixtures/basic-app");
@@ -157,6 +159,29 @@ Deno.test("createApp: GET /favicon.svg serves the public file", async () => {
   });
 });
 
+// Dev-mode public file cache-control: tolerates stale copies for
+// fast iteration. (Production uses must-revalidate to force
+// revalidation so updated files are visible after a deploy.)
+Deno.test("createApp: public file in dev mode uses max-age=3600", async () => {
+  await withBasicApp(async (app) => {
+    const res = await app.fetch(new Request("http://0.0.0.0/favicon.svg"));
+    assertEquals(res.status, 200);
+    assertEquals(res.headers.get("cache-control"), "public, max-age=3600");
+    assertEquals(res.headers.get("x-content-type-options"), "nosniff");
+  });
+});
+
+// Production-mode public file cache-control: forces revalidation on
+// every request so updated public files are visible immediately
+// after a deploy. The 304 is cached, so revalidation is cheap.
+Deno.test("createApp: public file in production mode uses must-revalidate", async () => {
+  const app = await createApp({ root: BASIC_APP, mode: "production" });
+  const res = await app.fetch(new Request("http://0.0.0.0/favicon.svg"));
+  assertEquals(res.status, 200);
+  assertEquals(res.headers.get("cache-control"), "public, max-age=0, must-revalidate");
+  assertEquals(res.headers.get("x-content-type-options"), "nosniff");
+});
+
 Deno.test("createApp: GET /nope.png returns 404 for a missing public file", async () => {
   await withBasicApp(async (app) => {
     const res = await app.fetch(new Request("http://0.0.0.0/nope.png"));
@@ -202,4 +227,51 @@ Deno.test("createApp: GET /about HEAD /about headers share content-type", async 
       (get.headers.get("content-type") ?? "").split(";")[0],
     );
   });
+});
+
+Deno.test("getHono: returns the underlying Hono instance with a working hono field", async () => {
+  await withBasicApp(async (app) => {
+    const hono = getHono(app).hono;
+    assertExists(hono);
+    assert(hono instanceof Hono, "getHono(app).hono must be a Hono instance");
+    // The Hono instance must be functional: it has the expected methods.
+    assertEquals(typeof hono.fetch, "function");
+    assertEquals(typeof hono.onError, "function");
+    assertEquals(typeof hono.notFound, "function");
+    // Prove the Hono instance is the real one by issuing a request.
+    const res = await app.fetch(new Request("http://0.0.0.0/"));
+    assertEquals(res.status, 200);
+  });
+});
+
+Deno.test("context: json(undefined) produces body 'null' (not empty)", async () => {
+  const ctx = buildRequestContext({
+    request: new Request("http://0.0.0.0/"),
+    url: new URL("http://0.0.0.0/"),
+    params: {},
+  });
+  const res = ctx.json(undefined);
+  assertEquals(res.status, 200);
+  assertEquals(res.headers.get("content-type"), "application/json; charset=utf-8");
+  assertEquals(res.headers.get("x-content-type-options"), "nosniff");
+  // The body must be the string "null", not an empty string.
+  const body = await res.text();
+  assertEquals(body, "null");
+});
+
+Deno.test("context: html(undefined) produces an empty body (not 'undefined')", async () => {
+  const ctx = buildRequestContext({
+    request: new Request("http://0.0.0.0/"),
+    url: new URL("http://0.0.0.0/"),
+    params: {},
+  });
+  // The html() implementation is synchronous; the Promise branch in
+  // the return type is for render(), not html().
+  const res = await ctx.html(undefined) as Response;
+  assertEquals(res.status, 200);
+  assertEquals(res.headers.get("content-type"), "text/html; charset=utf-8");
+  assertEquals(res.headers.get("x-content-type-options"), "nosniff");
+  // The body must be empty, not the literal string "undefined".
+  const body = await res.text();
+  assertEquals(body, "");
 });

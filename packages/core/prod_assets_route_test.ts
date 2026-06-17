@@ -405,7 +405,7 @@ Deno.test("prod asset: a single request reads exactly the raw asset + gzip compa
 // public file behavior in production
 // ---------------------------------------------------------------------------
 
-Deno.test("prod asset: public files use max-age=3600 (not immutable, not no-store)", async () => {
+Deno.test("prod asset: public files use max-age=0 must-revalidate (not immutable, not no-store)", async () => {
   const tmp = await makeTempDir("sprout-m7-public-");
   try {
     await copyFixtureTo(tmp.path);
@@ -413,7 +413,10 @@ Deno.test("prod asset: public files use max-age=3600 (not immutable, not no-stor
     const app = await bootProductionApp(tmp.path);
     const res = await app.fetch(new Request("http://0.0.0.0/favicon.svg"));
     assertEquals(res.status, 200);
-    assertEquals(res.headers.get("cache-control"), "public, max-age=3600");
+    // Production: must-revalidate forces revalidation on every
+    // request so updated public files are visible immediately after
+    // a deploy. The 304 is cached so revalidation is cheap.
+    assertEquals(res.headers.get("cache-control"), "public, max-age=0, must-revalidate");
     assertEquals(res.headers.get("x-content-type-options"), "nosniff");
   } finally {
     await tmp.cleanup();

@@ -57,7 +57,7 @@ import {
 import { discoverProject, validateManifest } from "@sprout/compiler";
 import type { Manifest } from "@sprout/compiler";
 import { CoreError, coreErrorToResponse } from "./errors.ts";
-import { renderRoute } from "./render_route.tsx";
+import { loadRouteModules, renderRoute } from "./render_route.tsx";
 import { warmupIslands } from "./warmup_islands.ts";
 import { resolvePublicFile, serveStaticFile } from "./static_files.ts";
 import {
@@ -71,12 +71,28 @@ import { BoundedLru } from "./lru.ts";
 import { FrameworkError, NOSNIFF } from "@sprout/utils";
 import type { App, AppAdvanced, CreateAppOptions, ServeOptions } from "./types.ts";
 
+/** The shape actually returned by `buildApp` — `App` plus the `hono` handle. */
+type AppInternal = App & {
+  /** The Hono instance built by `buildApp`. Used by `getHono`. */
+  readonly hono: Hono;
+};
+
 const RUNTIME_PUBLIC_PATH = "/@sprout/runtime.js";
 const APP_STYLESHEET_PUBLIC_PATH = "/@sprout/app.css";
 const RUNTIME_MAP_PUBLIC_PATH = "/@sprout/runtime.js.map";
 
-/** The cache header attached to every served public file. */
-const PUBLIC_FILE_CACHE_CONTROL = "public, max-age=3600";
+/**
+ * The cache header attached to every served public file.
+ *
+ * - **Development** (`mode: "development"`): `public, max-age=3600`.
+ *   One-hour cache lets developers iterate fast without paying the
+ *   cost of re-validation on every edit.
+ * - **Production** (`mode: "production"`): `public, max-age=0, must-revalidate`.
+ *   Forces the browser to revalidate on every request so updated
+ *   `public/` files are visible immediately after a deploy.
+ *   Unlike `no-store`, a 304 is still cached, so re-validation is
+ *   cheap; the browser just never serves a stale copy for an hour.
+ */
 
 /**
  * The M7 production-serve cache seam.
@@ -106,13 +122,17 @@ type ProductionState = {
   readonly cache: ProdAssetCache;
 };
 
-async function buildApp(config: ResolvedConfig): Promise<App> {
+async function buildApp(config: ResolvedConfig): Promise<AppInternal> {
   const discovered = await discoverProject(config);
   const manifest: Manifest = validateManifest(discovered);
   // Pre-register every island so per-request rendering does not pay
   // the dynamic-import cost. The registry is process-global and
   // idempotent, so this is safe to call exactly once.
   await warmupIslands(manifest);
+  // Pre-load every route module so per-request rendering does not
+  // pay the ESM dynamic-import round-trip. Syntax errors and missing
+  // exports surface here rather than on the first request.
+  const routeModules = await loadRouteModules(manifest);
 
   const hono = new Hono();
 
@@ -154,7 +174,10 @@ async function buildApp(config: ResolvedConfig): Promise<App> {
       filePath,
       config.publicDir,
       undefined,
-      PUBLIC_FILE_CACHE_CONTROL,
+      // Production: force revalidation on every request so updated
+      // public files are visible immediately after a deploy.
+      // Dev: tolerate stale copies for an hour of fast iteration.
+      config.mode === "production" ? "public, max-age=0, must-revalidate" : "public, max-age=3600",
     );
   });
 
@@ -180,14 +203,16 @@ async function buildApp(config: ResolvedConfig): Promise<App> {
           runtimePublicPath: RUNTIME_PUBLIC_PATH,
           stylesheetPublicPath: manifest.styles.app === null ? null : APP_STYLESHEET_PUBLIC_PATH,
         },
+        routeModules,
       });
     });
   }
 
   return {
-    // Internal Hono reference; not exposed on the public App type.
-    // Advanced consumers access via getHono() from this package.
-    __hono: hono,
+    // Internal Hono handle. The public `App` type does not include
+    // `hono`; advanced consumers access it via `getHono(app)` from
+    // this package, which widens the return to `AppAdvanced`.
+    hono,
     fetch(request: Request): Response | Promise<Response> {
       return hono.fetch(request);
     },
@@ -200,7 +225,7 @@ async function buildApp(config: ResolvedConfig): Promise<App> {
         count: productionState.cache.lru.count,
       };
     },
-  } as unknown as App;
+  };
 }
 
 /**
@@ -513,5 +538,5 @@ export async function serve(options: ServeOptions = {}): Promise<void> {
  * `hono` field.
  */
 export function getHono(app: App): AppAdvanced {
-  return app as unknown as AppAdvanced;
+  return app as App & { readonly hono: Hono };
 }

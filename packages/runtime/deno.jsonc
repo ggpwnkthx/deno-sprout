@@ -11,7 +11,8 @@
     "@sprout/jsx/shared": "jsr:@sprout/jsx@0.2.0/shared"
   },
   "exports": {
-    ".": "./mod.ts"
+    ".": "./mod.ts",
+    "./runtime_entry.ts": "./runtime_entry.ts"
   },
   "publish": {
     "exclude": [

@@ -12,6 +12,8 @@
 // public `App` type so `@sprout/core` consumers who do not import
 // Hono directly are not forced to add it to their import map.
 import type { Hono } from "@hono/hono";
+import type { JSXNode } from "@hono/hono/jsx";
+import type { HtmlEscapedString } from "jsr:@hono/hono@4.12.24/utils/html";
 
 /**
  * The framework HTTP app.
@@ -107,8 +109,27 @@ export type PageProps<P = Readonly<Record<string, string>>> = {
  */
 export type RouteHandler = (context: RequestContext) => Response | Promise<Response>;
 
+/**
+ * A value the framework can render into an HTML response body.
+ *
+ * The runtime calls `String(value)` on each element so JSX nodes,
+ * strings, numbers, booleans, `bigint`, `null`, and `undefined` are
+ * all accepted. `Response` instances are passed through unchanged.
+ */
+export type Renderable =
+  | JSXNode
+  | HtmlEscapedString
+  | string
+  | number
+  | boolean
+  | bigint
+  | null
+  | undefined;
+
 /** A page component (the default export of a route module). */
-export type RoutePageComponent = (props: PageProps) => unknown;
+export type RoutePageComponent = (
+  props: PageProps,
+) => Renderable | Response | Promise<Renderable | Response>;
 
 /**
  * The default-export shape of a route module: a page (default) plus
@@ -145,9 +166,12 @@ export type RequestContext = {
    * so a Hono `JSXNode` or `HtmlEscapedString` can be passed directly.
    * Returns the resulting `Response`.
    */
-  html(value: unknown, init?: ResponseInit): Response | Promise<Response>;
-  /** Send a JSON response. `value` is serialized with `JSON.stringify`. */
-  json(value: unknown, init?: ResponseInit): Response;
+  html(value: Renderable | Response, init?: ResponseInit): Response | Promise<Response>;
+  /**
+   * Send a JSON response. `value` is serialized with `JSON.stringify`.
+   * The generic lets TypeScript infer the value type from the call site.
+   */
+  json<T>(value: T, init?: ResponseInit): Response;
   /** Send a plain-text response. */
   text(value: string, init?: ResponseInit): Response;
   /**
@@ -162,5 +186,5 @@ export type RequestContext = {
    * `RequestContext` built by `createApp`, this falls back to
    * `html(value, init)`.
    */
-  render(value: unknown, init?: ResponseInit): Response | Promise<Response>;
+  render(value: Renderable | Response, init?: ResponseInit): Response | Promise<Response>;
 };

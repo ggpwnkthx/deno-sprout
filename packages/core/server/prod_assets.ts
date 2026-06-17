@@ -21,10 +21,11 @@
 // not cache results. The serve layer (`server/app.ts`) owns the
 // LRU and the index lifetime; this helper is the per-request
 // `ETag` / `Accept-Encoding` / 304 decision.
-import { acceptsGzip, NOSNIFF } from "@sprout/utils";
+import { acceptsGzip } from "@sprout/utils";
 import { CompilerError, readFrozenAsset } from "@sprout/compiler";
 import type { FrozenIndex, ReadFrozenAssetResult } from "@sprout/compiler";
 import { CoreError, coreErrorToResponse } from "./errors.ts";
+import { withSecurityHeaders } from "./context.ts";
 
 /** The cache header attached to every framework asset response. */
 const CACHE_CONTROL = "public, max-age=31536000, immutable";
@@ -125,13 +126,11 @@ export async function serveFrozenAsset(
   // Per RFC 7232 §4.1 the 304 SHOULD include the same content-type
   // and content-encoding the 200 would have.
   if (etagMatches(opts.request.headers.get("if-none-match"), etag)) {
-    const headers = new Headers({
-      "content-type": result.contentType,
-      "etag": etag,
-      "cache-control": CACHE_CONTROL,
-      "vary": "accept-encoding",
-      "x-content-type-options": NOSNIFF,
-    });
+    const base = withSecurityHeaders({}, result.contentType);
+    const headers = new Headers(base.headers);
+    headers.set("etag", etag);
+    headers.set("cache-control", CACHE_CONTROL);
+    headers.set("vary", "accept-encoding");
     if (sendGzip) {
       headers.set("content-encoding", "gzip");
     }
@@ -152,13 +151,11 @@ export async function serveFrozenAsset(
   }
   const body: ArrayBuffer = source.slice().buffer;
 
-  const headers = new Headers({
-    "content-type": result.contentType,
-    "etag": etag,
-    "cache-control": CACHE_CONTROL,
-    "vary": "accept-encoding",
-    "x-content-type-options": NOSNIFF,
-  });
+  const base = withSecurityHeaders({}, result.contentType);
+  const headers = new Headers(base.headers);
+  headers.set("etag", etag);
+  headers.set("cache-control", CACHE_CONTROL);
+  headers.set("vary", "accept-encoding");
   if (sendGzip) {
     headers.set("content-encoding", "gzip");
   }

@@ -2,10 +2,13 @@
 //
 // The HTML shell includes this module on every rendered page. It waits
 // until the document is ready, then asks `@sprout/runtime` to mount every
-// island placeholder in document order. The exported `start` is kept
-// small and idempotent so tests and future custom boot paths can call it
-// directly without double-mounting the page.
-import { mountAll } from "@sprout/runtime";
+// island placeholder in document order. This file is the canonical
+// browser-side entry point; it is bundled as `/@sprout/runtime.js`
+// by both the dev and production pipelines.
+//
+// This file lives in `@sprout/runtime` because it is a runtime concern
+// (mounting browser islands), not a compiler concern.
+import { mountAll } from "./mount_all.ts";
 
 let started = false;
 

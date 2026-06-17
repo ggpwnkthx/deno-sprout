@@ -5,6 +5,13 @@
 # for all 7 packages (`deno task publish-check`). A broken release
 # fails the workflow without making it to JSR.
 #
+# The `publish-check` task uses `--allow-dirty` because each package
+# carries dynamic imports of user-supplied files (config, route, and
+# island modules) that JSR's static analyzer flags as
+# `unanalyzable-dynamic-import`. These four warnings are expected and
+# do not block the publish step — the specifiers are all runtime-
+# determined paths resolvable in the consumer's own environment.
+#
 # The publish job runs `deno publish` against each workspace package
 # in a matrix. Deno's `publish` command consumes the GitHub OIDC
 # token automatically when the workflow has `id-token: write`.

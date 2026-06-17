@@ -89,40 +89,81 @@ async function findNearestDenoConfig(startDir: string): Promise<string | null> {
   }
 }
 
-// Process-global dev asset cache.
-//
+/** Files in VIRTUAL_ENTRY_DIR older than this are considered stale (24 hours). */
+const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+
+/** Guards the once-per-process sweep. */
+let swept = false;
+
+/** Run once per process: delete stale virtual-entry tmp files on startup. */
+/** @internal */
+export async function cleanupStaleVirtualEntries(): Promise<void> {
+  if (swept) return;
+  swept = true;
+  try {
+    const entries = Deno.readDir(VIRTUAL_ENTRY_DIR);
+    const now = Date.now();
+    for await (const entry of entries) {
+      if (
+        !entry.name.startsWith("sprout-island-") ||
+        !entry.name.endsWith(".ts")
+      ) {
+        continue;
+      }
+      const path = `${VIRTUAL_ENTRY_DIR}/${entry.name}`;
+      try {
+        const stat = await Deno.stat(path);
+        if (stat.mtime && now - stat.mtime.getTime() > STALE_THRESHOLD_MS) {
+          await Deno.remove(path);
+        }
+      } catch (_cause) {
+        // Best-effort: the file may have been removed by another process.
+      }
+    }
+  } catch (_cause) {
+    // VIRTUAL_ENTRY_DIR may not exist yet; nothing to sweep.
+  }
+}
+
 // The dev asset pipeline is keyed on `(entry, kind, id, mode, envHash)`.
-// Across the lifetime of a single `deno task dev` (or `deno task
-// serve` in dev mode) the dev server runs exactly one project per
-// process, so a process-global cache is sound: there is no other
-// project whose `(entry, kind, id)` could collide.
+// Each `createApp` instance has its own project root, and the cache is
+// scoped to that root via `getOrCreateCache(root)`. This eliminates
+// cross-project contamination when two projects share a process.
 //
-// A future refactor that runs multiple projects per process (for
-// example, a workspace tool that boots several dev servers in
-// parallel) will need to move this cache into a per-`createApp`
-// instance. The interface (`getCache` returning a `SingleFlightCache`)
-// is shaped so that swap is local.
-//
+// The per-root cache is a `SingleFlightCache`: concurrent identical
+// compile calls coalesce, and the entry is reused on subsequent calls
+// as long as no input mtime has changed.
+
 // 8 = 2x default esbuild concurrency headroom; queues spikes rather
 // than spawning unlimited parallel esbuild processes on the main thread.
 const DEV_CACHE_MAX_CONCURRENT = 8;
-let cache: SingleFlightCache | null = null;
-function getCache(): SingleFlightCache {
-  if (cache === null) {
-    cache = new SingleFlightCache(DEV_CACHE_MAX_CONCURRENT);
+
+/** Per-project-root dev asset caches keyed by project root. */
+const caches = new Map<string, SingleFlightCache>();
+
+/**
+ * Get or create the cache for `root`. Each project root gets its own
+ * `SingleFlightCache` instance, eliminating cross-project contamination.
+ */
+function getOrCreateCache(root: string): SingleFlightCache {
+  let c = caches.get(root);
+  if (c === undefined) {
+    c = new SingleFlightCache(DEV_CACHE_MAX_CONCURRENT);
+    caches.set(root, c);
   }
-  return cache;
+  return c;
 }
 
-/** Drop the module-level cache (tests only). */
-// Denoted internal with __-prefix; JSR omits __-prefixed exports from
-// the published type declarations, and our publish.exclude also drops
-// the test-utils file that re-exports this symbol.
-export function __dropCacheForTesting(): void {
-  if (cache !== null) {
-    cache.clear();
+/**
+ * Drop every cache entry and remove all cache instances.
+ * Intended for test isolation only.
+ * @internal
+ */
+export function resetAllCachesForTesting(): void {
+  for (const c of caches.values()) {
+    c.clear();
   }
-  cache = null;
+  caches.clear();
 }
 
 async function computePublicEnvHash(mode: "development" | "production"): Promise<string> {
@@ -206,23 +247,27 @@ async function compileIsland(
  * Walk the import graph rooted at `entry` and return every
  * on-disk file the user can edit, each with its current mtime.
  *
- * The walker is intentionally narrow: it follows only relative
- * `from "..."` / `from '...'` specifiers (`./x`, `../x/y`), not
- * bare specifiers (`@sprout/runtime`, `npm:...`, JSR `jsr:...`).
- * Bare specifiers resolve to framework code that the user does
- * not own; tracking them in the dev cache's input set would
- * produce invalidations on framework upgrades that have nothing
- * to do with the user's project. Resolved paths are normalized
- * and probed for `.ts` / `.tsx` / `/index.ts` / `/index.tsx`
- * extensions so the walker does not have to know the file's
- * exact extension.
+ * The walker follows relative specifiers:
+ *   - import "specifier"            (side-effect)
+ *   - import x from "specifier"     (default)
+ *   - import { a, b } from "specifier"  (named)
+ *   - import * as x from "specifier" (namespace)
+ *   - import("specifier")            (dynamic with string literal;
+ *                                     variable specifiers are NOT followed)
  *
- * This is a best-effort graph walk, not a full TypeScript
- * resolver. It will not follow dynamic imports, `import()`
- * expressions, `require()` calls, or CSS-module-style side-effect
- * imports. That is acceptable: the dev cache invalidates on the
- * common case (static `import` / `export from`), and the M4
- * spec limits user island files to a static-import shape.
+ * It intentionally skips:
+ *   - Bare / absolute specifiers (@sprout/runtime, npm:..., jsr:...)
+ *   - Imports inside line comments (double-slash) or block comments
+ *   - Dynamic imports whose specifier is not a string literal
+ *
+ * Bare specifiers resolve to framework code that the user does not
+ * own; tracking them in the dev cache's input set would produce
+ * invalidations on framework upgrades unrelated to the user's
+ * project. Resolved paths are normalized and probed for .ts /
+ * .tsx / /index.ts / /index.tsx extensions so the walker does
+ * not have to know the file's exact extension.
+ *
+ * This is a best-effort graph walk, not a full TypeScript resolver.
  */
 async function walkUserInputs(
   entry: string,
@@ -250,10 +295,8 @@ async function walkUserInputs(
       continue;
     }
     const dir = file.includes("/") ? file.slice(0, file.lastIndexOf("/")) : ".";
-    const importRegex = /\bfrom\s*["']([^"']+)["']/g;
-    let match: RegExpExecArray | null;
-    while ((match = importRegex.exec(content)) !== null) {
-      const specifier = match[1] as string;
+    const specifiers = extractImportSpecifiers(content);
+    for (const specifier of specifiers) {
       if (!specifier.startsWith(".")) continue; // skip bare / absolute specifiers
       const resolved = resolveRelativeImport(dir, specifier);
       if (resolved !== null && !seen.has(resolved)) {
@@ -261,6 +304,193 @@ async function walkUserInputs(
       }
     }
   }
+  return out;
+}
+
+/**
+ * Scan content for all import specifiers it contains.
+ *
+ * Detects:
+ *   - import "specifier"              (side-effect)
+ *   - import x from "specifier"       (default)
+ *   - import { a, b } from "specifier"  (named)
+ *   - import * as x from "specifier"  (namespace)
+ *   - import("specifier")             (dynamic with string literal)
+ *
+ * Skips:
+ *   - Line comments (double-slash)
+ *   - Block comments
+ *   - Dynamic imports whose specifier is not a string literal
+ *
+ * Returns the raw specifier strings (unresolved).
+ */
+/** @internal */
+export function extractImportSpecifiers(content: string): string[] {
+  const out: string[] = [];
+  let i = 0;
+  while (i < content.length) {
+    // Skip line comments
+    if (content[i] === "/" && content[i + 1] === "/") {
+      i += 2;
+      while (i < content.length && content[i] !== "\n") i++;
+      continue;
+    }
+    // Skip block comments
+    if (content[i] === "/" && content[i + 1] === "*") {
+      i += 2;
+      while (i < content.length - 1 && !(content[i] === "*" && content[i + 1] === "/")) i++;
+      i += 2; // skip the closing */
+      continue;
+    }
+    // Try to match an import keyword starting at position i
+    if (isImportKeywordAt(content, i)) {
+      // import "specifier"   (side-effect or dynamic)
+      // import x from "specifier"
+      // import { a } from "specifier"
+      // import * as x from "specifier"
+      // import(                    (dynamic)
+      const specifier = tryParseImportSpecifiers(content, i);
+      if (specifier !== null) out.push(specifier);
+      // Move past the import keyword (advance to the first non-space char
+      // after 'import')
+      i += 6; // "import".length
+      while (
+        i < content.length &&
+        (content[i] === " " || content[i] === "\t" || content[i] === "\n" || content[i] === "\r")
+      ) i++;
+      // If followed by `(`, extract the dynamic import's specifier
+      // (best-effort: only string-literal specifiers are followed)
+      if (content[i] === "(") {
+        i++; // skip '('
+        // Try to extract a string-literal specifier from inside the parens
+        while (i < content.length && content[i] !== ")") {
+          if (content[i] === '"' || content[i] === "'" || content[i] === "`") {
+            const quote = content[i];
+            i++;
+            let spec = "";
+            while (i < content.length && content[i] !== quote) {
+              if (content[i] === "\\") i++; // skip escaped char
+              if (i < content.length) {
+                spec += content[i];
+                i++;
+              }
+            }
+            if (spec) out.push(spec);
+            if (i < content.length && content[i] === quote) i++;
+          } else {
+            i++;
+          }
+        }
+        if (i < content.length && content[i] === ")") i++;
+      }
+      continue;
+    }
+    i++;
+  }
+  return out;
+}
+
+/** True when the next six characters starting at `i` form the word `import`. */
+function isImportKeywordAt(content: string, i: number): boolean {
+  return (
+    i + 6 <= content.length &&
+    content[i] === "i" &&
+    content[i + 1] === "m" &&
+    content[i + 2] === "p" &&
+    content[i + 3] === "o" &&
+    content[i + 4] === "r" &&
+    content[i + 5] === "t" &&
+    (i + 6 >= content.length ||
+      !isIdentifierChar(content[i + 6] as string))
+  );
+}
+
+/** True when `c` can appear in a TypeScript / JavaScript identifier. */
+function isIdentifierChar(c: string): boolean {
+  return /[a-zA-Z0-9_$]/.test(c);
+}
+
+/**
+ * Attempt to parse an import starting at the `import` keyword
+ * (right after the `isImportKeywordAt` check). Returns the specifier
+ * string, or `null` if the import does not have a resolvable specifier
+ * form we track (e.g., `import(variable)` — the parens are handled by
+ * the caller).
+ *
+ * Handles:
+ *   import "specifier"
+ *   import 'specifier'
+ *   import x from "specifier"
+ *   import { a, b } from "specifier"
+ *   import * as x from "specifier"
+ *   import "specifier";
+ */
+function tryParseImportSpecifiers(content: string, i: number): string | null {
+  // Skip to the first non-whitespace character after "import"
+  let pos = i + 6; // past "import"
+  while (
+    pos < content.length &&
+    (content[pos] === " " || content[pos] === "\t" || content[pos] === "\n" ||
+      content[pos] === "\r")
+  ) pos++;
+
+  // import "specifier" or import 'specifier'  (side-effect)
+  if (content[pos] === '"' || content[pos] === "'") {
+    return parseStringLiteral(content, pos);
+  }
+
+  // import(               (dynamic import — handled by caller)
+  if (content[pos] === "(") {
+    return null;
+  }
+
+  // import { ... } from "specifier"   or   import x from "specifier"
+  // import * as x from "specifier"
+  // Skip the default/NamespaceSpecifier until we hit `from`
+  let hasFrom = false;
+  while (pos < content.length) {
+    if (content[pos] === "f" && content.slice(pos, pos + 4) === "from") {
+      hasFrom = true;
+      pos += 4;
+      break;
+    }
+    pos++;
+  }
+  if (!hasFrom) return null;
+
+  // Skip whitespace
+  while (
+    pos < content.length &&
+    (content[pos] === " " || content[pos] === "\t" || content[pos] === "\n" ||
+      content[pos] === "\r")
+  ) pos++;
+
+  // Now should be at a string literal
+  if (content[pos] === '"' || content[pos] === "'") {
+    return parseStringLiteral(content, pos);
+  }
+
+  return null;
+}
+
+/** Parse a single- or double-quoted string literal starting at `pos`. Returns the content without quotes. */
+function parseStringLiteral(content: string, pos: number): string | null {
+  const quote = content[pos];
+  pos++;
+  let out = "";
+  while (pos < content.length && content[pos] !== quote) {
+    if (content[pos] === "\\") {
+      pos++;
+      if (pos < content.length) {
+        out += content[pos];
+        pos++;
+      }
+    } else {
+      out += content[pos];
+      pos++;
+    }
+  }
+  // pos is now at closing quote (or end of string)
   return out;
 }
 
@@ -332,8 +562,9 @@ async function buildForKind(
 export async function compileDevAsset(
   input: CompileDevAssetInput,
 ): Promise<CompileDevAssetResult> {
+  await cleanupStaleVirtualEntries();
   const envHash = await computePublicEnvHash(input.mode);
-  const c = getCache();
+  const c = getOrCreateCache(input.config.root);
   const entry = await c.getOrBuild(
     {
       entry: input.entry,
@@ -367,7 +598,7 @@ export async function compileDevSourceMap(
   input: CompileDevAssetInput,
 ): Promise<Uint8Array | null> {
   const envHash = await computePublicEnvHash(input.mode);
-  const c = getCache();
+  const c = getOrCreateCache(input.config.root);
   const entry = await c.getOrBuild(
     {
       entry: input.entry,

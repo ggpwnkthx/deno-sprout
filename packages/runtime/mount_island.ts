@@ -25,6 +25,13 @@ const defaultImporter: DynamicImporter = (specifier) =>
   // The `/* @vite-ignore */` comment is a hint for build tools that
   // see this string. Sprout does not require Vite; the comment is a
   // no-op for the Deno runtime.
+  //
+  // The specifier is a browser-side island module public path resolved
+  // at runtime via the consumer's HTTP server (e.g. /@sprout/island/Counter.js).
+  // JSR's `publish` analyzer cannot statically analyze this dynamic import;
+  // the resulting `unanalyzable-dynamic-import` warning is expected and
+  // harmless (the specifier is resolvable at runtime in the consumer's
+  // own deployed environment).
   import(/* @vite-ignore */ specifier);
 
 /**

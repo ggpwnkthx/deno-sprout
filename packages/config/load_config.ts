@@ -519,6 +519,11 @@ export async function loadConfig(
     const fileUrl = toFileUrl(configFile).href;
     let mod: Record<string, unknown>;
     try {
+      // The specifier is the user's own config file path, resolved at
+      // runtime. JSR's `publish` analyzer cannot statically analyze
+      // this dynamic import; the resulting `unanalyzable-dynamic-import`
+      // warning is expected and harmless (the specifier is resolvable
+      // at runtime in the consumer's own environment).
       mod = await import(fileUrl) as Record<string, unknown>;
     } catch (cause) {
       throw new ConfigError(

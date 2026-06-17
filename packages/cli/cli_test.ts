@@ -209,6 +209,32 @@ Deno.test("init: refused to overwrite non-empty directory returns CLI_INIT_TARGE
   }
 });
 
+// Symlink target: Deno.lstatSync detects the symlink and refuses
+// to write into it, preventing a malicious symlink attack.
+Deno.test("init: refuses to initialize into a symlink target", async () => {
+  const tmp = await Deno.makeTempDir({ prefix: "sprout-m5-init-symlink-" });
+  try {
+    // Create a real directory and a symlink pointing to it.
+    const real = join(tmp, "real");
+    const link = join(tmp, "link");
+    Deno.mkdirSync(real);
+    Deno.symlinkSync(real, link);
+
+    // init against the symlink must be refused.
+    const r = await run(["init", link], { silent: true });
+    assertEquals(r.ok, false);
+    if (r.ok) throw new Error("expected failure");
+    assert(r.error instanceof CliError);
+    assertEquals(r.error.code, "CLI_INIT_FAILED");
+    assertStringIncludes(r.error.message, "symlink");
+    // The real directory must not have been written into.
+    const entries = Array.from(Deno.readDirSync(real));
+    assertEquals(entries.length, 0, "symlink target must not be written into");
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
 Deno.test("init: --force overwrites init-template files but refuses to delete foreign files", async () => {
   const tmp = await Deno.makeTempDir({ prefix: "sprout-m5-init-force-" });
   try {

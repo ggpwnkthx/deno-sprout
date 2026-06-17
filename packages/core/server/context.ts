@@ -12,9 +12,8 @@
 // via an optional `shellInfo` field. When `shellInfo` is `null`,
 // `render` falls back to `html`.
 import { NOSNIFF } from "@sprout/utils";
-import type { RequestContext } from "./types.ts";
-import { htmlShell } from "./html_shell.tsx";
-import type { JSXNode } from "@hono/hono/jsx";
+import type { Renderable, RequestContext } from "./types.ts";
+import { wrapHtml } from "./render_route.tsx";
 
 /** Shell metadata captured by `createApp` for use in `render`. */
 export type ShellInfo = {
@@ -33,20 +32,24 @@ export type BuildRequestContextOptions = {
 };
 
 /**
- * Merge `init.headers` (caller-supplied) with a framework default
- * `content-type`. Caller headers win on conflict so a route handler
- * can override the type (e.g. emit `text/csv`).
+ * Merge `init.headers` (caller-supplied) with framework security
+ * defaults (`content-type` and `x-content-type-options: nosniff`).
+ * Caller headers win on conflict so a route handler can override
+ * the type (e.g. emit `text/csv`).
  */
-function withContentType(
+export function withSecurityHeaders(
   init: ResponseInit | undefined,
   contentType: string,
 ): ResponseInit {
-  const headers = new Headers(init?.headers);
-  if (!headers.has("content-type")) {
-    headers.set("content-type", contentType);
-  }
-  headers.set("x-content-type-options", NOSNIFF);
-  return { ...init, headers };
+  const existing = init?.headers ? Object.fromEntries(new Headers(init.headers)) : {};
+  return {
+    ...init,
+    headers: new Headers({
+      "content-type": contentType,
+      "x-content-type-options": NOSNIFF,
+      ...existing,
+    }),
+  };
 }
 
 /**
@@ -66,29 +69,36 @@ export function buildRequestContext(
   const url = options.url;
   const shellInfo = options.shellInfo ?? null;
 
-  const html = (value: unknown, init?: ResponseInit): Response => {
+  const html = (value: Renderable | Response, init?: ResponseInit): Response => {
     if (value instanceof Response) {
       return value;
     }
     // Hono's `JSXNode` has a useful `toString()`. `String(value)`
-    // works for strings, numbers, booleans, `null`, and
-    // `undefined` (renders the literal text). For `HtmlEscapedString`
-    // and `JSXNode`, the call dispatches to `toString()`.
-    const body = value === null || value === undefined
+    // works for strings, numbers, booleans, and `null`. For
+    // `HtmlEscapedString` and `JSXNode`, the call dispatches to
+    // `toString()`. `undefined` is coerced to `""` so the response
+    // body is an empty string (not the literal `"undefined"`);
+    // the status is still 200.
+    const body = value === undefined
+      ? ""
+      : value === null
       ? String(value)
       : typeof value === "string"
       ? value
       : String(value);
-    return new Response(body, withContentType(init, "text/html; charset=utf-8"));
+    return new Response(body, withSecurityHeaders(init, "text/html; charset=utf-8"));
   };
 
-  const json = (value: unknown, init?: ResponseInit): Response => {
-    const text = JSON.stringify(value);
-    return new Response(text, withContentType(init, "application/json; charset=utf-8"));
+  const json = <T>(value: T, init?: ResponseInit): Response => {
+    // `JSON.stringify(undefined)` returns `undefined`, which produces
+    // an empty body. Coerce to `null` so the body is `"null"` — the
+    // JS-spec-faithful behaviour and a safe non-breaking change.
+    const text = JSON.stringify(value === undefined ? null : value);
+    return new Response(text, withSecurityHeaders(init, "application/json; charset=utf-8"));
   };
 
   const text = (value: string, init?: ResponseInit): Response => {
-    return new Response(value, withContentType(init, "text/plain; charset=utf-8"));
+    return new Response(value, withSecurityHeaders(init, "text/plain; charset=utf-8"));
   };
 
   const redirect = (
@@ -114,7 +124,7 @@ export function buildRequestContext(
   };
 
   const render = (
-    value: unknown,
+    value: Renderable | Response,
     init?: ResponseInit,
   ): Response | Promise<Response> => {
     if (value instanceof Response) {
@@ -123,14 +133,8 @@ export function buildRequestContext(
     if (shellInfo === null) {
       return html(value, init);
     }
-    const title = extractTitle(init?.headers);
-    const body: JSXNode = htmlShell({
-      title,
-      body: value,
-      stylesheetPublicPath: shellInfo.stylesheetPublicPath,
-      runtimePublicPath: shellInfo.runtimePublicPath,
-    });
-    return new Response(String(body), withContentType(init, "text/html; charset=utf-8"));
+    // Delegate to wrapHtml so the HTML-shell construction is in one place.
+    return wrapHtml(value, shellInfo, init);
   };
 
   return {
@@ -144,18 +148,4 @@ export function buildRequestContext(
     redirect,
     render,
   };
-}
-
-/**
- * Look for an `X-Sprout-Title` header on the init headers and use it
- * as the page title. The header is a M3-only convenience; future
- * milestones may add a real `<Head>` injection API.
- */
-function extractTitle(headers: HeadersInit | undefined): string | undefined {
-  if (!headers) {
-    return undefined;
-  }
-  const h = new Headers(headers);
-  const value = h.get("X-Sprout-Title");
-  return value ?? undefined;
 }

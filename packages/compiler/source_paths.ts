@@ -1,10 +1,5 @@
 // Path helpers for asset compile entry points.
 //
-// The dev and production asset pipelines need an absolute path to the
-// browser runtime entry. The entry lives in this package so
-// `@sprout/compiler` can be published and installed independently of
-// the workspace layout.
-//
 // Island entry resolution looks for `<root>/src/islands/<id>.tsx`
 // first, then `<id>.ts`. The manifest already pins an absolute path
 // for each island; this helper exists for tests and for the
@@ -17,10 +12,14 @@ import { existsSync } from "@std/fs";
  * Resolve the absolute path to the runtime entry file. The dev asset
  * pipeline bundles this file with esbuild and serves the result at
  * `/@sprout/runtime.js`.
+ *
+ * The entry lives in `@sprout/runtime` (the browser-side package) and
+ * is resolved via `import.meta.resolve` so the compiler package does not
+ * need to maintain its own copy of the entry source.
  */
 export function resolveRuntimeEntryFile(): string {
   return fromFileUrl(
-    new URL("./runtime_entry.ts", import.meta.url),
+    new URL(import.meta.resolve("@sprout/runtime/runtime_entry.ts")),
   );
 }
 

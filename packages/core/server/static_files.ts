@@ -15,7 +15,8 @@
 //
 // The content-type map is intentionally small. M3 covers the common
 // cases; the M7 production serve may swap this for `jsr:@std/media-types`.
-import { contentTypeForFilename, isInsideRoot, NOSNIFF, slash } from "@sprout/utils";
+import { contentTypeForFilename, isInsideRoot, slash } from "@sprout/utils";
+import { withSecurityHeaders } from "./context.ts";
 import { CoreError } from "./errors.ts";
 
 /** Reserved framework URL namespace. Public files must not match it. */
@@ -175,10 +176,10 @@ export async function serveStaticFile(
   }
   const file = await Deno.open(filePath, { read: true });
   const contentType = contentTypeForFilename(filePath);
-  const headers = new Headers(init?.headers);
-  if (!headers.has("content-type")) {
-    headers.set("content-type", contentType);
-  }
+  // Base security headers: content-type (from caller if present) + nosniff.
+  const headers = new Headers(
+    withSecurityHeaders(init, contentType).headers,
+  );
   if (!headers.has("content-length")) {
     headers.set("content-length", String(stat.size));
   }
@@ -189,7 +190,6 @@ export async function serveStaticFile(
     // `server/prod_assets.ts`) and never reach this path.
     headers.set("cache-control", cacheControl ?? "public, max-age=3600");
   }
-  headers.set("x-content-type-options", NOSNIFF);
   // Wrap the file's `ReadableStream` so we can release the handle
   // when the consumer cancels the body. This keeps the file
   // descriptor from leaking when a client disconnects mid-stream.

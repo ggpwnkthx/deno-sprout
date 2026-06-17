@@ -73,8 +73,8 @@ production serve uses to look up assets in O(1).
 - `resolveIslandEntryFile(id, root)` — resolve the on-disk path of an island source file given its
   slash-normalized id and a project root. Returns `null` when neither `<id>.tsx` nor `<id>.ts`
   exists.
-- `resolveRuntimeEntryFile()` — resolve the absolute path to the compiler-owned browser runtime
-  entry file that is bundled as `/@sprout/runtime.js`.
+- `resolveRuntimeEntryFile()` — resolve the absolute path to the browser runtime entry file
+  (`@sprout/runtime/runtime_entry.ts`) that is bundled as `/@sprout/runtime.js`.
 
 ### Types
 
