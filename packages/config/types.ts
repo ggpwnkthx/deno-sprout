@@ -76,8 +76,22 @@ export type ResolvedStyles = {
   readonly app: string | null;
 };
 
+/**
+ * The resolved `build.frozenAssetCache` shape after defaults are
+ * applied. Every variant is fully populated; consumers do not have
+ * to handle `| undefined` members.
+ */
+export type ResolvedFrozenAssetCache =
+  | "none"
+  | { readonly kind: "bounded"; readonly maxBytes: number };
+
 /** Fully-required build shape after resolution. */
-export type ResolvedBuild = Required<BuildConfig>;
+export type ResolvedBuild = {
+  readonly compress: false | "gzip";
+  readonly sourcemap: boolean;
+  readonly minify: boolean;
+  readonly frozenAssetCache: ResolvedFrozenAssetCache;
+};
 
 /**
  * The fully resolved configuration every package receives.

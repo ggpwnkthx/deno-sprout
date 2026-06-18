@@ -418,7 +418,7 @@ Deno.test("inspect: human-readable errors include the framework error code", asy
     try {
       await Deno.writeTextFile(
         join(tmp, "sprout.config.ts"),
-        'export default { server: { port: "not-a-number" } };',
+        'export default { server: { port: "not-a-number" }, styles: { app: false } };',
       );
       const r = await run(["inspect", tmp], { silent: false });
       assertEquals(r.ok, false);

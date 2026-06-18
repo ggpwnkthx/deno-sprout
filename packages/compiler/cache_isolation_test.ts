@@ -47,6 +47,17 @@ Deno.test("compileDevAsset: two projects with different roots do not cross-conta
       "export default function Counter() { return 'project2'; }\n",
     );
 
+    // Write minimal config so loadConfig doesn't try to resolve the
+    // default src/styles/app.css in each tmp project.
+    await Deno.writeTextFile(
+      join(tmp1.path, "sprout.config.ts"),
+      `export default { styles: { app: false } };\n`,
+    );
+    await Deno.writeTextFile(
+      join(tmp2.path, "sprout.config.ts"),
+      `export default { styles: { app: false } };\n`,
+    );
+
     // Compile island1
     const config1 = await loadConfig({ root: tmp1.path });
     const result1 = await compileDevAsset({

@@ -300,6 +300,12 @@ Deno.test("discoverIslands: duplicate public paths in a tmp dir fail", async () 
       join(islandsDir, "Counter.tsx"),
       "export default function A() { return null; }",
     );
+    // Write minimal config so loadConfig doesn't try to resolve the
+    // default src/styles/app.css in the tmp project.
+    await Deno.writeTextFile(
+      join(tmp.path, "sprout.config.ts"),
+      `export default { styles: { app: false } };\n`,
+    );
     // To force a publicPath collision we'd need two distinct files
     // with the same id, which is not a real-world configuration
     // (the filesystem keeps file basenames unique within a dir). We
@@ -388,6 +394,12 @@ Deno.test("discoverRoutes: tmp dir with two routes that map to /about throws DIS
     await Deno.writeTextFile(
       join(routesDir, "index.tsx"),
       "export default function B() { return null; }",
+    );
+    // Write minimal config so loadConfig doesn't try to resolve the
+    // default src/styles/app.css in the tmp project.
+    await Deno.writeTextFile(
+      join(tmp.path, "sprout.config.ts"),
+      `export default { styles: { app: false } };\n`,
     );
     const config = await loadConfig({ root: tmp.path });
     const err = await assertRejects(() => discoverRoutes(config), CompilerError);

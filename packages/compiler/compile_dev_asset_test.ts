@@ -355,6 +355,12 @@ Deno.test(
         join(tmp.path, "src/islands/Counter.tsx"),
         "export default function C() { return null; }",
       );
+      // Write minimal config so loadConfig doesn't try to resolve the
+      // default src/styles/app.css in the tmp project.
+      await Deno.writeTextFile(
+        join(tmp.path, "sprout.config.ts"),
+        `export default { styles: { app: false } };\n`,
+      );
       const config = await loadConfig({ root: tmp.path });
       await compileDevAsset({
         kind: "island",

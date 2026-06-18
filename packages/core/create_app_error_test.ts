@@ -18,7 +18,7 @@ async function makeThrowingProject(): Promise<{ dir: string; cleanup: () => Prom
   // project root).
   await Deno.writeTextFile(
     `${dir}/sprout.config.ts`,
-    `export default { root: "." };\n`,
+    `export default { root: ".", styles: { app: false } };\n`,
   );
   // Single route whose default export throws.
   await Deno.mkdir(`${dir}/src/routes`, { recursive: true });
