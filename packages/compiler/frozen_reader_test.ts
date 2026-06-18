@@ -450,7 +450,7 @@ Deno.test("readFrozenAsset: missing publicPath throws FROZEN_MANIFEST_UNSUPPORTE
   }
 });
 
-Deno.test("readFrozenAsset: missing asset file on disk throws FROZEN_MANIFEST_UNSUPPORTED", async () => {
+Deno.test("readFrozenAsset: missing asset file on disk throws FROZEN_ASSET_MISSING", async () => {
   resetDevCacheForTests();
   const tmp = await makeTempDir("sprout-m7-read-missing-file-");
   try {
@@ -464,7 +464,7 @@ Deno.test("readFrozenAsset: missing asset file on disk throws FROZEN_MANIFEST_UN
       () => readFrozenAssetFromOutDir(tmp.path, "/@sprout/runtime.js"),
       CompilerError,
     );
-    assertEquals(err.code, "FROZEN_MANIFEST_UNSUPPORTED");
+    assertEquals(err.code, "FROZEN_ASSET_MISSING");
   } finally {
     await tmp.cleanup();
   }

@@ -26,14 +26,15 @@ export type CacheEntry = {
 
 /** Compute the string form of a {@link CacheKey}. */
 export function keyOf(key: CacheKey): string {
-  return [
+  const fields = [
     key.entry,
     key.kind,
     key.id,
     key.mode,
     key.envHash,
     key.jsxImportSource,
-  ].join("|");
+  ];
+  return fields.map((f) => `${f.length}:${f}`).join("");
 }
 
 /**

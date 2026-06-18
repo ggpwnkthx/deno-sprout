@@ -12,6 +12,7 @@
 // when you have an `outDir` and a one-shot read (CLI tools, tests).
 // The serve layer should build the index once and pass it
 // directly to `readFrozenAsset`.
+import { assert } from "jsr:@std/assert@1";
 import { join } from "@std/path";
 import { CompilerError } from "../errors.ts";
 import { type FrozenIndex } from "../manifest/types.ts";
@@ -67,13 +68,7 @@ export async function readFrozenAsset(
   publicPath: string,
   maxBufferBytes?: number,
 ): Promise<ReadFrozenAssetResult> {
-  if (index === null || index === undefined) {
-    throw new CompilerError(
-      "FROZEN_MANIFEST_UNSUPPORTED",
-      "index must be a FrozenIndex",
-      {},
-    );
-  }
+  assert(index !== null && index !== undefined, "index must be a FrozenIndex");
   const outDir = index.outDir;
   if (typeof publicPath !== "string" || publicPath.length === 0) {
     throw new CompilerError(
@@ -102,14 +97,14 @@ export async function readFrozenAsset(
     stat = await Deno.stat(filePath);
   } catch (_cause) {
     throw new CompilerError(
-      "FROZEN_MANIFEST_UNSUPPORTED",
+      "FROZEN_ASSET_MISSING",
       "frozen asset file is missing on disk",
       { outDir, publicPath, file: filePath },
     );
   }
   if (!stat.isFile) {
     throw new CompilerError(
-      "FROZEN_MANIFEST_UNSUPPORTED",
+      "FROZEN_ASSET_MISSING",
       "frozen asset path is not a regular file",
       { outDir, publicPath, file: filePath },
     );

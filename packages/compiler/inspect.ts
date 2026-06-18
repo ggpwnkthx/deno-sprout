@@ -30,33 +30,21 @@ import type { DiscoveredProject, Manifest } from "./manifest/types.ts";
  * The trailing newline is included.
  */
 export function formatDiscoveredProject(project: DiscoveredProject): string {
-  const lines: string[] = [];
-  lines.push(
-    `Sprout project: ${project.routes.length} routes, ${project.islands.length} islands, styles: ${
-      project.styles.app === null ? "no" : "yes"
-    }`,
-  );
-  if (project.routes.length > 0) {
-    lines.push("  Routes:");
-    const sorted = project.routes.slice().sort((a, b) =>
-      a.pattern < b.pattern ? -1 : a.pattern > b.pattern ? 1 : 0
-    );
-    for (const route of sorted) {
-      lines.push(`    ${route.pattern.padEnd(28)} ${route.file}  (${route.kind})`);
-    }
-  }
-  if (project.islands.length > 0) {
-    lines.push("  Islands:");
-    const sorted = project.islands.slice().sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-    for (const island of sorted) {
-      lines.push(`    ${island.publicPath.padEnd(28)} ${island.file}`);
-    }
-  }
-  if (project.styles.app !== null) {
-    lines.push("  Styles:");
-    lines.push(`    /@sprout/app.css             ${project.styles.app}`);
-  }
-  return lines.join("\n") + "\n";
+  return formatView({
+    title:
+      `Sprout project: ${project.routes.length} routes, ${project.islands.length} islands, styles: ${
+        project.styles.app === null ? "no" : "yes"
+      }`,
+    routes: project.routes.map((r) => ({
+      pattern: r.pattern,
+      file: r.file,
+      kind: r.kind as string | null,
+    })),
+    islands: project.islands.map((i) => ({ publicPath: i.publicPath, file: i.file })),
+    styles: project.styles.app === null
+      ? null
+      : { publicPath: "/@sprout/app.css", file: project.styles.app },
+  });
 }
 
 /**
@@ -65,27 +53,56 @@ export function formatDiscoveredProject(project: DiscoveredProject): string {
  * included in the header.
  */
 export function formatManifest(manifest: Manifest): string {
-  const lines: string[] = [];
-  lines.push(
-    `Sprout manifest v${manifest.version}: ${manifest.routes.length} routes, ${manifest.islands.length} islands, styles: ${
-      manifest.styles.app === null ? "no" : "yes"
-    }`,
-  );
-  if (manifest.routes.length > 0) {
+  return formatView({
+    title:
+      `Sprout manifest v${manifest.version}: ${manifest.routes.length} routes, ${manifest.islands.length} islands, styles: ${
+        manifest.styles.app === null ? "no" : "yes"
+      }`,
+    routes: manifest.routes.map((r) => ({ pattern: r.pattern, file: r.file, kind: null })),
+    islands: manifest.islands.map((i) => ({ publicPath: i.publicPath, file: i.file })),
+    styles: manifest.styles.app === null
+      ? null
+      : { publicPath: manifest.styles.app.publicPath, file: manifest.styles.app.file },
+  });
+}
+
+type RouteLine = { pattern: string; file: string; kind: string | null };
+type IslandLine = { publicPath: string; file: string };
+type StyleLine = { publicPath: string; file: string } | null;
+
+/**
+ * Shared formatter for routes/islands/styles view. Emits a multi-line
+ * string with the given title header.
+ */
+function formatView(opts: {
+  title: string;
+  routes: readonly RouteLine[];
+  islands: readonly IslandLine[];
+  styles: StyleLine;
+}): string {
+  const lines: string[] = [opts.title];
+  if (opts.routes.length > 0) {
     lines.push("  Routes:");
-    for (const route of manifest.routes) {
-      lines.push(`    ${route.pattern.padEnd(28)} ${route.file}`);
+    const sorted = opts.routes.slice().sort((a, b) =>
+      a.pattern < b.pattern ? -1 : a.pattern > b.pattern ? 1 : 0
+    );
+    for (const route of sorted) {
+      const kindSuffix = route.kind !== null ? `  (${route.kind})` : "";
+      lines.push(`    ${route.pattern.padEnd(28)} ${route.file}${kindSuffix}`);
     }
   }
-  if (manifest.islands.length > 0) {
+  if (opts.islands.length > 0) {
     lines.push("  Islands:");
-    for (const island of manifest.islands) {
+    const sorted = opts.islands.slice().sort((a, b) =>
+      a.publicPath < b.publicPath ? -1 : a.publicPath > b.publicPath ? 1 : 0
+    );
+    for (const island of sorted) {
       lines.push(`    ${island.publicPath.padEnd(28)} ${island.file}`);
     }
   }
-  if (manifest.styles.app !== null) {
+  if (opts.styles !== null) {
     lines.push("  Styles:");
-    lines.push(`    ${manifest.styles.app.publicPath.padEnd(28)} ${manifest.styles.app.file}`);
+    lines.push(`    ${opts.styles.publicPath.padEnd(28)} ${opts.styles.file}`);
   }
   return lines.join("\n") + "\n";
 }

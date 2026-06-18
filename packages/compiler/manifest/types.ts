@@ -63,7 +63,7 @@ export type IslandEntry = {
 export type StyleEntry = {
   readonly id: string;
   readonly file: string;
-  readonly publicPath: string;
+  readonly publicPath: "/@sprout/app.css";
 };
 
 /**

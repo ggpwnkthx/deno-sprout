@@ -17,10 +17,14 @@ const baseKey: CacheKey = {
   jsxImportSource: "@sprout/jsx",
 };
 
-Deno.test("keyOf: returns the joined string of the key fields", () => {
+Deno.test("keyOf: returns the length-prefixed encoding of the key fields", () => {
+  // Length-prefixed encoding is unambiguous because each segment
+  // declares its own length: "N:...content...N:...content..."
+  // Segments are concatenated with no separator; the length prefix
+  // of each segment tells the parser where the next begins.
   assertEquals(
     keyOf(baseKey),
-    "/abs/main.tsx|island|Main|development|abc123|@sprout/jsx",
+    "13:/abs/main.tsx6:island4:Main11:development6:abc12311:@sprout/jsx",
   );
 });
 

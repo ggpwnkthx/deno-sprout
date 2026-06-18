@@ -12,7 +12,7 @@
 // the manifest validator does not reject a path that is otherwise
 // well-formed; the M3 server renderer will tighten this up.
 import { relative } from "@std/path";
-import { slash, SUPPORTED_HTTP_METHODS } from "@sprout/utils";
+import { causeMessage, slash, SUPPORTED_HTTP_METHODS } from "@sprout/utils";
 import type { HttpMethod } from "@sprout/utils";
 import type { ResolvedConfig } from "@sprout/config";
 import { CompilerError } from "../errors.ts";
@@ -97,11 +97,15 @@ export async function discoverRoutes(
  * typically resolve at render time anyway.
  */
 async function classifyRouteFile(file: string): Promise<"page" | "endpoint" | "mixed"> {
-  let text = "";
+  let text: string;
   try {
     text = await Deno.readTextFile(file);
-  } catch (_cause) {
-    return "page";
+  } catch (cause) {
+    throw new CompilerError(
+      "DISCOVERY_INVALID_ROUTE_FILE",
+      "could not read route file",
+      { file, cause: causeMessage(cause) },
+    );
   }
   const hasDefault = /(^|\n)\s*export\s+default\b/.test(text);
   const hasMethod = hasMethodExport(text);

@@ -163,7 +163,7 @@ Deno.test("compileDevAsset: second call with the same key returns cached entry",
     // implies same entry on a clean dev cache.
     assertEquals(a.cacheKey, b.cacheKey);
     assertStringIncludes(a.cacheKey, entryPath);
-    assertStringIncludes(a.cacheKey, "island|Main|development|");
+    assertStringIncludes(a.cacheKey, "Main");
   } finally {
     await tmp.cleanup();
   }

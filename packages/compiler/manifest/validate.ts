@@ -106,14 +106,14 @@ export function validateManifest(project: DiscoveredProject): Manifest {
     const stylesPath = slash(project.styles.app);
     if (stylesPath.length === 0) {
       throw new CompilerError(
-        "DISCOVERY_INVALID_ROUTE_FILE",
+        "DISCOVERY_INVALID_STYLE_FILE",
         `style file path is empty`,
         { path: project.styles.app },
       );
     }
     if (!stylesPath.startsWith("/")) {
       throw new CompilerError(
-        "DISCOVERY_INVALID_ROUTE_FILE",
+        "DISCOVERY_INVALID_STYLE_FILE",
         `style file path is not absolute`,
         { path: project.styles.app },
       );
