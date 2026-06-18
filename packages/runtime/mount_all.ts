@@ -6,7 +6,7 @@
 //   - continue past per-node failures;
 //   - return one structured `IslandMountResult` per element scanned;
 //   - log failures with a `[sprout]` prefix.
-import { RuntimeError } from "@sprout/jsx/shared";
+import { RuntimeError } from "./errors.ts";
 import { mountIsland } from "./mount_island.ts";
 import type { IslandMountResult } from "./module_contract.ts";
 import type { MountIslandOptions } from "./mount_island.ts";
@@ -25,17 +25,20 @@ export async function mountAll(
   const nodes = Array.from(target.querySelectorAll("[data-sprout-src]"));
   const results: IslandMountResult[] = [];
 
-  for (const node of nodes) {
+  const promises = nodes.map(async (node) => {
     const element = node as HTMLElement;
     if (element.getAttribute("data-sprout-mounted") === "true") {
-      // Skip already-mounted placeholders, but still include them in
-      // the result list so callers get a stable per-node shape.
       const id = element.getAttribute("data-sprout-island") ?? "";
       const src = element.getAttribute("data-sprout-src") ?? "";
-      results.push({ ok: true, id, src, element });
-      continue;
+      return { ok: true, id, src, element } as const;
     }
-    const result = await mountIsland(element, options);
+    return await mountIsland(element, options);
+  });
+
+  // Drain in document order so DOM side-effects are preserved.
+  for (let i = 0; i < promises.length; i++) {
+    const promise = promises[i]!;
+    const result = await promise;
     if (!result.ok) {
       console.error("[sprout] mount failed for", result.id, result.src, result.error);
     }

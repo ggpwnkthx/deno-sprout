@@ -6,7 +6,7 @@
 // browser runtime can call. The wrapper is exported for tests so
 // they can assert on the generated source without bundling.
 //
-// The runtime entry is the existing `packages/compiler/runtime_entry.ts`
+// The runtime entry is the existing `packages/runtime/runtime_entry.ts`
 // file, which the M4 compiler compiles as-is. The M3 file is a
 // no-op stub; the M4 compiler does not (yet) generate a `mountAll`
 // call site for the runtime. The dev asset simply embeds the

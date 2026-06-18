@@ -17,7 +17,7 @@ export { mountComponent } from "./mount_component.ts";
 export type {
   IslandClientModule,
   IslandMountResult,
-  MountComponent,
+  MountIslandOptions,
 } from "./module_contract.ts";
 ```
 
@@ -53,7 +53,7 @@ Implementation:
 ### `mountAll`
 
 ```ts
-export async function mountAll(root?: ParentNode): Promise<readonly IslandMountResult[]>;
+export async function mountAll(root?: ParentNode | null, options?: MountIslandOptions): Promise<readonly IslandMountResult[]>;
 ```
 
 Behavior:

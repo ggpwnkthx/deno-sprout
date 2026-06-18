@@ -24,12 +24,10 @@ JSX package, and the contract types that generated wrappers use.
   placeholder element. The runtime is responsible for clearing the placeholder, calling the DOM JSX
   renderer with the supplied component and props, and marking the element as mounted. An optional
   `renderImpl` overrides the DOM render function (used by tests).
-- `clearElement(element)` — clear any children from a placeholder element. Exported for tests that
-  need to exercise the clearing behavior without invoking the full mount path.
 - `DynamicImporter` — the shape of the dynamic importer used by `mountIsland`. The default
   implementation uses the global `import()`. Tests inject a fake to avoid the network.
 - `MountIslandOptions` — the options shape accepted by `mountAll` and `mountIsland`. The single
-  `_import` field is intended for test injection; production code should rely on the default global
+  `importer` field is intended for test injection; production code should rely on the default global
   `import()`.
 - `DomRender` — the render-function shape consumed by `mountComponent`. The default implementation
   calls Hono's DOM `render`.

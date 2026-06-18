@@ -63,22 +63,7 @@
     "esbuild": "jsr:@ggpwnkthx/esbuild@0.2.8",
     "@ggpwnkthx/esbuild-plugin-deno": "jsr:@ggpwnkthx/esbuild-plugin-deno@0.2.8",
     "@std/path": "jsr:@std/path@^1.0.8",
-    "@hono/hono": "jsr:@hono/hono@4.12.24",
-    "@hono/hono/jsx": "jsr:@hono/hono@4.12.24/jsx",
-    "@hono/hono/jsx/dom": "jsr:@hono/hono@4.12.24/jsx/dom",
-    "@hono/hono/jsx/dom/jsx-runtime": "jsr:@hono/hono@4.12.24/jsx/dom/jsx-runtime",
-    "@hono/hono/html": "jsr:@hono/hono@4.12.24/html",
-    "@hono/hono/utils/html": "jsr:@hono/hono@4.12.24/utils/html"
-    // "@sprout/core": "./packages/core/mod.ts",
-    // "@sprout/cli": "./packages/cli/mod.ts",
-    // "@sprout/config": "./packages/config/mod.ts",
-    // "@sprout/compiler": "./packages/compiler/mod.ts",
-    // "@sprout/jsx": "./packages/jsx/mod.ts",
-    // "@sprout/jsx/dom": "./packages/jsx/dom/mod.ts",
-    // "@sprout/jsx/shared": "./packages/jsx/shared/mod.ts",
-    // "@sprout/jsx/server/island-registry": "./packages/jsx/server/island-registry.ts",
-    // "@sprout/runtime": "./packages/runtime/mod.ts",
-    // "@sprout/utils": "./packages/utils/mod.ts"
+    "@hono/hono": "jsr:@hono/hono@4.12.24"
   },
   "lint": {
     "rules": {

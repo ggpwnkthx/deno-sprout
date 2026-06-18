@@ -7,7 +7,7 @@
 // result. On any failure the element is marked with
 // `data-sprout-error="<CODE>"` and the function resolves (does not
 // throw) with `ok: false`.
-import { causeMessage } from "@sprout/utils";
+import { causeMessage } from "@sprout/utils/cause";
 import { parseJsonProps, RuntimeError, validateIslandPublicPath } from "@sprout/jsx/shared";
 import type { IslandMountResult } from "./module_contract.ts";
 
@@ -19,7 +19,7 @@ export type DynamicImporter = (specifier: string) => Promise<unknown>;
 
 /**
  * Default importer. Wraps the global `import()` so tests can inject a
- * different implementation by passing `_import` to `mountIsland`.
+ * different implementation by passing `importer` to `mountIsland`.
  */
 const defaultImporter: DynamicImporter = (specifier) =>
   // The `/* @vite-ignore */` comment is a hint for build tools that
@@ -45,7 +45,7 @@ export interface MountIslandOptions {
    * uses the global `import()`. The importer receives the canonical
    * `src` URL verbatim.
    */
-  readonly _import?: DynamicImporter;
+  readonly importer?: DynamicImporter;
 }
 
 /**
@@ -129,7 +129,7 @@ export async function mountIsland(
 ): Promise<IslandMountResult> {
   const id = element.getAttribute("data-sprout-island") ?? "";
   const src = element.getAttribute("data-sprout-src");
-  const importer = options._import ?? defaultImporter;
+  const importer = options.importer ?? defaultImporter;
 
   // 1. Validate the src. On failure, mark the element and resolve.
   const srcError = validateIslandSrcAttribute(src, id);

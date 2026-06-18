@@ -22,7 +22,8 @@ import {
   CompilerError,
   resolveRuntimeEntryFile,
 } from "@sprout/compiler";
-import { causeMessage, NOSNIFF } from "@sprout/utils";
+import { causeMessage } from "@sprout/utils/cause";
+import { NOSNIFF } from "@sprout/utils";
 import { CoreError, coreErrorToResponse } from "./errors.ts";
 
 /** Headers attached to every dev asset response. */

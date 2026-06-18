@@ -13,163 +13,16 @@
 import { assertEquals, assertStringIncludes } from "jsr:@std/assert@1";
 import { mountAll } from "./mount_all.ts";
 import type { IslandMountResult } from "./module_contract.ts";
-import { RuntimeError } from "@sprout/jsx/shared";
-
-// ---------------------------------------------------------------------------
-// Fake element / parent implementation
-// ---------------------------------------------------------------------------
-
-interface FakeElement {
-  tagName: string;
-  parentNode: FakeParent | null;
-  children: FakeElement[];
-  attributes: Map<string, string>;
-  textContent: string;
-  getAttribute(name: string): string | null;
-  setAttribute(name: string, value: string): void;
-  removeAttribute(name: string): void;
-  appendChild(child: FakeElement): FakeElement;
-  removeChild(child: FakeElement): void;
-  readonly firstChild: FakeElement | null;
-}
-
-interface FakeParent {
-  children: FakeElement[];
-  querySelectorAll(selector: string): FakeElement[];
-  appendChild(child: FakeElement): FakeElement;
-  removeChild(child: FakeElement): void;
-}
-
-function isIslandPlaceholderSelector(selector: string): boolean {
-  return selector.split(",").some((part) => part.trim() === "[data-sprout-src]");
-}
-
-function makeElement(): FakeElement {
-  const attributes = new Map<string, string>();
-  const el: FakeElement = {
-    tagName: "DIV",
-    parentNode: null,
-    children: [],
-    attributes,
-    textContent: "",
-    getAttribute(name: string): string | null {
-      return attributes.has(name) ? attributes.get(name) ?? null : null;
-    },
-    setAttribute(name: string, value: string): void {
-      attributes.set(name, String(value));
-    },
-    removeAttribute(name: string): void {
-      attributes.delete(name);
-    },
-    appendChild(child: FakeElement): FakeElement {
-      child.parentNode = el as unknown as FakeParent;
-      el.children.push(child);
-      return child;
-    },
-    removeChild(child: FakeElement): void {
-      const idx = el.children.indexOf(child);
-      if (idx >= 0) {
-        el.children.splice(idx, 1);
-        child.parentNode = null;
-      }
-    },
-    get firstChild(): FakeElement | null {
-      return el.children[0] ?? null;
-    },
-  };
-  return el;
-}
-
-function makeParent(): FakeParent & { addIsland(el: FakeElement): void } {
-  const children: FakeElement[] = [];
-  const parent: FakeParent & { addIsland(el: FakeElement): void } = {
-    children,
-    querySelectorAll(selector: string): FakeElement[] {
-      if (!isIslandPlaceholderSelector(selector)) return [];
-      const out: FakeElement[] = [];
-      const walk = (node: FakeElement): void => {
-        if (node.attributes.has("data-sprout-src")) {
-          out.push(node);
-        }
-        for (const c of node.children) walk(c);
-      };
-      for (const child of children) walk(child);
-      return out;
-    },
-    appendChild(child: FakeElement): FakeElement {
-      child.parentNode = parent;
-      children.push(child);
-      return child;
-    },
-    removeChild(child: FakeElement): void {
-      const idx = children.indexOf(child);
-      if (idx >= 0) {
-        children.splice(idx, 1);
-        child.parentNode = null;
-      }
-    },
-    addIsland(el: FakeElement): void {
-      parent.appendChild(el);
-    },
-  };
-  return parent;
-}
-
-function makeIslandElement(
-  id: string,
-  src: string,
-  props?: Record<string, unknown>,
-): FakeElement {
-  const el = makeElement();
-  el.setAttribute("data-sprout-island", id);
-  el.setAttribute("data-sprout-src", src);
-  if (props) {
-    el.setAttribute("data-sprout-props", JSON.stringify(props));
-  }
-  return el;
-}
-
-// ---------------------------------------------------------------------------
-// Fake island module factory
-// ---------------------------------------------------------------------------
-
-interface FakeIsland {
-  callCount: number;
-  mount: (element: FakeElement, props: Readonly<Record<string, unknown>>) => void | Promise<void>;
-}
-
-function fakeIsland(): FakeIsland {
-  return {
-    callCount: 0,
-    mount(element, _props) {
-      this.callCount++;
-      element.setAttribute("data-sprout-mounted", "true");
-      element.textContent = "mounted";
-    },
-  };
-}
-
-function fakeImporter(
-  modules: Record<string, { default: FakeIsland }>,
-): (specifier: string) => Promise<unknown> {
-  return (specifier: string) => {
-    const m = modules[specifier];
-    if (!m) {
-      return Promise.reject(new Error(`not found: ${specifier}`));
-    }
-    return Promise.resolve(m);
-  };
-}
-
-/** Cast a `FakeParent` to the structural type the runtime accepts. */
-function asParent(p: FakeParent): ParentNode {
-  return p as unknown as ParentNode;
-}
-
-/** Cast a `FakeElement` to the structural type the runtime accepts. */
-function asElement(e: FakeElement): HTMLElement {
-  return e as unknown as HTMLElement;
-}
+import { RuntimeError } from "./errors.ts";
+import {
+  asParent,
+  type FakeElement,
+  fakeImporter,
+  fakeIsland,
+  makeElement,
+  makeIslandElement,
+  makeParent,
+} from "./_test_utils.ts";
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -189,7 +42,7 @@ Deno.test("mountAll mounts all placeholders and returns one result per node", as
     "/@sprout/island/B.js": { default: moduleB },
   });
 
-  const results = await mountAll(asParent(parent), { _import: importer });
+  const results = await mountAll(asParent(parent), { importer: importer });
   assertEquals(results.length, 2);
   const r0 = results[0];
   const r1 = results[1];
@@ -216,13 +69,13 @@ Deno.test("mountAll skips already-mounted nodes and is idempotent", async () => 
     "/@sprout/island/A.js": { default: moduleA },
   });
 
-  const first = await mountAll(asParent(parent), { _import: importer });
+  const first = await mountAll(asParent(parent), { importer: importer });
   const r0 = first[0];
   if (r0 === undefined) throw new Error("expected one result");
   assertEquals(r0.ok, true);
   assertEquals(moduleA.callCount, 1);
 
-  const second = await mountAll(asParent(parent), { _import: importer });
+  const second = await mountAll(asParent(parent), { importer: importer });
   // Still resolves to a result for the same node, but the fake island
   // is not invoked a second time.
   assertEquals(second.length, 1);
@@ -238,7 +91,7 @@ Deno.test("mountAll marks invalid src with data-sprout-error and returns a failu
   parent.addIsland(bad);
   const importer = fakeImporter({});
 
-  const results = await mountAll(asParent(parent), { _import: importer });
+  const results = await mountAll(asParent(parent), { importer: importer });
   assertEquals(results.length, 1);
   const r = results[0];
   if (r === undefined) throw new Error("expected one result");
@@ -253,7 +106,7 @@ Deno.test("mountAll rejects src with a non-canonical scheme", async () => {
   parent.addIsland(bad);
   const importer = fakeImporter({});
 
-  const results = await mountAll(asParent(parent), { _import: importer });
+  const results = await mountAll(asParent(parent), { importer: importer });
   assertEquals(results.length, 1);
   const r = results[0];
   if (r === undefined) throw new Error("expected one result");
@@ -268,7 +121,7 @@ Deno.test("mountAll rejects src missing the .js extension", async () => {
   parent.addIsland(bad);
   const importer = fakeImporter({});
 
-  const results = await mountAll(asParent(parent), { _import: importer });
+  const results = await mountAll(asParent(parent), { importer: importer });
   assertEquals(results.length, 1);
   const r = results[0];
   if (r === undefined) throw new Error("expected one result");
@@ -284,7 +137,7 @@ Deno.test("mountAll marks invalid props with data-sprout-error and returns a fai
   parent.addIsland(a);
   const importer = fakeImporter({});
 
-  const results = await mountAll(asParent(parent), { _import: importer });
+  const results = await mountAll(asParent(parent), { importer: importer });
   assertEquals(results.length, 1);
   const r = results[0];
   if (r === undefined) throw new Error("expected one result");
@@ -300,7 +153,7 @@ Deno.test("mountAll reports a failed dynamic import", async () => {
   parent.addIsland(a);
   const importer = (specifier: string) => Promise.reject(new Error(`network down: ${specifier}`));
 
-  const results = await mountAll(asParent(parent), { _import: importer });
+  const results = await mountAll(asParent(parent), { importer: importer });
   assertEquals(results.length, 1);
   const r = results[0];
   if (r === undefined) throw new Error("expected one result");
@@ -316,7 +169,7 @@ Deno.test("mountAll reports a module without a mount function", async () => {
   // Resolves successfully, but the default export has no `mount`.
   const importer = (_specifier: string) => Promise.resolve({ default: { unrelated: true } });
 
-  const results = await mountAll(asParent(parent), { _import: importer });
+  const results = await mountAll(asParent(parent), { importer: importer });
   assertEquals(results.length, 1);
   const r = results[0];
   if (r === undefined) throw new Error("expected one result");
@@ -339,7 +192,7 @@ Deno.test("mountAll reports a mount function that throws", async () => {
       },
     });
 
-  const results = await mountAll(asParent(parent), { _import: importer });
+  const results = await mountAll(asParent(parent), { importer: importer });
   assertEquals(results.length, 1);
   const r = results[0];
   if (r === undefined) throw new Error("expected one result");
@@ -365,7 +218,7 @@ Deno.test("mountAll continues after a failure and mounts the later placeholders"
     "/@sprout/island/C.js": { default: moduleC },
   });
 
-  const results = await mountAll(asParent(parent), { _import: importer });
+  const results = await mountAll(asParent(parent), { importer: importer });
   assertEquals(results.length, 3);
   const r0 = results[0];
   const r1 = results[1];
@@ -401,7 +254,7 @@ Deno.test("mountAll scans nested placeholders inside the root", async () => {
     "/@sprout/island/Child.js": { default: childModule },
   });
 
-  const results = await mountAll(asParent(parent), { _import: importer });
+  const results = await mountAll(asParent(parent), { importer: importer });
   assertEquals(results.length, 2);
   assertEquals(results.every((r: IslandMountResult) => r.ok), true);
   assertEquals(wrapper.getAttribute("data-sprout-mounted"), "true");
@@ -430,7 +283,50 @@ Deno.test("mountAll with no root in a non-DOM environment throws MOUNT_FAILED", 
   }
 });
 
-// Quiet the unused-import warning for `asElement`; it is reserved for
-// future per-element tests that exercise the `mountIsland` entry
-// directly. We export the helper to keep the seam local to this file.
-export const _asElement = asElement;
+Deno.test("mountAll handles async mount that resolves successfully", async () => {
+  const parent = makeParent();
+  const a = makeIslandElement("AsyncOk", "/@sprout/island/AsyncOk.js");
+  parent.addIsland(a);
+  const importer = (_specifier: string) =>
+    Promise.resolve({
+      default: {
+        mount(element: FakeElement, _props: Readonly<Record<string, unknown>>) {
+          return new Promise<void>((resolve) => {
+            queueMicrotask(() => {
+              element.setAttribute("data-sprout-mounted", "true");
+              resolve();
+            });
+          });
+        },
+      },
+    });
+  const results = await mountAll(asParent(parent), { importer: importer });
+  assertEquals(results.length, 1);
+  const r = results[0];
+  if (r === undefined) throw new Error("expected one result");
+  assertEquals(r.ok, true, "mount result should be ok");
+  assertEquals(a.getAttribute("data-sprout-mounted"), "true");
+});
+
+Deno.test("mountAll handles async mount that rejects", async () => {
+  const parent = makeParent();
+  const a = makeIslandElement("AsyncFail", "/@sprout/island/AsyncFail.js");
+  parent.addIsland(a);
+  const importer = (_specifier: string) =>
+    Promise.resolve({
+      default: {
+        mount() {
+          return Promise.reject(new Error("async boom"));
+        },
+      },
+    });
+  const results = await mountAll(asParent(parent), { importer: importer });
+  assertEquals(results.length, 1);
+  const r = results[0];
+  if (r === undefined) throw new Error("expected one result");
+  if (r.ok) throw new Error("expected failure result");
+  assertEquals(r.error.code, "MOUNT_FAILED");
+  assertStringIncludes(r.error.message, "async boom");
+  assertEquals(a.getAttribute("data-sprout-error"), "MOUNT_FAILED");
+  assertEquals(a.getAttribute("data-sprout-mounted"), null);
+});

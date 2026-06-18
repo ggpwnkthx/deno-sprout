@@ -3,55 +3,10 @@
 // these tests run without standing up a real DOM.
 import { assertEquals, assertInstanceOf, assertStringIncludes } from "jsr:@std/assert@1";
 import { clearElement, mountComponent } from "./mount_component.ts";
-import { RuntimeError } from "@sprout/jsx/shared";
 import type { DomRender } from "./mount_component.ts";
 import { jsx } from "@sprout/jsx/dom";
-
-interface FakeElement {
-  tagName: string;
-  children: FakeElement[];
-  attributes: Map<string, string>;
-  getAttribute(name: string): string | null;
-  setAttribute(name: string, value: string): void;
-  removeAttribute(name: string): void;
-  appendChild(child: FakeElement): FakeElement;
-  removeChild(child: FakeElement): void;
-  readonly firstChild: FakeElement | null;
-}
-
-function makeElement(): FakeElement {
-  const attributes = new Map<string, string>();
-  const el: FakeElement = {
-    tagName: "DIV",
-    children: [],
-    attributes,
-    getAttribute(name: string): string | null {
-      return attributes.has(name) ? attributes.get(name) ?? null : null;
-    },
-    setAttribute(name: string, value: string): void {
-      attributes.set(name, String(value));
-    },
-    removeAttribute(name: string): void {
-      attributes.delete(name);
-    },
-    appendChild(child: FakeElement): FakeElement {
-      el.children.push(child);
-      return child;
-    },
-    removeChild(child: FakeElement): void {
-      const idx = el.children.indexOf(child);
-      if (idx >= 0) el.children.splice(idx, 1);
-    },
-    get firstChild(): FakeElement | null {
-      return el.children[0] ?? null;
-    },
-  };
-  return el;
-}
-
-function asElement(e: FakeElement): HTMLElement {
-  return e as unknown as HTMLElement;
-}
+import { asElement, makeElement } from "./_test_utils.ts";
+import { RuntimeError } from "./errors.ts";
 
 /**
  * Minimal "render" that just calls the function component with its
