@@ -56,16 +56,11 @@ Deno.test("validateIslandPublicPath: missing extension", () => {
 });
 
 Deno.test("validateIslandPublicPath: empty id (/@sprout/island/.js)", () => {
-  // Note: the ISLAND_PUBLIC_PATTERN regex uses .+\.js$ which backtracks
-  // and matches .js within .jsx. For /.js the tail is "" and the
-  // regex matches (since .+ can match zero chars at the end of the
-  // required .js). The result is "bad_shape" from the regex failure
-  // rather than "empty_id" — this is the pre-existing behavior.
+  // The regex now rejects empty ids, so this returns "empty_id" directly.
   const result = validateIslandPublicPath("/@sprout/island/.js");
   assertEquals(result.ok, false);
   if (!result.ok) {
-    // The regex .+\.js$ matches .js for /.js, so empty_id is never reached.
-    assertEquals(result.reason, "bad_shape");
+    assertEquals(result.reason, "empty_id");
   }
 });
 
@@ -83,11 +78,11 @@ Deno.test("ISLAND_PUBLIC_PATTERN: matches valid paths", () => {
 });
 
 Deno.test("ISLAND_PUBLIC_PATTERN: rejects invalid paths", () => {
-  // /.js returns false because .+ needs at least one char before .js
+  // /.js is rejected (empty id).
   assertEquals(ISLAND_PUBLIC_PATTERN.test("/@sprout/island/.js"), false);
-  // ../bar.js is inside the path — .+ matches foo/../bar and .js$ matches at end
-  assertEquals(ISLAND_PUBLIC_PATTERN.test("/@sprout/island/foo/../bar.js"), true);
-  // foo.jsx ends with .jsx (not .js), so correctly rejected
+  // ../bar.js is rejected (dot_segment).
+  assertEquals(ISLAND_PUBLIC_PATTERN.test("/@sprout/island/foo/../bar.js"), false);
+  // foo.jsx ends with .jsx (not .js), so correctly rejected.
   assertEquals(ISLAND_PUBLIC_PATTERN.test("/@sprout/island/foo.jsx"), false);
 });
 

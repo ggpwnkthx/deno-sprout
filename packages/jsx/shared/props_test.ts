@@ -86,6 +86,78 @@ Deno.test("serializeJsonProps rejects class instances", () => {
   assertEquals(caught.details.reason, "class_instance");
 });
 
+Deno.test("serializeJsonProps rejects nested Date with reason 'date'", () => {
+  let caught: unknown;
+  try {
+    serializeJsonProps({ d: new Date() });
+  } catch (e) {
+    caught = e;
+  }
+  assertInstanceOf(caught, RuntimeError);
+  assertEquals(caught.code, "INVALID_PROPS");
+  assertEquals(caught.details.reason, "date");
+});
+
+Deno.test("serializeJsonProps rejects nested Map with reason 'map'", () => {
+  let caught: unknown;
+  try {
+    serializeJsonProps({ m: new Map() });
+  } catch (e) {
+    caught = e;
+  }
+  assertInstanceOf(caught, RuntimeError);
+  assertEquals(caught.code, "INVALID_PROPS");
+  assertEquals(caught.details.reason, "map");
+});
+
+Deno.test("serializeJsonProps rejects nested Set with reason 'set'", () => {
+  let caught: unknown;
+  try {
+    serializeJsonProps({ s: new Set() });
+  } catch (e) {
+    caught = e;
+  }
+  assertInstanceOf(caught, RuntimeError);
+  assertEquals(caught.code, "INVALID_PROPS");
+  assertEquals(caught.details.reason, "set");
+});
+
+Deno.test("serializeJsonProps rejects nested ArrayBuffer with reason 'typed_array'", () => {
+  let caught: unknown;
+  try {
+    serializeJsonProps({ a: new ArrayBuffer(8) });
+  } catch (e) {
+    caught = e;
+  }
+  assertInstanceOf(caught, RuntimeError);
+  assertEquals(caught.code, "INVALID_PROPS");
+  assertEquals(caught.details.reason, "typed_array");
+});
+
+Deno.test("serializeJsonProps rejects nested Uint8Array with reason 'typed_array'", () => {
+  let caught: unknown;
+  try {
+    serializeJsonProps({ u: new Uint8Array([1, 2, 3]) });
+  } catch (e) {
+    caught = e;
+  }
+  assertInstanceOf(caught, RuntimeError);
+  assertEquals(caught.code, "INVALID_PROPS");
+  assertEquals(caught.details.reason, "typed_array");
+});
+
+Deno.test("serializeJsonProps rejects nested Promise with reason 'promise'", () => {
+  let caught: unknown;
+  try {
+    serializeJsonProps({ p: Promise.resolve(1) });
+  } catch (e) {
+    caught = e;
+  }
+  assertInstanceOf(caught, RuntimeError);
+  assertEquals(caught.code, "INVALID_PROPS");
+  assertEquals(caught.details.reason, "promise");
+});
+
 Deno.test("serializeJsonProps rejects undefined at any position", () => {
   let caught: unknown;
   try {
@@ -199,4 +271,121 @@ Deno.test("parseJsonProps error message names JSON", () => {
   }
   assertInstanceOf(caught, RuntimeError);
   assertStringIncludes(caught.message, "JSON");
+});
+
+Deno.test("serializeJsonProps rejects top-level Date as not_record", () => {
+  let caught: unknown;
+  try {
+    serializeJsonProps(new Date() as unknown as Record<string, unknown>);
+  } catch (e) {
+    caught = e;
+  }
+  assertInstanceOf(caught, RuntimeError);
+  assertEquals(caught.details.reason, "not_record");
+});
+
+Deno.test("serializeJsonProps rejects top-level Map as not_record", () => {
+  let caught: unknown;
+  try {
+    serializeJsonProps(new Map() as unknown as Record<string, unknown>);
+  } catch (e) {
+    caught = e;
+  }
+  assertInstanceOf(caught, RuntimeError);
+  assertEquals(caught.details.reason, "not_record");
+});
+
+Deno.test("serializeJsonProps rejects top-level Set as not_record", () => {
+  let caught: unknown;
+  try {
+    serializeJsonProps(new Set() as unknown as Record<string, unknown>);
+  } catch (e) {
+    caught = e;
+  }
+  assertInstanceOf(caught, RuntimeError);
+  assertEquals(caught.details.reason, "not_record");
+});
+
+Deno.test("serializeJsonProps rejects top-level ArrayBuffer as not_record", () => {
+  let caught: unknown;
+  try {
+    serializeJsonProps(new ArrayBuffer(8) as unknown as Record<string, unknown>);
+  } catch (e) {
+    caught = e;
+  }
+  assertInstanceOf(caught, RuntimeError);
+  assertEquals(caught.details.reason, "not_record");
+});
+
+Deno.test("validateJsonValue: nested class instance has path in details", () => {
+  class Box {
+    constructor(public n: number) {}
+  }
+  let caught: unknown;
+  try {
+    serializeJsonProps({ outer: { inner: new Box(1) } });
+  } catch (e) {
+    caught = e;
+  }
+  assertInstanceOf(caught, RuntimeError);
+  assertEquals(caught.code, "INVALID_PROPS");
+  assertEquals(caught.details.reason, "class_instance");
+  // Path is non-empty for nested values; the leading dot is from the first
+  // key concatenation (path starts as "" and becomes ".outer.inner").
+  assertEquals(typeof caught.details.path, "string");
+  assertEquals(caught.details.path, ".outer.inner");
+});
+
+Deno.test("serializeJsonProps: root has dotted path for nested undefined", () => {
+  // When undefined appears nested, the path reflects its position.
+  let caught: unknown;
+  try {
+    serializeJsonProps({ u: undefined });
+  } catch (e) {
+    caught = e;
+  }
+  assertInstanceOf(caught, RuntimeError);
+  // Path starts with . from the initial "" + "." + "u" concatenation.
+  assertEquals(caught.details.path, ".u");
+});
+
+Deno.test("serializeJsonProps: maxChars 0 throws PROPS_TOO_LARGE for non-empty record", () => {
+  let caught: unknown;
+  try {
+    serializeJsonProps({ a: 1 }, 0);
+  } catch (e) {
+    caught = e;
+  }
+  assertInstanceOf(caught, RuntimeError);
+  assertEquals(caught.code, "PROPS_TOO_LARGE");
+});
+
+Deno.test("serializeJsonProps: maxChars negative throws PROPS_TOO_LARGE for non-empty record", () => {
+  let caught: unknown;
+  try {
+    serializeJsonProps({ a: 1 }, -1);
+  } catch (e) {
+    caught = e;
+  }
+  assertInstanceOf(caught, RuntimeError);
+  assertEquals(caught.code, "PROPS_TOO_LARGE");
+});
+
+Deno.test("serializeJsonProps: maxChars 0 throws even for the empty record", () => {
+  // "{}" is 2 chars, so maxChars=0 should fail.
+  let caught: unknown;
+  try {
+    serializeJsonProps({}, 0);
+  } catch (e) {
+    caught = e;
+  }
+  // Actually {} serializes to "{}" which is 2 chars > 0, so this throws.
+  assertInstanceOf(caught, RuntimeError);
+  assertEquals(caught.code, "PROPS_TOO_LARGE");
+});
+
+Deno.test("serializeJsonProps: maxChars 2 accepts empty record", () => {
+  // "{}" is 2 chars, so maxChars=2 should pass.
+  const text = serializeJsonProps({}, 2);
+  assertEquals(text, "{}");
 });

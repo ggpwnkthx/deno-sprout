@@ -8,9 +8,9 @@
 //
 // The registry is intentionally process-local and per-server-instance.
 // It uses a `WeakMap` so registered component references do not pin
-// closures alive longer than the user expects; the parallel `Set`
-// carries the same references purely to keep the `WeakMap` honest in
-// the face of component identity lookups across reloads.
+// closures alive longer than the user expects. Registry lifetime is
+// tied to the function reference's lifetime; when the function is
+// garbage-collected the entry is cleaned up automatically.
 import { RuntimeError, validateIslandPublicPath } from "../shared/mod.ts";
 
 /**
@@ -19,14 +19,18 @@ import { RuntimeError, validateIslandPublicPath } from "../shared/mod.ts";
  * The `src` must be a stable public path that the runtime will dynamic
  * `import` in the browser. The template literal type encodes the
  * canonical form: `/@sprout/island/<id>.js`.
+ *
+ * The `id` field **must** match the id embedded in `src` (the segment
+ * between the prefix and the `.js` suffix). Mismatch is a programming
+ * error and will throw at registration time.
  */
 export type IslandMetadata = {
+  /** The island identifier; must equal the id in `src`. */
   readonly id: string;
   readonly src: `/@sprout/island/${string}.js`;
 };
 
-const registry = new WeakMap<object, IslandMetadata>();
-const keepAlive = new Set<object>();
+const registry = new WeakMap<(...args: never) => unknown, IslandMetadata>();
 
 /**
  * Register a component reference as an island.
@@ -37,13 +41,13 @@ const keepAlive = new Set<object>();
  * `data-sprout-src` and the dynamic import URL on the client.
  */
 export function registerIslandComponent(
-  component: object,
+  component: (...args: never) => unknown,
   metadata: IslandMetadata,
 ): void {
-  if (component === null || typeof component !== "object" && typeof component !== "function") {
+  if (typeof component !== "function") {
     throw new RuntimeError(
       "INVALID_PLACEHOLDER",
-      "island component must be a function or object reference",
+      "island component must be a function",
       { id: metadata.id },
     );
   }
@@ -55,6 +59,13 @@ export function registerIslandComponent(
       { src: metadata.src, reason: result.reason },
     );
   }
+  if (result.ok && result.id !== metadata.id) {
+    throw new RuntimeError(
+      "INVALID_PLACEHOLDER",
+      "island id does not match the id embedded in src",
+      { src: metadata.src, declaredId: metadata.id, canonicalId: result.id },
+    );
+  }
   if (typeof metadata.id !== "string" || metadata.id.length === 0) {
     throw new RuntimeError(
       "INVALID_PLACEHOLDER",
@@ -63,7 +74,6 @@ export function registerIslandComponent(
     );
   }
   registry.set(component, metadata);
-  keepAlive.add(component);
 }
 
 /**
@@ -72,17 +82,17 @@ export function registerIslandComponent(
  * Returns `undefined` for non-island components. Used by the server
  * JSX runtime to decide whether to emit a placeholder.
  */
-export function lookupIslandMetadata(component: object): IslandMetadata | undefined {
+export function lookupIslandMetadata(
+  component: (...args: never) => unknown,
+): IslandMetadata | undefined {
   return registry.get(component);
 }
 
 /**
- * Clear the registry. Intended for tests; do not call in production
- * code paths without understanding the implications.
+ * No-op. The registry is now a `WeakMap` keyed by function reference;
+ * entries are garbage-collected when the function is no longer reachable.
+ * This function is kept for API stability for any tests that call it.
  */
 export function clearIslandRegistry(): void {
-  for (const ref of keepAlive) {
-    registry.delete(ref);
-  }
-  keepAlive.clear();
+  // No-op: WeakMap cleanup is automatic.
 }

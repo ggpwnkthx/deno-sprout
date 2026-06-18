@@ -10,4 +10,4 @@ export {
 export type { IslandMetadata } from "./island-registry.ts";
 export { buildIslandPlaceholder } from "./island_placeholder.ts";
 export { Fragment, jsx, jsxs } from "./jsx-runtime.ts";
-export type { JSX } from "./jsx-runtime.ts";
+export type { ComponentTag, JSX } from "./jsx-runtime.ts";

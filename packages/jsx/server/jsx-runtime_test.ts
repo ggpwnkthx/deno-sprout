@@ -7,25 +7,19 @@ import {
   assertThrows,
 } from "jsr:@std/assert@1";
 import { Fragment, jsx } from "./jsx-runtime.ts";
-import { clearIslandRegistry, registerIslandComponent } from "./island-registry.ts";
+import { registerIslandComponent } from "./island-registry.ts";
 import { RuntimeError } from "../shared/mod.ts";
 import type { IslandMetadata } from "./island-registry.ts";
 import type { JSXNode } from "@hono/hono/jsx";
 
-// Each test starts with a clean registry.
-function reset(): void {
-  clearIslandRegistry();
-}
-
 // Helper: build an `IslandMetadata` from a free-form src so tests can
 // exercise the runtime validation without the template literal type
 // rejecting the input at compile time.
-function meta(src: string): IslandMetadata {
-  return { id: "X", src: src as IslandMetadata["src"] };
+function meta(src: string, id?: string): IslandMetadata {
+  return { id: id ?? "X", src: src as IslandMetadata["src"] };
 }
 
 Deno.test("unregistered function component renders normally", () => {
-  reset();
   function Greeting({ name }: { name: string }) {
     return jsx("span", null, `hello ${name}`);
   }
@@ -39,7 +33,6 @@ Deno.test("unregistered function component renders normally", () => {
 });
 
 Deno.test("registered island component emits a placeholder div with the three data-sprout-* attributes", () => {
-  reset();
   function Counter({ initial }: { initial: number }) {
     // This function body must NOT execute when the component is
     // registered as an island. We assert that by checking that the
@@ -71,7 +64,6 @@ Deno.test("registered island component emits a placeholder div with the three da
 });
 
 Deno.test("placeholder props are JSON-serializable and round-trip through parseJsonProps", () => {
-  reset();
   function Island() {
     return null;
   }
@@ -101,7 +93,6 @@ Deno.test("placeholder props are JSON-serializable and round-trip through parseJ
 });
 
 Deno.test("Fragment is exported and renders children", () => {
-  reset();
   const node = jsx(Fragment, null, "a", "b") as JSXNode;
   const html = String(node);
   assertStringIncludes(html, "a");
@@ -109,76 +100,118 @@ Deno.test("Fragment is exported and renders children", () => {
 });
 
 Deno.test("registerIslandComponent rejects src that escapes the prefix", () => {
-  reset();
   function Comp() {
     return null;
   }
   assertThrows(
     () => registerIslandComponent(Comp, meta("/@sprout/../escape.js")),
     RuntimeError,
-    undefined,
-    undefined,
+    "canonical",
   );
 });
 
 Deno.test("registerIslandComponent rejects src with a non-canonical scheme", () => {
-  reset();
   function Comp() {
     return null;
   }
   assertThrows(
     () => registerIslandComponent(Comp, meta("http://evil.example/x.js")),
     RuntimeError,
-    undefined,
-    undefined,
+    "canonical",
   );
 });
 
 Deno.test("registerIslandComponent rejects src missing the .js extension", () => {
-  reset();
   function Comp() {
     return null;
   }
   assertThrows(
     () => registerIslandComponent(Comp, meta("/@sprout/island/Counter")),
     RuntimeError,
-    undefined,
-    undefined,
+    "canonical",
   );
 });
 
 Deno.test("registerIslandComponent rejects src with a NUL byte", () => {
-  reset();
   function Comp() {
     return null;
   }
   assertThrows(
     () => registerIslandComponent(Comp, meta("/@sprout/island/Co\u0000unter.js")),
     RuntimeError,
-    undefined,
-    undefined,
+    "canonical",
   );
 });
 
-Deno.test("clearIslandRegistry empties the registry", () => {
-  reset();
+Deno.test("registerIslandComponent throws when id does not match src", () => {
   function Comp() {
-    return jsx("span", null, "real");
+    return null;
   }
-  registerIslandComponent(Comp, {
-    id: "Comp",
-    src: "/@sprout/island/Comp.js",
+  // src says "Other" but declared id is "Counter" — mismatch.
+  assertThrows(
+    () =>
+      registerIslandComponent(Comp, {
+        id: "Counter",
+        src: "/@sprout/island/Other.js",
+      }),
+    RuntimeError,
+    "does not match",
+  );
+});
+
+Deno.test("registerIslandComponent throws for non-function component value", () => {
+  assertThrows(
+    // deno-lint-ignore no-explicit-any
+    () => registerIslandComponent({} as any, meta("/@sprout/island/Counter.js")),
+    RuntimeError,
+    "must be a function",
+  );
+  assertThrows(
+    // deno-lint-ignore no-explicit-any
+    () => registerIslandComponent([] as any, meta("/@sprout/island/Counter.js")),
+    RuntimeError,
+    "must be a function",
+  );
+});
+
+Deno.test("island children are discarded (placeholder replaces the tree)", () => {
+  function Parent() {
+    return jsx("div", null, "this is discarded");
+  }
+  registerIslandComponent(Parent, {
+    id: "Parent",
+    src: "/@sprout/island/Parent.js",
   });
-  // After clear, the component should render normally again.
-  clearIslandRegistry();
-  const node = jsx(Comp, null) as JSXNode;
+  const node = jsx(Parent, null, jsx("span", null, "never rendered")) as JSXNode;
   const html = String(node);
-  assertStringIncludes(html, "<span");
-  assertStringIncludes(html, "real");
+  // The placeholder div must be present.
+  assertStringIncludes(html, "<div");
+  assertStringIncludes(html, 'data-sprout-island="Parent"');
+  // The children passed to the island must NOT appear in the output.
+  if (html.includes("never rendered")) {
+    throw new Error("island children should not appear in server output");
+  }
+});
+
+Deno.test("distinct function references are separate registry entries", () => {
+  // This test verifies the WeakMap-keyed behavior: two function references
+  // are independent keys even if they have the same source text.
+  function A() {
+    return jsx("span", null, "A");
+  }
+  function B() {
+    return jsx("span", null, "B");
+  }
+  registerIslandComponent(A, { id: "A", src: "/@sprout/island/A.js" });
+  registerIslandComponent(B, { id: "B", src: "/@sprout/island/B.js" });
+  // Both resolve to their respective island metadata.
+  const htmlA = String(jsx(A, null));
+  const htmlB = String(jsx(B, null));
+  assertStringIncludes(htmlA, 'data-sprout-island="A"');
+  assertStringIncludes(htmlB, 'data-sprout-island="B"');
 });
 
 Deno.test("invalid props throw INVALID_PROPS through the placeholder path", () => {
-  reset();
   function Comp() {
     return null;
   }

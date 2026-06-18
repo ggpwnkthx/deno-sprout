@@ -57,10 +57,10 @@ export function validateManifest(project: DiscoveredProject): Manifest {
         { id: island.id, publicPath: island.publicPath },
       );
     }
-    if (island.publicPath.includes("..") || island.publicPath.includes("\0")) {
+    if (island.publicPath.includes("\0")) {
       throw new CompilerError(
         "MANIFEST_INVALID_PUBLIC_PATH",
-        `island public path contains a forbidden segment`,
+        `island public path contains a NUL byte`,
         { id: island.id, publicPath: island.publicPath },
       );
     }

@@ -19,24 +19,6 @@ import { serializeJsonProps } from "../shared/mod.ts";
 import type { IslandMetadata } from "./island-registry.ts";
 
 /**
- * Reserved client-runtime attributes that the server never emits.
- * The server only emits the three contract attributes; the runtime
- * owns `data-sprout-mounted` and `data-sprout-error`.
- */
-export const RUNTIME_PLACEHOLDER_ATTRS = [
-  "data-sprout-island",
-  "data-sprout-src",
-  "data-sprout-props",
-] as const;
-
-export type RuntimePlaceholderAttr =
-  | "data-sprout-island"
-  | "data-sprout-src"
-  | "data-sprout-props"
-  | "data-sprout-mounted"
-  | "data-sprout-error";
-
-/**
  * Build a placeholder `JSXNode` for a registered island component.
  *
  * `props` is forwarded to `serializeJsonProps` and must be a plain

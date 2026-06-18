@@ -26,25 +26,47 @@ import type { IslandMetadata } from "./island-registry.ts";
  * reads children positionally (`honoJsx(tag, props, ...children)`).
  * The wrapper accepts both shapes: positional children win, then
  * `props.children`, then an empty array.
+ *
+ * React's convention is to drop `undefined`, `null`, `false`, and `true`
+ * from the children array. This function applies the same filter and
+ * also flattens arrays one level so that `<Foo>{cond && <Bar/>}</Foo>`
+ * works correctly regardless of whether `cond` is `true`, `false`,
+ * or `null`.
  */
 function resolveChildren(
   props: Record<string, unknown> | null,
   rest: readonly Child[],
 ): Child[] {
-  if (rest.length > 0) {
-    return [...rest];
+  const raw: unknown[] = rest.length > 0 ? [...rest] : [];
+  if (props !== null) {
+    const c = (props as { children?: unknown }).children;
+    if (c !== undefined && c !== null && c !== false && c !== true) {
+      if (Array.isArray(c)) {
+        raw.push(...c);
+      } else {
+        raw.push(c);
+      }
+    }
   }
-  if (props === null) {
-    return [];
+  // Filter out React-falsy children (undefined, null, false, true) and
+  // flatten one level (arrays of children are flattened but not deep).
+  const result: Child[] = [];
+  for (const child of raw) {
+    if (child === undefined || child === null || child === false || child === true) {
+      continue;
+    }
+    if (Array.isArray(child)) {
+      for (const item of child) {
+        if (item === undefined || item === null || item === false || item === true) {
+          continue;
+        }
+        result.push(item as Child);
+      }
+    } else {
+      result.push(child as Child);
+    }
   }
-  const c = (props as { children?: unknown }).children;
-  if (c === undefined || c === null || c === false) {
-    return [];
-  }
-  if (Array.isArray(c)) {
-    return c as Child[];
-  }
-  return [c as Child];
+  return result;
 }
 
 /**

@@ -21,6 +21,16 @@ const PROPS_TOO_LARGE_MESSAGE = "serialized props exceed the configured size lim
 const PROPS_NOT_JSON_MESSAGE = "props must be valid JSON";
 
 /**
+ * Check whether a plain object has `Object.prototype` (or `null`).
+ * Used to distinguish plain objects from class instances.
+ */
+function hasPlainObjectPrototype(value: object | null): boolean {
+  if (value === null) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+/**
  * Check whether a value is a plain object record (or array) suitable for
  * JSON serialization. Returns `true` for plain records, plain arrays, and
  * primitives; `false` for class instances, dates, maps, sets, etc.
@@ -52,14 +62,7 @@ function isPlainJsonContainer(value: unknown): value is JsonValue {
   if (value instanceof Promise) {
     return false;
   }
-  // Class instances and other exotic objects all have a non-Object.prototype
-  // and non-null prototype. Plain objects (created by `{}` or `Object.create(null)`)
-  // pass through.
-  const proto: unknown = Object.getPrototypeOf(value);
-  if (proto !== Object.prototype && proto !== null) {
-    return false;
-  }
-  return true;
+  return hasPlainObjectPrototype(value as object);
 }
 
 function failInvalidProps(
@@ -139,7 +142,7 @@ function validateJsonValue(
   if (value instanceof Promise) {
     failInvalidProps("promise", path);
   }
-  if (!isPlainJsonContainer(value)) {
+  if (!hasPlainObjectPrototype(value as object)) {
     failInvalidProps("class_instance", path);
   }
   const obj = value as Record<string, unknown>;
@@ -160,11 +163,17 @@ function validateJsonValue(
  * The top-level value must be a plain object record. Nested values must be
  * JSON-compatible (string, finite number, boolean, null, plain array, plain
  * record). Cycles, `undefined`, functions, `bigint`, `Date`, class
- * instances, maps, sets, and typed arrays are all rejected.
+ * instances, maps, sets, and typed arrays are all rejected. Nested values
+ * of type `Date`, `Map`, `Set`, typed array, or `Promise` throw with their
+ * specific `details.reason`; class instances throw with
+ * `details.reason: "class_instance"`; top-level non-record values throw
+ * with `details.reason: "not_record"`.
  *
  * The serialized string is bounded by `maxChars` (default
  * {@link DEFAULT_MAX_SERIALIZED_PROPS_CHARS}). On overflow the function
- * throws `RuntimeError("PROPS_TOO_LARGE", ...)`.
+ * throws `RuntimeError("PROPS_TOO_LARGE", ...)`. `maxChars` of `0` or
+ * a negative value will throw `PROPS_TOO_LARGE` for any non-empty record
+ * (an empty record serializes to `"{}"` and passes only when `maxChars >= 2`).
  */
 export function serializeJsonProps(
   value: unknown,

@@ -25,6 +25,34 @@ shared helpers (`@sprout/jsx/shared`) provide JSON prop serialization, parsing, 
 - `JSX` — the `JSX` namespace type re-exported from the server runtime. Use this for typing JSX
   expressions in route files.
 
+### `@sprout/jsx/server` (server subpath)
+
+The `@sprout/jsx/server` subpath exposes the server runtime directly for frameworks that need
+finer-grained control over the JSX factory than the top-level `@sprout/jsx` re-export provides.
+
+- `Fragment` — the JSX fragment component.
+- `jsx(tag, props, ...children)` — the server JSX factory (same as `@sprout/jsx`).
+- `jsxs(tag, props, ...children)` — alias of `jsx`.
+- `ComponentTag` — the function-component tag type (`(...args: never) => unknown`). Use this to type
+  island component references.
+- `IslandMetadata` — the metadata shape stored in the registry.
+- `registerIslandComponent(component, metadata)` — register a function component as an island. The
+  `component` must be a function reference; the registry is keyed by function identity (a
+  `WeakMap`). Re-importing a module produces a different function reference and therefore a
+  different registry key.
+- `lookupIslandMetadata(component)` — read the metadata for a registered component, or `undefined`
+  when the component is not registered.
+- `clearIslandRegistry()` — no-op. The registry is a `WeakMap`; entries are garbage-collected when
+  the function reference is no longer reachable. This function is kept for API stability.
+
+### `@sprout/jsx/jsx-runtime` (jsx-runtime subpath)
+
+Alias for `@sprout/jsx/server`. Used by the TypeScript `jsx` runtime pragma.
+
+### `@sprout/jsx/jsx-dev-runtime` (jsx-dev-runtime subpath)
+
+Alias for `@sprout/jsx/server` in development mode.
+
 ### `@sprout/jsx/dom` (browser)
 
 - `Fragment` — the JSX fragment component for island bundles. The browser runtime uses the
@@ -40,7 +68,8 @@ shared helpers (`@sprout/jsx/shared`) provide JSON prop serialization, parsing, 
 - `serializeJsonProps(value, maxChars?)` — serialize a JavaScript value as JSON for an island
   placeholder. The top-level value must be a plain object record; cycles, `undefined`, functions,
   `bigint`, `Date`, class instances, maps, sets, and typed arrays are rejected. The serialized
-  string is bounded by `maxChars` (default `DEFAULT_MAX_SERIALIZED_PROPS_CHARS`).
+  string is bounded by `maxChars` (default `DEFAULT_MAX_SERIALIZED_PROPS_CHARS`). `maxChars` of `0`
+  or a negative value always throws `PROPS_TOO_LARGE` for any non-empty record.
 - `parseJsonProps(text)` — parse a JSON-serialized island props string into a plain object record.
   Throws `RuntimeError` on invalid JSON or non-record top-level values.
 - `DEFAULT_MAX_SERIALIZED_PROPS_CHARS` — the default cap (65 536 characters) for the JSON-serialized
