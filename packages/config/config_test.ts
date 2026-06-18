@@ -9,37 +9,14 @@ import {
   assertStringIncludes,
   assertThrows,
 } from "jsr:@std/assert@1";
-import { fromFileUrl, join } from "@std/path";
+import { join } from "@std/path";
 import { ConfigError, defineConfig, loadConfig, resolveConfig } from "./mod.ts";
+import { makeTempDir, REPO_ROOT, writeFile } from "./_test_utils.ts";
 
-const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
-
-/**
- * Create a fresh temp directory under `tests/.tmp/` for a single test.
- * The cleanup callback removes the directory recursively.
- */
-async function makeTempDir(
-  prefix: string,
-): Promise<{ readonly path: string; cleanup: () => Promise<void> }> {
-  const dir = await Deno.makeTempDir({
-    prefix,
-    dir: join(REPO_ROOT, "tests/.tmp"),
-  });
-  return {
-    path: dir,
-    cleanup: async () => {
-      try {
-        await Deno.remove(dir, { recursive: true });
-      } catch (_cause) {
-        // best-effort cleanup
-      }
-    },
-  };
-}
-
-/** Write a file at `path` with `contents`. */
-async function writeFile(path: string, contents: string): Promise<void> {
-  await Deno.writeTextFile(path, contents);
+/** Create the default <root>/src/styles/app.css so the default styles.app lookup succeeds. */
+async function ensureDefaultStylesheet(root: string): Promise<void> {
+  await Deno.mkdir(join(root, "src/styles"), { recursive: true });
+  await writeFile(join(root, "src/styles/app.css"), "body {}\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -49,6 +26,9 @@ async function writeFile(path: string, contents: string): Promise<void> {
 Deno.test("loadConfig: missing config file resolves to defaults", async () => {
   const tmp = await makeTempDir("sprout-cfg-defaults-");
   try {
+    // Create the default stylesheet so the default-path lookup succeeds.
+    await Deno.mkdir(join(tmp.path, "src/styles"), { recursive: true });
+    await writeFile(join(tmp.path, "src/styles/app.css"), "body {}\n");
     const config = await loadConfig({ root: tmp.path, mode: "development" });
     assertEquals(config.root, tmp.path);
     assertEquals(config.srcDir, join(tmp.path, "src"));
@@ -58,7 +38,7 @@ Deno.test("loadConfig: missing config file resolves to defaults", async () => {
     assertEquals(config.routes.include, ["**/*.{ts,tsx}"]);
     assertEquals(config.routes.exclude, ["**/*.test.{ts,tsx}", "**/_*.{ts,tsx}"]);
     assertEquals(config.islands.dir, join(tmp.path, "src/islands"));
-    assertEquals(config.styles.app, null);
+    assertEquals(config.styles.app, join(tmp.path, "src/styles/app.css"));
     assertEquals(config.build.compress, "gzip");
     assertEquals(config.build.sourcemap, true);
     assertEquals(config.build.minify, false);
@@ -73,6 +53,7 @@ Deno.test("loadConfig: missing config file resolves to defaults", async () => {
 Deno.test("loadConfig: production mode flips minify and sourcemap defaults", async () => {
   const tmp = await makeTempDir("sprout-cfg-prod-");
   try {
+    await ensureDefaultStylesheet(tmp.path);
     const config = await loadConfig({ root: tmp.path, mode: "production" });
     assertEquals(config.build.sourcemap, false);
     assertEquals(config.build.minify, true);
@@ -88,6 +69,7 @@ Deno.test("loadConfig: production mode flips minify and sourcemap defaults", asy
 Deno.test("loadConfig: default export is loaded from sprout.config.ts", async () => {
   const tmp = await makeTempDir("sprout-cfg-export-");
   try {
+    await ensureDefaultStylesheet(tmp.path);
     const configPath = join(tmp.path, "sprout.config.ts");
     await writeFile(
       configPath,
@@ -103,6 +85,7 @@ Deno.test("loadConfig: default export is loaded from sprout.config.ts", async ()
 Deno.test("loadConfig: defineConfig wrapper is accepted", async () => {
   const tmp = await makeTempDir("sprout-cfg-wrap-");
   try {
+    await ensureDefaultStylesheet(tmp.path);
     const configPath = join(tmp.path, "sprout.config.ts");
     await writeFile(
       configPath,
@@ -160,6 +143,7 @@ Deno.test("loadConfig: unknown top-level key is rejected in strict mode", async 
 Deno.test("loadConfig: relative path resolves against root", async () => {
   const tmp = await makeTempDir("sprout-cfg-relpath-");
   try {
+    await ensureDefaultStylesheet(tmp.path);
     const configPath = join(tmp.path, "sprout.config.ts");
     await writeFile(
       configPath,
@@ -175,6 +159,7 @@ Deno.test("loadConfig: relative path resolves against root", async () => {
 Deno.test("loadConfig: absolute path inside root is accepted", async () => {
   const tmp = await makeTempDir("sprout-cfg-abspath-");
   try {
+    await ensureDefaultStylesheet(tmp.path);
     const target = join(tmp.path, "build");
     const configPath = join(tmp.path, "sprout.config.ts");
     await writeFile(
@@ -237,7 +222,7 @@ Deno.test("loadConfig: port = 0 throws CONFIG_INVALID_PORT", async () => {
     const configPath = join(tmp.path, "sprout.config.ts");
     await writeFile(
       configPath,
-      `export default { server: { port: 0 } };\n`,
+      `export default { server: { port: 0 }, styles: { app: false } };\n`,
     );
     const err = await assertRejects(
       () => loadConfig({ root: tmp.path }),
@@ -255,7 +240,7 @@ Deno.test("loadConfig: port = 70000 throws CONFIG_INVALID_PORT", async () => {
     const configPath = join(tmp.path, "sprout.config.ts");
     await writeFile(
       configPath,
-      `export default { server: { port: 70000 } };\n`,
+      `export default { server: { port: 70000 }, styles: { app: false } };\n`,
     );
     const err = await assertRejects(
       () => loadConfig({ root: tmp.path }),
@@ -277,7 +262,7 @@ Deno.test("loadConfig: invalid cache kind throws CONFIG_INVALID_CACHE_POLICY", a
     const configPath = join(tmp.path, "sprout.config.ts");
     await writeFile(
       configPath,
-      `export default { build: { frozenAssetCache: { kind: "unbounded" } } };\n`,
+      `export default { build: { frozenAssetCache: { kind: "unbounded" } }, styles: { app: false } };\n`,
     );
     const err = await assertRejects(
       () => loadConfig({ root: tmp.path }),
@@ -295,7 +280,7 @@ Deno.test("loadConfig: maxBytes = 0 throws CONFIG_INVALID_CACHE_POLICY", async (
     const configPath = join(tmp.path, "sprout.config.ts");
     await writeFile(
       configPath,
-      `export default { build: { frozenAssetCache: { kind: "bounded", maxBytes: 0 } } };\n`,
+      `export default { build: { frozenAssetCache: { kind: "bounded", maxBytes: 0 } }, styles: { app: false } };\n`,
     );
     const err = await assertRejects(
       () => loadConfig({ root: tmp.path }),
@@ -313,7 +298,7 @@ Deno.test("loadConfig: maxBytes = -1 throws CONFIG_INVALID_CACHE_POLICY", async 
     const configPath = join(tmp.path, "sprout.config.ts");
     await writeFile(
       configPath,
-      `export default { build: { frozenAssetCache: { kind: "bounded", maxBytes: -1 } } };\n`,
+      `export default { build: { frozenAssetCache: { kind: "bounded", maxBytes: -1 } }, styles: { app: false } };\n`,
     );
     const err = await assertRejects(
       () => loadConfig({ root: tmp.path }),
@@ -331,7 +316,7 @@ Deno.test("loadConfig: maxBytes unset uses the 16 MiB default", async () => {
     const configPath = join(tmp.path, "sprout.config.ts");
     await writeFile(
       configPath,
-      `export default { build: { frozenAssetCache: { kind: "bounded" } } };\n`,
+      `export default { build: { frozenAssetCache: { kind: "bounded" } }, styles: { app: false } };\n`,
     );
     const config = await loadConfig({ root: tmp.path });
     assertEquals(config.build.frozenAssetCache, {
@@ -394,7 +379,9 @@ Deno.test("loadConfig: styles.app points to an existing file is kept", async () 
 // ---------------------------------------------------------------------------
 
 Deno.test("resolveConfig: accepts a literal object without touching the filesystem", () => {
-  const resolved = resolveConfig({ srcDir: "src" }, {
+  // Pass styles.app = false to avoid the default stylesheet stat check so
+  // this test remains pure (no filesystem dependency).
+  const resolved = resolveConfig({ srcDir: "src", styles: { app: false } }, {
     root: "/proj",
     mode: "development",
   });

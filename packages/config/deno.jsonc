@@ -14,6 +14,7 @@
   },
   "publish": {
     "exclude": [
+      "**/_test_utils.ts",
       "**/*_test.ts",
       "**/*_test.tsx",
       "**/*_test.js",

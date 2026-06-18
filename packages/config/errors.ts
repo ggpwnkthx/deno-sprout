@@ -12,7 +12,8 @@ export type ConfigErrorCode =
   | "CONFIG_INVALID_PATH"
   | "CONFIG_PATH_OUTSIDE_ROOT"
   | "CONFIG_INVALID_PORT"
-  | "CONFIG_INVALID_CACHE_POLICY";
+  | "CONFIG_INVALID_CACHE_POLICY"
+  | "CONFIG_INVALID_HOSTNAME"; // invalid server.hostname value
 
 /**
  * Typed error for `@sprout/config`. The `code` is one of

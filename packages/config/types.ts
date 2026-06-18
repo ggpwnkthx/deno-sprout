@@ -30,19 +30,22 @@ export type ConfigInput = {
   };
 };
 
-/** Route discovery settings. */
-export type RouteDiscoveryConfig = {
+/**
+ * Shared shape for any directory-based file discovery. Routes and
+ * islands both extend this today; new discovery kinds should also
+ * use it instead of declaring a parallel shape.
+ */
+export type DiscoveryConfig = {
   readonly dir?: string;
   readonly include?: readonly string[];
   readonly exclude?: readonly string[];
 };
 
+/** Route discovery settings. */
+export type RouteDiscoveryConfig = DiscoveryConfig;
+
 /** Island discovery settings. */
-export type IslandDiscoveryConfig = {
-  readonly dir?: string;
-  readonly include?: readonly string[];
-  readonly exclude?: readonly string[];
-};
+export type IslandDiscoveryConfig = DiscoveryConfig;
 
 /** Global stylesheet settings. */
 export type StyleConfig = {
@@ -58,6 +61,23 @@ export type BuildConfig = {
     | "none"
     | { readonly kind: "bounded"; readonly maxBytes?: number };
 };
+
+/** Fully-required view of a discovery config (routes or islands). */
+export type ResolvedDiscovery = Required<DiscoveryConfig>;
+
+/** Fully-required server shape after resolution. */
+export type ResolvedServer = {
+  readonly hostname: string;
+  readonly port: number;
+};
+
+/** Fully-required styles shape after resolution. */
+export type ResolvedStyles = {
+  readonly app: string | null;
+};
+
+/** Fully-required build shape after resolution. */
+export type ResolvedBuild = Required<BuildConfig>;
 
 /**
  * The fully resolved configuration every package receives.
@@ -75,19 +95,9 @@ export type ResolvedConfig = {
   readonly srcDir: string;
   readonly publicDir: string | null;
   readonly outDir: string;
-  readonly routes: Required<RouteDiscoveryConfig>;
-  readonly islands: Required<IslandDiscoveryConfig>;
-  readonly styles: { readonly app: string | null };
-  readonly build: {
-    readonly compress: false | "gzip";
-    readonly sourcemap: boolean;
-    readonly minify: boolean;
-    readonly frozenAssetCache:
-      | "none"
-      | { readonly kind: "bounded"; readonly maxBytes: number };
-  };
-  readonly server: {
-    readonly hostname: string;
-    readonly port: number;
-  };
+  readonly routes: ResolvedDiscovery;
+  readonly islands: ResolvedDiscovery;
+  readonly styles: ResolvedStyles;
+  readonly build: ResolvedBuild;
+  readonly server: ResolvedServer;
 };
