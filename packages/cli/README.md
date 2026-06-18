@@ -26,8 +26,7 @@ the boundary.
 - `CliError` — typed error class. `code` is one of `CliErrorCode`; `details` is a frozen,
   JSON-serializable object.
 - `CliErrorCode` — the closed union of stable error codes: `CLI_UNKNOWN_COMMAND`,
-  `CLI_INVALID_ARGS`, `CLI_INIT_TARGET_NOT_EMPTY`, `CLI_INIT_FAILED`, `CLI_INSPECT_FAILED`,
-  `CLI_DEV_FAILED`, `CLI_SERVE_FAILED`, `CLI_USER_ERROR`.
+  `CLI_INVALID_ARGS`, `CLI_INIT_TARGET_NOT_EMPTY`, `CLI_INIT_FAILED`, `CLI_USER_ERROR`.
 - `FormatErrorOptions` — the options shape accepted by `formatError` (`debug`).
 - `CliOptions` — the options shape accepted by `run` (`silent`, `debug`).
 - `CliResult` — the outcome of a `run` invocation. `ok: true, code: 0` on success;

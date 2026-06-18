@@ -25,10 +25,17 @@ import {
   assertStringIncludes,
 } from "jsr:@std/assert@1";
 import { fromFileUrl, join, toFileUrl } from "@std/path";
-import { CliError, formatError, parseArgs, printHelp, run } from "./mod.ts";
+import { CliError, formatError, formatResolvedConfig, parseArgs, printHelp, run } from "./mod.ts";
 import type { CliResult } from "./mod.ts";
 import { FrameworkError } from "@sprout/utils";
+import type { ResolvedConfig } from "@sprout/config";
 import { INIT_FILES } from "./templates.ts";
+import {
+  COMMAND_PERMISSIONS,
+  COMMANDS,
+  formatPermissionTable,
+  KNOWN_COMMANDS,
+} from "./commands/registry.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
 
@@ -235,6 +242,32 @@ Deno.test("init: refuses to initialize into a symlink target", async () => {
   }
 });
 
+Deno.test("init: staging dir is cleaned up after a successful init", async () => {
+  const tmp = await Deno.makeTempDir({ prefix: "sprout-m10-atomic-" });
+  try {
+    const r = await run(["init", tmp, "--force"], { silent: true });
+    assertEquals(r, { ok: true, code: 0 } satisfies CliResult);
+
+    // The staging dir must not be present after a successful init.
+    let stagingPresent = false;
+    try {
+      const stat = Deno.statSync(join(tmp, ".sprout-init-tmp"));
+      stagingPresent = stat.isDirectory;
+    } catch (cause) {
+      if (!(cause instanceof Deno.errors.NotFound)) throw cause;
+    }
+    assertEquals(stagingPresent, false, "staging dir should be removed after success");
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
+// The mid-loop failure test is deferred: Deno.rename on Linux
+// overwrites the destination even when it is read-only, so the
+// chmod-rename failure mode cannot be exercised portably.
+// The staging-dir cleanup is the key invariant and is covered
+// by the test above.
+
 Deno.test("init: --force overwrites init-template files but refuses to delete foreign files", async () => {
   const tmp = await Deno.makeTempDir({ prefix: "sprout-m5-init-force-" });
   try {
@@ -429,6 +462,35 @@ Deno.test("inspect: --debug flag prints stack traces for non-framework errors", 
   } finally {
     await Deno.remove(tmp, { recursive: true });
   }
+});
+
+Deno.test("formatResolvedConfig: returns lines without writing to stdout", () => {
+  // The exact shape of `ResolvedConfig` is large; we only need
+  // enough to exercise the formatter. Build a minimal config.
+  const fakeConfig = {
+    root: "/tmp/proj",
+    srcDir: "src",
+    publicDir: "public",
+    outDir: ".sprout/dist",
+    server: { hostname: "localhost", port: 8000 },
+    build: {
+      compress: "gzip" as const,
+      sourcemap: false,
+      minify: false,
+      frozenAssetCache: { kind: "memory" as const, maxBytes: 1024 },
+    },
+    styles: { app: "src/styles/app.css" },
+  } as const;
+  const lines = formatResolvedConfig(fakeConfig as unknown as ResolvedConfig);
+  // All lines are strings.
+  for (const line of lines) {
+    assertEquals(typeof line, "string");
+    assert(line.length > 0, "empty line in resolved config output");
+  }
+  // The first line is the header; the rest are field lines.
+  assertEquals(lines[0], "[sprout] resolved config:");
+  // The server line is present.
+  assert(lines.some((l) => l.includes("localhost:8000")));
 });
 
 // ---------------------------------------------------------------------------
@@ -718,4 +780,234 @@ Deno.test("binary entry: `bogus` exits 1 and reports CLI_UNKNOWN_COMMAND on stde
   const { code, stderr } = await runCliBinary(["bogus"]);
   assertEquals(code, 1);
   assertStringIncludes(stderr, "CLI_UNKNOWN_COMMAND");
+});
+
+// ---------------------------------------------------------------------------
+// B1: parseArgs boolean flags
+// ---------------------------------------------------------------------------
+
+Deno.test("parseArgs: boolean flag followed by a positional is true", () => {
+  const p = parseArgs(["init", "--force", "./myapp"]);
+  assertEquals(p.command, "init");
+  assertEquals(p.flags.force, true);
+  assertEquals(p.positional, ["./myapp"]);
+});
+
+Deno.test("parseArgs: --debug followed by a positional is true", () => {
+  const p = parseArgs(["inspect", "--debug", "./root"]);
+  assertEquals(p.command, "inspect");
+  assertEquals(p.flags.debug, true);
+  assertEquals(p.positional, ["./root"]);
+});
+
+// ---------------------------------------------------------------------------
+// B2: silent suppresses build and inspect output
+// ---------------------------------------------------------------------------
+
+Deno.test("run: silent: true suppresses build summary output", async () => {
+  const tmp = await Deno.makeTempDir({ prefix: "sprout-m7-build-silent-" });
+  try {
+    const init = await run(["init", tmp], { silent: true });
+    assertEquals(init.ok, true);
+    const spy = captureConsole();
+    try {
+      await run(["build", tmp], { silent: true });
+    } finally {
+      spy.restore();
+    }
+    assert(
+      !spy.lines.some((l) => l.includes("Built ")),
+      `expected no build summary, got: ${spy.lines.join("\n")}`,
+    );
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
+Deno.test("run: silent: true suppresses inspect output", async () => {
+  const tmp = await Deno.makeTempDir({ prefix: "sprout-m7-inspect-silent-" });
+  try {
+    const init = await run(["init", tmp], { silent: true });
+    assertEquals(init.ok, true);
+    const spy = captureConsole();
+    try {
+      const r = await run(["inspect", tmp], { silent: true });
+      assertEquals(r.ok, true);
+    } finally {
+      spy.restore();
+    }
+    assert(
+      !spy.lines.some((l) => l.includes("[sprout] resolved config")),
+      `expected no inspect output, got: ${spy.lines.join("\n")}`,
+    );
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// M1: init --force on a partially-initialized project
+// ---------------------------------------------------------------------------
+
+Deno.test("init: --force works on a partially-initialized project (src/ and public/ exist)", async () => {
+  const tmp = await Deno.makeTempDir({ prefix: "sprout-m5-init-partial-" });
+  try {
+    await Deno.mkdir(join(tmp, "src/routes"), { recursive: true });
+    await Deno.writeTextFile(join(tmp, "src/routes/index.tsx"), "// old");
+    await Deno.mkdir(join(tmp, "src/islands"), { recursive: true });
+    await Deno.writeTextFile(join(tmp, "src/islands/Counter.tsx"), "// old");
+    await Deno.mkdir(join(tmp, "src/styles"), { recursive: true });
+    await Deno.writeTextFile(join(tmp, "src/styles/app.css"), "/* old */");
+    await Deno.mkdir(join(tmp, "public"), { recursive: true });
+    await Deno.writeTextFile(join(tmp, "public/.gitkeep"), "");
+
+    const r = await run(["init", tmp, "--force"], { silent: true });
+    assertEquals(r, { ok: true, code: 0 } satisfies CliResult);
+    const denoJsonc = await Deno.readTextFile(join(tmp, "deno.jsonc"));
+    assertStringIncludes(denoJsonc, "@sprout/core");
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// M4: outer catch block in staging loop surfaces a clean CliError
+// ---------------------------------------------------------------------------
+
+// Smoke test: pre-create a regular file at the target path.
+// `runInit` calls `Deno.lstatSync` first (line 85); if the target
+// exists as a file, it throws CLI_INIT_FAILED with "not a directory"
+// before reaching the staging loop. This test exercises the
+// error-return path (CliError with code + message) rather than
+// the exact catch block — the catch is only hit when
+// `Deno.mkdir(tmpRoot, { recursive: true })` itself throws
+// (permission failure, disk-full, or cross-device link), which
+// cannot be reliably induced in a temp directory.
+Deno.test("init: surfaces a clean CliError when target is a regular file (not a directory)", async () => {
+  const tmp = await Deno.makeTempDir({ prefix: "sprout-m10-init-as-file-" });
+  try {
+    const target = join(tmp, "i-am-a-file");
+    await Deno.writeTextFile(target, "");
+    const r = await run(["init", target], { silent: true });
+    assertEquals(r.ok, false);
+    if (r.ok) throw new Error("expected failure");
+    assert(r.error instanceof CliError);
+    assertEquals(r.error.code, "CLI_INIT_FAILED");
+    // The error message should reference the target path, not
+    // contain a TypeError from reading `.message` on undefined.
+    assertStringIncludes(r.error.message, target);
+    assert(
+      !r.error.message.includes("Cannot read properties of undefined"),
+      `error message should not be a TypeError: ${r.error.message}`,
+    );
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
+Deno.test("init: rejects a NUL-byte target with CLI_INVALID_ARGS", async () => {
+  // The parser does not interpret NUL specially; the path
+  // reaches `runInit` as a positional. The init's
+  // pre-flight validation (via `resolveRoot`) must reject
+  // it before any filesystem I/O.
+  const r = await run(
+    ["init", "foo" + String.fromCharCode(0) + "bar"],
+    { silent: true },
+  );
+  assertEquals(r.ok, false);
+  if (r.ok) throw new Error("expected failure");
+  assert(r.error instanceof CliError);
+  assertEquals(r.error.code, "CLI_INVALID_ARGS");
+  assertStringIncludes(r.error.message, "NUL");
+});
+
+// ---------------------------------------------------------------------------
+// M5: formatError renders Error.cause
+// ---------------------------------------------------------------------------
+
+Deno.test("formatError: renders a one-level cause chain", () => {
+  const cause = new Error("disk full");
+  const err = new Error("write failed", { cause });
+  const text = formatError(err);
+  assertStringIncludes(text, "write failed");
+  assertStringIncludes(text, "disk full");
+});
+
+Deno.test("formatError: renders a nested cause chain", () => {
+  const root = new Error("EACCES");
+  const mid = new Error("open failed", { cause: root });
+  const top = new Error("build failed", { cause: mid });
+  const text = formatError(top);
+  assertStringIncludes(text, "build failed");
+  assertStringIncludes(text, "open failed");
+  assertStringIncludes(text, "EACCES");
+});
+
+Deno.test("formatError: bounded recursion on a cyclic cause", () => {
+  const a: Error & { cause?: unknown } = new Error("a");
+  const b: Error & { cause?: unknown } = new Error("b", { cause: a });
+  a.cause = b; // cycle
+  const text = formatError(a);
+  assertStringIncludes(text, "a");
+  assertStringIncludes(text, "b");
+});
+
+// ---------------------------------------------------------------------------
+// Registry invariants
+// ---------------------------------------------------------------------------
+
+Deno.test("registry: KNOWN_COMMANDS matches the dispatch set", () => {
+  // KNOWN_COMMANDS is the same set COMMANDS exposes.
+  const known = KNOWN_COMMANDS.slice().sort();
+  const fromRegistry = Object.keys(COMMANDS).slice().sort();
+  assertEquals(known, fromRegistry);
+});
+
+Deno.test("registry: every command has a non-empty summary", () => {
+  for (const cmd of Object.values(COMMANDS)) {
+    assert(cmd.summary.length > 0, `${cmd.name} has no summary`);
+  }
+});
+
+Deno.test("registry: printHelp mentions every registered command name", () => {
+  const lines: string[] = [];
+  printHelp({ out: (l) => lines.push(l) });
+  const text = lines.join("\n");
+  for (const cmd of Object.values(COMMANDS)) {
+    assertStringIncludes(text, cmd.name);
+  }
+});
+
+Deno.test("registry: COMMAND_PERMISSIONS covers every command that needs them", () => {
+  for (const cmd of Object.values(COMMANDS)) {
+    if (cmd.name === "help") continue;
+    const perms = COMMAND_PERMISSIONS[cmd.name];
+    assert(perms !== undefined, `missing permissions for ${cmd.name}`);
+    assert(perms.length > 0, `${cmd.name} has empty permissions`);
+  }
+});
+
+Deno.test("registry: README permission table matches COMMAND_PERMISSIONS", async () => {
+  const readme = await Deno.readTextFile(
+    join(REPO_ROOT, "packages/cli/README.md"),
+  );
+  // Extract the lines between the permission table header and
+  // the next blank line. The header is `| Command   | Required flags |`
+  // and the next section starts with `## Links`.
+  const lines = readme.split("\n");
+  const headerIdx = lines.findIndex((l) =>
+    l.startsWith("| Command") && l.includes("Required flags")
+  );
+  assert(headerIdx >= 0, "permission table header not found in README");
+  const tableStart = headerIdx + 2; // skip header + separator
+  const tableEnd = lines.findIndex(
+    (l, i) => i >= tableStart && l.startsWith("## "),
+  );
+  const tableBlock = lines.slice(tableStart, tableEnd >= 0 ? tableEnd - 1 : lines.length);
+  const tableText = tableBlock.join("\n");
+  // Render the registry table.
+  const registryText = formatPermissionTable();
+  // Compare per-line. Trim each line for the comparison.
+  const normalize = (s: string) => s.split("\n").map((l) => l.replace(/\s+$/, "")).join("\n");
+  assertEquals(normalize(tableText), normalize(registryText));
 });

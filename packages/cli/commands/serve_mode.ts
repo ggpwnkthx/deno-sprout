@@ -5,6 +5,7 @@
 // call it directly.
 import { serve } from "@sprout/core";
 import { resolveRoot } from "./resolve_root.ts";
+import type { ServerCommandOptions } from "../types.ts";
 
 /**
  * Start the development or production server.
@@ -19,12 +20,7 @@ import { resolveRoot } from "./resolve_root.ts";
  * @param mode - `"development"` or `"production"`.
  */
 export async function runServeMode(
-  options: {
-    readonly root?: string;
-    readonly hostname?: string;
-    readonly port?: number;
-    readonly configFile?: string;
-  },
+  options: ServerCommandOptions,
   mode: "development" | "production",
 ): Promise<void> {
   const root = resolveRoot(options.root);

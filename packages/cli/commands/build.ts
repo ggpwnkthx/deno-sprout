@@ -21,21 +21,14 @@
 // `undefined` (no positional arg) and falls back to the current
 // working directory.
 //
-// Permissions required: `--allow-read --allow-write --allow-env --allow-net --allow-run`.
+// Permissions required: see `./registry.ts` (`COMMAND_PERMISSIONS.build`).
 import { loadConfig } from "@sprout/config";
 import { buildProduction, formatBuildSummary } from "@sprout/compiler";
 import { resolveRoot } from "./resolve_root.ts";
+import type { ConfigCommandOptions } from "../types.ts";
 
 /** Options accepted by {@link runBuild}. */
-export type RunBuildOptions = {
-  /**
-   * Project root. Relative paths are resolved against `Deno.cwd()`;
-   * `undefined` (no positional arg) defaults to `Deno.cwd()`.
-   */
-  readonly root?: string;
-  /** Optional path to a custom `sprout.config.ts`. */
-  readonly configFile?: string;
-};
+export type RunBuildOptions = ConfigCommandOptions & { readonly silent?: boolean };
 
 /**
  * Run `sprout build`.
@@ -58,5 +51,7 @@ export async function runBuild(options: RunBuildOptions): Promise<void> {
     configFile: options.configFile,
   });
   const summary = await buildProduction({ config });
-  console.log(formatBuildSummary(summary));
+  if (!options.silent) {
+    console.log(formatBuildSummary(summary));
+  }
 }

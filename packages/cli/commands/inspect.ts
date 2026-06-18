@@ -12,21 +12,14 @@
 // `undefined` (no positional arg) and falls back to the current
 // working directory.
 //
-// Permissions required: `--allow-read --allow-env`.
+// Permissions required: see `./registry.ts` (`COMMAND_PERMISSIONS.inspect`).
 import { loadConfig, type ResolvedConfig } from "@sprout/config";
 import { discoverProject, formatDiscoveredProject, validateManifest } from "@sprout/compiler";
 import { resolveRoot } from "./resolve_root.ts";
+import type { ConfigCommandOptions } from "../types.ts";
 
 /** Options accepted by {@link runInspect}. */
-export type RunInspectOptions = {
-  /**
-   * Project root. Relative paths are resolved against `Deno.cwd()`;
-   * `undefined` (no positional arg) defaults to `Deno.cwd()`.
-   */
-  readonly root?: string;
-  /** Optional path to a custom `sprout.config.ts`. */
-  readonly configFile?: string;
-};
+export type RunInspectOptions = ConfigCommandOptions & { readonly silent?: boolean };
 
 /**
  * Run `sprout inspect`.
@@ -45,36 +38,57 @@ export async function runInspect(options: RunInspectOptions): Promise<void> {
     root,
     configFile: options.configFile,
   });
-  printResolvedConfig(config);
+  printResolvedConfig(config, { silent: options.silent });
   const project = await discoverProject(config);
   // validateManifest surfaces typed errors (duplicate routes,
   // duplicate islands, dot-segments in publicPath) before the
   // user starts a server.
   validateManifest(project);
-  console.log(formatDiscoveredProject(project));
+  if (!options.silent) {
+    console.log(formatDiscoveredProject(project));
+  }
 }
 
 /**
- * Print a one-line-per-field summary of a `ResolvedConfig`. The
- * format is intentionally compact: one line per top-level field
- * and one line per nested object key.
+ * Format a `ResolvedConfig` as a list of human-readable lines.
+ * Pure: no I/O, no `console.log`. Used by `printResolvedConfig`
+ * and by tests that want to assert on the rendered output
+ * without installing a `console.log` spy.
  */
-export function printResolvedConfig(config: ResolvedConfig): void {
-  console.log(`[sprout] resolved config:`);
-  console.log(`  root:        ${config.root}`);
-  console.log(`  srcDir:      ${config.srcDir}`);
-  console.log(`  publicDir:   ${config.publicDir ?? "(none)"}`);
-  console.log(`  outDir:      ${config.outDir}`);
-  console.log(`  server:      ${config.server.hostname}:${config.server.port}`);
-  console.log(`  build.compress:    ${config.build.compress}`);
-  console.log(`  build.sourcemap:   ${config.build.sourcemap}`);
-  console.log(`  build.minify:      ${config.build.minify}`);
-  console.log(
+export function formatResolvedConfig(
+  config: ResolvedConfig,
+): readonly string[] {
+  return [
+    `[sprout] resolved config:`,
+    `  root:        ${config.root}`,
+    `  srcDir:      ${config.srcDir}`,
+    `  publicDir:   ${config.publicDir ?? "(none)"}`,
+    `  outDir:      ${config.outDir}`,
+    `  server:      ${config.server.hostname}:${config.server.port}`,
+    `  build.compress:    ${config.build.compress}`,
+    `  build.sourcemap:   ${config.build.sourcemap}`,
+    `  build.minify:      ${config.build.minify}`,
     `  build.frozenAssetCache: ${
       config.build.frozenAssetCache === "none"
         ? "none"
         : `${config.build.frozenAssetCache.kind} (maxBytes=${config.build.frozenAssetCache.maxBytes})`
     }`,
-  );
-  console.log(`  styles.app:  ${config.styles.app ?? "(none)"}`);
+    `  styles.app:  ${config.styles.app ?? "(none)"}`,
+  ];
+}
+
+/**
+ * Print the resolved config (one line per field) to the sink.
+ * Defaults to `console.log`; an alternate sink can be injected
+ * for testing.
+ */
+export function printResolvedConfig(
+  config: ResolvedConfig,
+  options?: { silent?: boolean; out?: (line: string) => void },
+): void {
+  if (options?.silent) return;
+  const out = options?.out ?? ((line: string) => console.log(line));
+  for (const line of formatResolvedConfig(config)) {
+    out(line);
+  }
 }

@@ -14,23 +14,12 @@
 // `undefined` (no positional arg) and falls back to the current
 // working directory.
 //
-// Permissions required: `--allow-read --allow-env --allow-net`.
+// Permissions required: see `./registry.ts` (`COMMAND_PERMISSIONS.serve`).
 import { runServeMode } from "./serve_mode.ts";
+import type { ServerCommandOptions } from "../types.ts";
 
 /** Options accepted by {@link runServe}. */
-export type RunServeOptions = {
-  /**
-   * Project root. Relative paths are resolved against `Deno.cwd()`;
-   * `undefined` (no positional arg) defaults to `Deno.cwd()`.
-   */
-  readonly root?: string;
-  /** Optional override for the listening hostname. */
-  readonly hostname?: string;
-  /** Optional override for the listening port. */
-  readonly port?: number;
-  /** Optional path to a custom `sprout.config.ts`. */
-  readonly configFile?: string;
-};
+export type RunServeOptions = ServerCommandOptions;
 
 /**
  * Run `sprout serve`.

@@ -28,9 +28,6 @@ export type CliErrorCode =
   | "CLI_INVALID_ARGS"
   | "CLI_INIT_TARGET_NOT_EMPTY"
   | "CLI_INIT_FAILED"
-  | "CLI_INSPECT_FAILED"
-  | "CLI_DEV_FAILED"
-  | "CLI_SERVE_FAILED"
   | "CLI_USER_ERROR";
 
 /**
@@ -76,6 +73,18 @@ export type FormatErrorOptions = {
  * for the rules the function applies.
  */
 export function formatError(err: unknown, opts: FormatErrorOptions = {}): string {
+  // Bound recursion so a cyclic cause chain does not stack-overflow.
+  const seen: Set<unknown> = new Set();
+  return formatErrorRecursive(err, opts, seen);
+}
+
+function formatErrorRecursive(
+  err: unknown,
+  opts: FormatErrorOptions,
+  seen: Set<unknown>,
+): string {
+  if (seen.has(err)) return `error: [cycle detected]`;
+  seen.add(err);
   if (err instanceof FrameworkError) {
     const head = `error: ${err.code}: ${err.message}`;
     let body = head;
@@ -86,18 +95,29 @@ export function formatError(err: unknown, opts: FormatErrorOptions = {}): string
       body = `${head}\n  details: ${indented}`;
     }
     if (opts.debug && err.stack) {
-      return `${body}\n${err.stack}`;
+      return appendCause(`${body}\n${err.stack}`, err.cause, opts, seen);
     }
-    return body;
+    return appendCause(body, err.cause, opts, seen);
   }
   if (err instanceof Error) {
     const name = err.name && err.name !== "Error" ? err.name : "Error";
     const head = `error: ${name}: ${err.message}`;
     if (opts.debug && err.stack) {
-      return `${head}\n${err.stack}`;
+      return appendCause(`${head}\n${err.stack}`, err.cause, opts, seen);
     }
-    return head;
+    return appendCause(head, err.cause, opts, seen);
   }
   const value = typeof err === "string" ? err : JSON.stringify(err);
   return `error: ${value}`;
+}
+
+function appendCause(
+  body: string,
+  cause: unknown,
+  opts: FormatErrorOptions,
+  seen: Set<unknown>,
+): string {
+  if (cause === undefined || cause === null) return body;
+  if (seen.has(cause)) return `${body}\n  caused by: [cycle detected]`;
+  return `${body}\n  caused by: ${formatErrorRecursive(cause, opts, seen)}`;
 }

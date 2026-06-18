@@ -12,24 +12,12 @@
 // the current working directory, which is the spec's documented
 // default for every root-bearing command.
 //
-// Permissions required: `--allow-read --allow-write --allow-env
-// --allow-net --allow-run`.
+// Permissions required: see `./registry.ts` (`COMMAND_PERMISSIONS.dev`).
 import { runServeMode } from "./serve_mode.ts";
+import type { ServerCommandOptions } from "../types.ts";
 
 /** Options accepted by {@link runDev}. */
-export type RunDevOptions = {
-  /**
-   * Project root. Relative paths are resolved against `Deno.cwd()`;
-   * `undefined` (no positional arg) defaults to `Deno.cwd()`.
-   */
-  readonly root?: string;
-  /** Optional override for the listening hostname. */
-  readonly hostname?: string;
-  /** Optional override for the listening port. */
-  readonly port?: number;
-  /** Optional path to a custom `sprout.config.ts`. */
-  readonly configFile?: string;
-};
+export type RunDevOptions = ServerCommandOptions;
 
 /**
  * Run `sprout dev`.

@@ -140,3 +140,9 @@ export const INIT_FILES: readonly { readonly relPath: string; readonly content: 
 export const INIT_FILE_RELPATHS: ReadonlySet<string> = new Set(
   INIT_FILES.map((f) => f.relPath),
 );
+
+/** Top-level directories `runInit` creates. `--force` allows them. */
+export const INIT_DIR_RELPATHS: ReadonlySet<string> = new Set([
+  "src",
+  "public",
+]);

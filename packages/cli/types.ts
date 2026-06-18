@@ -62,3 +62,40 @@ export type ParsedArgs = {
    */
   readonly flags: Readonly<Record<string, string | boolean>>;
 };
+
+// ---------------------------------------------------------------------------
+// Shared option shapes
+// ---------------------------------------------------------------------------
+
+/**
+ * Base shape for any command that accepts an optional project root.
+ * The JSDoc is intentionally shared; command-specific options
+ * intersect this type.
+ */
+export type RootOption = {
+  /** Project root. `undefined` defaults to `Deno.cwd()`. Relative paths are resolved against it. */
+  readonly root?: string;
+};
+
+/**
+ * Options for commands that bind a server (dev, serve, and the
+ * internal serve-mode helper). Mirrors the `serve` function's
+ * accepted shape.
+ */
+export type ServerCommandOptions = RootOption & {
+  /** Optional override for the listening hostname. */
+  readonly hostname?: string;
+  /** Optional override for the listening port. */
+  readonly port?: number;
+  /** Optional path to a custom `sprout.config.ts`. */
+  readonly configFile?: string;
+};
+
+/**
+ * Options for commands that resolve a project config without
+ * binding a server (build, inspect).
+ */
+export type ConfigCommandOptions = RootOption & {
+  /** Optional path to a custom `sprout.config.ts`. */
+  readonly configFile?: string;
+};
