@@ -44,8 +44,7 @@ export function clearElement(element: HTMLElement): void {
  *   4. Mark the element as mounted with `data-sprout-mounted="true"`.
  *
  * Errors are wrapped as `RuntimeError("MOUNT_FAILED", message, { ... })`.
- * `cause` carries the original error message (a string) so the `details`
- * object stays JSON-serializable.
+ * The structured `cause` is preserved on the `Error.cause` chain.
  *
  * An optional `renderImpl` overrides the DOM render function. Tests
  * use this to assert on the contract without standing up a DOM.
@@ -66,9 +65,12 @@ export function mountComponent<Props extends Record<string, unknown>>(
     );
     renderImpl(node, element);
   } catch (cause) {
-    throw new RuntimeError("MOUNT_FAILED", `component mount failed: ${causeMessage(cause)}`, {
-      cause: causeMessage(cause),
-    });
+    throw new RuntimeError(
+      "MOUNT_FAILED",
+      `component mount failed: ${causeMessage(cause)}`,
+      undefined,
+      cause,
+    );
   }
   element.setAttribute("data-sprout-mounted", "true");
 }

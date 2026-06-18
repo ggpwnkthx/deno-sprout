@@ -36,7 +36,7 @@
  * slash("./a");      // "a"
  * ```
  */
-export function slash(input: string): string {
+export function slash(input: string | null | undefined): string {
   if (typeof input !== "string") {
     return "";
   }
@@ -77,7 +77,10 @@ export function slash(input: string): string {
  * isInsideRoot("/proj", "/proj");         // true
  * ```
  */
-export function isInsideRoot(candidate: string, root: string): boolean {
+export function isInsideRoot(
+  candidate: string | null | undefined,
+  root: string | null | undefined,
+): boolean {
   if (typeof candidate !== "string" || typeof root !== "string") {
     return false;
   }

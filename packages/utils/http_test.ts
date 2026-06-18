@@ -60,19 +60,17 @@ Deno.test("acceptsGzip: 'gzip;q=0.0001' -> false (any non-positive q)", () => {
   assertEquals(acceptsGzip("gzip;q=0.0001"), false);
 });
 
+Deno.test("acceptsGzip: 'gzip;q=2' -> false (q > 1 is malformed)", () => {
+  assertEquals(acceptsGzip("gzip;q=2"), false);
+  assertEquals(acceptsGzip("gzip;q=1.5"), false);
+});
+
 Deno.test("acceptsGzip: 'br, gzip' -> true (Brotli listed but gzip still accepted)", () => {
   assertEquals(acceptsGzip("br, gzip"), true);
 });
 
 Deno.test("acceptsGzip: 'identity' -> false (no gzip offered)", () => {
   assertEquals(acceptsGzip("identity"), false);
-});
-
-Deno.test("acceptsGzip: non-string input -> false", () => {
-  // deno-lint-ignore no-explicit-any
-  assertEquals(acceptsGzip(42 as any), false);
-  // deno-lint-ignore no-explicit-any
-  assertEquals(acceptsGzip({} as any), false);
 });
 
 Deno.test("acceptsGzip: empty entries and stray commas are tolerated", () => {

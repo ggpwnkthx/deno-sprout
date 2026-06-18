@@ -168,11 +168,12 @@ export async function mountIsland(
       id,
       src: safeSrc,
       element,
-      error: new RuntimeError("MOUNT_FAILED", "island module not found", {
-        id,
-        src: safeSrc,
-        cause: causeMessage(cause),
-      }),
+      error: new RuntimeError(
+        "MOUNT_FAILED",
+        "island module not found",
+        { id, src: safeSrc },
+        cause,
+      ),
     };
   }
 
@@ -210,8 +211,7 @@ export async function mountIsland(
       error: new RuntimeError("MOUNT_FAILED", `island mount threw: ${causeMessage(cause)}`, {
         id,
         src: safeSrc,
-        cause: causeMessage(cause),
-      }),
+      }, cause),
     };
   }
 

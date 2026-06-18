@@ -12,15 +12,12 @@
 // the manifest validator does not reject a path that is otherwise
 // well-formed; the M3 server renderer will tighten this up.
 import { relative } from "@std/path";
-import { causeMessage, slash, SUPPORTED_HTTP_METHODS } from "@sprout/utils";
-import type { HttpMethod } from "@sprout/utils";
+import { isHttpMethod, slash } from "@sprout/utils";
 import type { ResolvedConfig } from "@sprout/config";
 import { CompilerError } from "../errors.ts";
 import { routeFileToPattern } from "../manifest/paths.ts";
 import { stripExtension, walkForDiscovery } from "./glob.ts";
 import type { DiscoveredRoute } from "../manifest/types.ts";
-
-const HTTP_METHODS = new Set(SUPPORTED_HTTP_METHODS);
 
 /**
  * Discover all route files in the project.
@@ -104,7 +101,8 @@ async function classifyRouteFile(file: string): Promise<"page" | "endpoint" | "m
     throw new CompilerError(
       "DISCOVERY_INVALID_ROUTE_FILE",
       "could not read route file",
-      { file, cause: causeMessage(cause) },
+      { file },
+      cause,
     );
   }
   const hasDefault = /(^|\n)\s*export\s+default\b/.test(text);
@@ -126,7 +124,7 @@ function hasMethodExport(text: string): boolean {
   const re = /(^|\n)\s*export\s+(?:async\s+)?function\s+([A-Z][A-Z0-9_]*)\b/g;
   for (let m = re.exec(text); m !== null; m = re.exec(text)) {
     const name = m[2];
-    if (name !== undefined && HTTP_METHODS.has(name as HttpMethod)) {
+    if (name !== undefined && isHttpMethod(name)) {
       return true;
     }
   }

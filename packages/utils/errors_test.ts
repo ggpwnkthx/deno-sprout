@@ -33,3 +33,16 @@ Deno.test("FrameworkError accepts a code-typed generic and narrows details", () 
   assertEquals(err.code, "X");
   assertEquals(err.details.a, 1);
 });
+
+Deno.test("FrameworkError: no cause -> err.cause is undefined", () => {
+  const err = new FrameworkError("CODE", "boom");
+  assertStrictEquals(err.cause, undefined);
+});
+
+Deno.test("FrameworkError: structured cause is preserved on Error.cause chain", () => {
+  const original = new Error("root cause");
+  const err = new FrameworkError("CODE", "boom", {}, original);
+  assertStrictEquals(err.cause, original);
+  // The cause chain is walkable.
+  assertEquals((err.cause as Error).message, "root cause");
+});

@@ -316,9 +316,12 @@ export async function esbuildBundle(
       throw cause;
     }
     const errors = (cause as { errors?: unknown }).errors;
-    throw new CompilerError("BUILD_FAILED", causeMessage(cause), {
-      errors: errors as unknown,
-    });
+    throw new CompilerError(
+      "BUILD_FAILED",
+      causeMessage(cause),
+      { errors: errors as unknown },
+      cause,
+    );
   } finally {
     await cleanup();
     await stopEsbuildBestEffort();

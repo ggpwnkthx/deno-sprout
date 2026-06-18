@@ -48,13 +48,16 @@ export class CoreError extends FrameworkError<CoreErrorCode> {
    * @param code Stable error code from `CoreErrorCode`.
    * @param message Human-readable error message.
    * @param details Optional JSON-serializable context object.
+   * @param cause Optional underlying error or value. Preserved on
+   *   `Error.cause` so the full chain is walkable.
    */
   constructor(
     code: CoreErrorCode,
     message: string,
     details?: Record<string, unknown>,
+    cause?: unknown,
   ) {
-    super(code, message, details);
+    super(code, message, details, cause);
     this.name = "CoreError";
   }
 }

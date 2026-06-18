@@ -23,7 +23,8 @@ comparison goes through `slash` and `isInsideRoot`, and the production serve neg
   non-absolute paths, sibling-prefix escapes, and an empty `root`.
 - `acceptsGzip(header)` — parse an `Accept-Encoding` header and return whether the caller will
   accept a `gzip`-encoded body. The implementation is RFC 7231 §5.3.4 aware: `gzip;q=0` is treated
-  as an explicit refusal, and sub-1 q-values mean "not really accepted".
+  as an explicit refusal, and any q-value other than exactly 1 (including sub-1 and sup-1 values)
+  means the client is asking for something other than the default; the server returns raw bytes.
 
 ## Links
 

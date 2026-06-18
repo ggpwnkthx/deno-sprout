@@ -4,7 +4,6 @@ import {
   contentTypeForFilename,
   DEFAULT_CONTENT_TYPE,
   EXTENSION_CONTENT_TYPES,
-  extensionOf,
 } from "./media_types.ts";
 
 Deno.test("contentTypeForFilename: returns text/html for .html", () => {
@@ -25,18 +24,6 @@ Deno.test("contentTypeForFilename: returns octet-stream for unknown extension", 
 
 Deno.test("contentTypeForFilename: returns octet-stream for no extension", () => {
   assertEquals(contentTypeForFilename("Makefile"), DEFAULT_CONTENT_TYPE);
-});
-
-Deno.test("extensionOf: returns extension including the dot", () => {
-  assertEquals(extensionOf("foo.html"), ".html");
-  assertEquals(extensionOf("foo.bar.baz"), ".baz");
-  assertEquals(extensionOf("dir/foo.css"), ".css");
-  assertEquals(extensionOf("dir\\foo.txt"), ".txt");
-});
-
-Deno.test("extensionOf: returns empty string for no extension", () => {
-  assertEquals(extensionOf("foo"), "");
-  assertEquals(extensionOf(".htaccess"), "");
 });
 
 Deno.test("EXTENSION_CONTENT_TYPES: covers the expected keys", () => {

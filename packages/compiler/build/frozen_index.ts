@@ -14,7 +14,6 @@
 // honest?" gate; the reader is the "is the on-disk file honest?"
 // gate.
 import { join } from "@std/path";
-import { causeMessage } from "@sprout/utils";
 import { CompilerError } from "../errors.ts";
 import type { FrozenAsset, FrozenAssetKind, FrozenIndex } from "../manifest/types.ts";
 
@@ -109,7 +108,8 @@ export async function loadFrozenIndex(outDir: string): Promise<FrozenIndex> {
     throw new CompilerError(
       "FROZEN_MANIFEST_UNSUPPORTED",
       `failed to read frozen manifest at ${manifestPath}`,
-      { outDir, cause: causeMessage(cause) },
+      { outDir },
+      cause,
     );
   }
   // Reject a manifest larger than the cap before attempting to parse it,
@@ -128,7 +128,8 @@ export async function loadFrozenIndex(outDir: string): Promise<FrozenIndex> {
     throw new CompilerError(
       "FROZEN_MANIFEST_UNSUPPORTED",
       "frozen manifest is not valid JSON",
-      { outDir, cause: causeMessage(cause) },
+      { outDir },
+      cause,
     );
   }
 

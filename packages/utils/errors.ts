@@ -14,8 +14,9 @@
 //     code: CompilerErrorCode,
 //     message: string,
 //     details?: Record<string, unknown>,
+//     cause?: unknown,
 //   ) {
-//     super(code, message, details);
+//     super(code, message, details, cause);
 //     this.name = "CompilerError";
 //   }
 // }
@@ -33,6 +34,9 @@ export type FrameworkErrorDetails = Readonly<Record<string, unknown>>;
  * The `code` is a stable identifier from the package's error-code union.
  * The `details` object is shallowly frozen and intended to carry
  * JSON-serializable context. The `message` is a human-readable string.
+ * The `cause` is the raw underlying error or value that triggered this
+ * error; it is preserved on the standard `Error.cause` chain so callers
+ * can walk back to the original failure.
  *
  * Subclasses are expected to override `name` to the package-specific
  * error name (for example `"ConfigError"` or `"CompilerError"`).
@@ -53,9 +57,11 @@ export class FrameworkError<
    * @param message Human-readable error message.
    * @param details Optional context object. A shallow copy is frozen
    *   before being assigned to `details`.
+   * @param cause Optional underlying error or value. Preserved on
+   *   `Error.cause` so the full chain is walkable.
    */
-  constructor(code: Code, message: string, details?: Details) {
-    super(message);
+  constructor(code: Code, message: string, details?: Details, cause?: unknown) {
+    super(message, { cause });
     this.name = "FrameworkError";
     this.code = code;
     this.details = Object.freeze({ ...(details ?? {}) }) as Readonly<Details>;

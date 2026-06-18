@@ -1,21 +1,18 @@
-/** Value for the `X-Content-Type-Options` response header. */
-export const NOSNIFF = "nosniff" as const;
-//
 // `acceptsGzip` is a pure, environment-safe helper that returns
 // whether the caller will accept a `gzip`-encoded response body.
-// It is the building block for the M7 production serve's
-// content-encoding negotiation; keeping it small and pure means
-// the serve layer can decide "raw vs gzip" in O(entries) time
-// without depending on the framework's filesystem or HTTP plumbing.
+// Keeping it small and pure means the serve layer can decide
+// "raw vs gzip" in O(entries) time without depending on the
+// framework's filesystem or HTTP plumbing.
 //
 // The function is intentionally not a `Set` membership check: the
 // RFC 7231 §5.3.4 `q` parameter lets a client refuse a coding
 // (`gzip;q=0`) or ask for it with a non-default quality. The
 // implementation collapses the question to a binary yes/no: a
 // `gzip` (or `*`) entry is treated as "accepted" only when the
-// q-value is the default (`1`, or no `q=` parameter). A sub-1
-// q-value for `gzip` means the client prefers another coding
-// (typically `identity`); the server returns raw bytes.
+// q-value is exactly 1 (the default, or no `q=` parameter).
+// A sub-1 q-value (`gzip;q=0.5`) or a sup-1 q-value (`gzip;q=1.5`)
+// means the client is asking for something other than the default;
+// the server returns raw bytes.
 
 /**
  * Parse an `Accept-Encoding` header and return whether the caller
@@ -32,6 +29,9 @@ export const NOSNIFF = "nosniff" as const;
  *    default quality (1, or no `q=` parameter). A sub-1 q-value for
  *    `gzip` means the client prefers another coding (typically
  *    `identity`); the server returns the raw bytes.
+ *  - `gzip;q=1.5` (or any `q > 1`) is treated as malformed and
+ *    refused; RFC 7231 §5.3.4 says quality values must be in the
+ *    0–1 range, and the helper enforces this strictly.
  *  - Unknown codings (`br`, `deflate`, ...) are ignored.
  *  - The token comparison is case-insensitive (`GZIP` and `Gzip`
  *    both match).
@@ -58,9 +58,6 @@ export const NOSNIFF = "nosniff" as const;
  */
 export function acceptsGzip(header: string | null | undefined): boolean {
   if (header === null || header === undefined) {
-    return false;
-  }
-  if (typeof header !== "string") {
     return false;
   }
   // Fast path: an empty or whitespace-only header is not a valid
@@ -112,7 +109,7 @@ export function acceptsGzip(header: string | null | undefined): boolean {
       // Binary yes/no: accept only the default q-value (1, or
       // absent). `gzip;q=0.5` and `*;q=0.5` are treated as "not
       // really accepted" so the server returns raw bytes.
-      return q >= 1;
+      return q === 1;
     }
   }
   return false;

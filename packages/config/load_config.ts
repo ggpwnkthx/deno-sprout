@@ -10,7 +10,7 @@
 // tooling) can validate a config object without touching the
 // filesystem.
 import { join, toFileUrl } from "@std/path";
-import { causeMessage, slash } from "@sprout/utils";
+import { slash } from "@sprout/utils";
 import { ConfigError } from "./errors.ts";
 import type { ConfigInput, Mode, ResolvedConfig } from "./types.ts";
 import { resolveConfig } from "./resolve_config.ts";
@@ -76,7 +76,8 @@ export async function loadConfig(
       throw new ConfigError(
         "CONFIG_IMPORT_FAILED",
         `failed to import config file ${configFile}`,
-        { path: configFile, cause: causeMessage(cause) },
+        { path: configFile },
+        cause,
       );
     }
     if (!("default" in mod)) {

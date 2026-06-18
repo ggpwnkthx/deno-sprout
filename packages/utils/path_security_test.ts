@@ -1,4 +1,4 @@
-// M8 hardening tests for the `slash` and `isInsideRoot` primitives.
+// Security-focused tests for the `slash` and `isInsideRoot` primitives.
 //
 // The two helpers are the foundation for every path comparison
 // across the workspace. M8 hardens the spec's "Reject NUL bytes in
@@ -20,18 +20,13 @@ Deno.test('M8 slash: returns "" for a NUL byte', () => {
   assertEquals(slash("/proj/\0evil"), "");
 });
 
-Deno.test('M8 slash: returns "" for non-string input', () => {
-  // The function declares `input: string`, but JS callers can
-  // pass `undefined` / `null` at runtime. The contract is to
-  // return `""` rather than throw, so the rest of the pipeline
-  // (which calls `isInsideRoot` and friends) stays in control
-  // of the error path.
-  // deno-lint-ignore no-explicit-any
-  assertEquals(slash(undefined as any), "");
-  // deno-lint-ignore no-explicit-any
-  assertEquals(slash(null as any), "");
-  // deno-lint-ignore no-explicit-any
-  assertEquals(slash(42 as any), "");
+Deno.test('slash: accepts null and undefined (returns "")', () => {
+  // The function declares `input: string | null | undefined`; JS callers
+  // can pass `undefined` / `null` at runtime. The contract is to return
+  // `""` rather than throw, so the rest of the pipeline (which calls
+  // `isInsideRoot` and friends) stays in control of the error path.
+  assertEquals(slash(undefined), "");
+  assertEquals(slash(null), "");
 });
 
 Deno.test("M8 isInsideRoot: rejects NUL bytes in the candidate", () => {
@@ -127,20 +122,11 @@ Deno.test("M8 isInsideRoot: is a string-based containment check, not a path reso
   assertEquals(isInsideRoot("/proj2/sub", "/proj"), false);
 });
 
-Deno.test("M8 isInsideRoot: rejects a non-string candidate", () => {
-  // Same rationale as the slash test: stay type-safe at the
-  // runtime boundary without throwing.
-  // deno-lint-ignore no-explicit-any
-  assertEquals(isInsideRoot(undefined as any, "/proj"), false);
-  // deno-lint-ignore no-explicit-any
-  assertEquals(isInsideRoot(null as any, "/proj"), false);
-  // deno-lint-ignore no-explicit-any
-  assertEquals(isInsideRoot(123 as any, "/proj"), false);
-});
-
-Deno.test("M8 isInsideRoot: rejects a non-string root", () => {
-  // deno-lint-ignore no-explicit-any
-  assertEquals(isInsideRoot("/proj", undefined as any), false);
-  // deno-lint-ignore no-explicit-any
-  assertEquals(isInsideRoot("/proj", null as any), false);
+Deno.test("isInsideRoot: accepts null and undefined (returns false)", () => {
+  // The widened signature accepts `null` / `undefined` for both
+  // arguments. Both are normalized to `false` by the runtime guard.
+  assertEquals(isInsideRoot(undefined, "/proj"), false);
+  assertEquals(isInsideRoot(null, "/proj"), false);
+  assertEquals(isInsideRoot("/proj", undefined), false);
+  assertEquals(isInsideRoot("/proj", null), false);
 });

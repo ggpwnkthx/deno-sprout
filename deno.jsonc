@@ -11,7 +11,8 @@
     "packages/compiler",
     "packages/jsx",
     "packages/runtime",
-    "packages/utils"
+    "packages/utils",
+    "examples/*"
   ],
   "nodeModulesDir": "none",
   "exclude": [

@@ -171,7 +171,8 @@ function toCoreError(cause: unknown, publicPath: string): CoreError {
   return new CoreError(
     "ROUTE_RENDER_FAILED",
     `failed to compile dev asset ${publicPath}: ${causeMessage(cause)}`,
-    { publicPath, cause: causeMessage(cause) },
+    { publicPath },
+    cause,
   );
 }
 

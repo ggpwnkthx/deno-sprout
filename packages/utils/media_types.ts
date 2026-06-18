@@ -4,8 +4,8 @@
 // previously duplicated in `@sprout/core` (public file serving) and
 // `@sprout/compiler` (content-hashed production assets).
 //
-// M7 may replace this with `jsr:@std/media-types`; until then the map
-// stays small and focused on the extensions Sprout actually serves.
+// TODO(deno-sprout): Replace with `jsr:@std/media-types` when it
+// covers the extensions Sprout actually serves.
 /** Map of file extension (including `.`) to MIME content type. */
 export const EXTENSION_CONTENT_TYPES: Readonly<Record<string, string>> = {
   ".css": "text/css; charset=utf-8",
@@ -44,19 +44,4 @@ export function contentTypeForFilename(filename: string): string {
   }
   const ext = basename.slice(dotIdx).toLowerCase();
   return EXTENSION_CONTENT_TYPES[ext] ?? DEFAULT_CONTENT_TYPE;
-}
-
-/**
- * Return the lowercase extension (including the leading `.`) of a
- * file path, or `""` for paths that have none. `foo` → `""`,
- * `foo.bar` → `.bar`, `foo.bar.baz` → `.baz`.
- */
-export function extensionOf(filePath: string): string {
-  const slashIdx = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"));
-  const basename = slashIdx >= 0 ? filePath.slice(slashIdx + 1) : filePath;
-  const dotIdx = basename.lastIndexOf(".");
-  if (dotIdx <= 0) {
-    return "";
-  }
-  return basename.slice(dotIdx);
 }
