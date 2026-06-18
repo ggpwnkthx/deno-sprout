@@ -8,7 +8,8 @@
 // `data-sprout-error="<CODE>"` and the function resolves (does not
 // throw) with `ok: false`.
 import { causeMessage } from "@sprout/utils/cause";
-import { parseJsonProps, RuntimeError, validateIslandPublicPath } from "@sprout/jsx/shared";
+import { parseJsonProps, validateIslandPublicPath } from "@sprout/jsx/shared";
+import { RuntimeError } from "./errors.ts";
 import type { IslandMountResult } from "./module_contract.ts";
 
 /**
@@ -36,7 +37,7 @@ const defaultImporter: DynamicImporter = (specifier) =>
 
 /**
  * Options accepted by `mountAll` and `mountIsland`. The single
- * `_import` field is intended for test injection; production code
+ * `importer` field is intended for test injection; production code
  * should rely on the default global `import()`.
  */
 export interface MountIslandOptions {
@@ -72,6 +73,12 @@ function validateIslandSrcAttribute(
   const result = validateIslandPublicPath(src);
   if (!result.ok) {
     switch (result.reason) {
+      case "not_string":
+        return new RuntimeError("INVALID_PLACEHOLDER", "data-sprout-src must be a string", {
+          id,
+          src: String(src),
+          reason: result.reason,
+        });
       case "nul_byte":
         return new RuntimeError("INVALID_PLACEHOLDER", "data-sprout-src contains a NUL byte", {
           id,
@@ -135,7 +142,7 @@ export async function mountIsland(
   const srcError = validateIslandSrcAttribute(src, id);
   if (srcError !== null) {
     element.setAttribute("data-sprout-error", "INVALID_PLACEHOLDER");
-    return { ok: false, id, src: src ?? "", element, error: srcError };
+    return { ok: false, id, src: "", element, error: srcError };
   }
   const safeSrc = src as string;
 
@@ -197,10 +204,7 @@ export async function mountIsland(
   // 5. Invoke the mount function. Await any returned promise; wrap any
   //    throw as MOUNT_FAILED.
   try {
-    const result = await mountFn.call(candidate, element, props);
-    if (result !== undefined && typeof (result as { then?: unknown }).then === "function") {
-      await result;
-    }
+    await mountFn.call(candidate, element, props);
   } catch (cause) {
     element.setAttribute("data-sprout-error", "MOUNT_FAILED");
     return {

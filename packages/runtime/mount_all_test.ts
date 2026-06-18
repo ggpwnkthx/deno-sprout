@@ -28,6 +28,42 @@ import {
 // Tests
 // ---------------------------------------------------------------------------
 
+Deno.test("mountAll calls querySelectorAll with the exact selector [data-sprout-src]", async () => {
+  const parent = makeParent();
+  const a = makeIslandElement("A", "/@sprout/island/A.js");
+  parent.addIsland(a);
+
+  const calls: string[] = [];
+  const orig = parent.querySelectorAll.bind(parent);
+  parent.querySelectorAll = (selector: string) => {
+    calls.push(selector);
+    return orig(selector);
+  };
+
+  const moduleA = fakeIsland();
+  const importer = fakeImporter({
+    "/@sprout/island/A.js": { default: moduleA },
+  });
+  await mountAll(asParent(parent), { importer });
+  assertEquals(calls.length, 1);
+  assertEquals(calls[0], "[data-sprout-src]");
+});
+
+Deno.test("mountAll passes the src attribute verbatim to the importer", async () => {
+  const parent = makeParent();
+  const weirdSrc = "/@sprout/island/WeirdPath_123.js";
+  const a = makeIslandElement("A", weirdSrc);
+  parent.addIsland(a);
+
+  let capturedSpecifier: string | undefined;
+  const importer = (specifier: string) => {
+    capturedSpecifier = specifier;
+    return Promise.resolve({ default: fakeIsland() });
+  };
+  await mountAll(asParent(parent), { importer });
+  assertEquals(capturedSpecifier, weirdSrc);
+});
+
 Deno.test("mountAll mounts all placeholders and returns one result per node", async () => {
   const parent = makeParent();
   const a = makeIslandElement("A", "/@sprout/island/A.js", { initial: 1 });

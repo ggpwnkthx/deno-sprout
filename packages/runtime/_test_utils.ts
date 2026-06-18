@@ -31,7 +31,7 @@ export interface FakeParent {
 }
 
 export function isIslandPlaceholderSelector(selector: string): boolean {
-  return selector.split(",").some((part) => part.trim() === "[data-sprout-src]");
+  return selector.trim() === "[data-sprout-src]";
 }
 
 export function makeElement(): FakeElement {

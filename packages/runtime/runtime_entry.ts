@@ -21,13 +21,12 @@ export function start(root?: ParentNode | null): void {
     return;
   }
 
-  started = true;
   const run = (): void => {
+    started = true;
     void mountAll(root ?? undefined).catch((cause) => {
       console.error("[sprout] runtime mount failed", cause);
     });
   };
-
   scheduleMount(
     typeof document !== "undefined" ? document : undefined,
     root,

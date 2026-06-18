@@ -7,7 +7,7 @@
 // can convert it into an `IslandMountResult` failure.
 import { causeMessage } from "@sprout/utils/cause";
 import { jsx, render } from "@sprout/jsx/dom";
-import { RuntimeError } from "@sprout/jsx/shared";
+import { RuntimeError } from "./errors.ts";
 
 /**
  * Render-function shape consumed by `mountComponent`. The default
@@ -15,6 +15,11 @@ import { RuntimeError } from "@sprout/jsx/shared";
  * exercise the runtime contract without standing up a real DOM.
  */
 export type DomRender = (node: ReturnType<typeof jsx>, container: HTMLElement) => void;
+
+/**
+ * The shape generated wrappers use to mount a single component into an element.
+ */
+export type MountComponent = typeof mountComponent;
 
 /**
  * Default DOM render: Hono's `render(jsxNode, container)`.

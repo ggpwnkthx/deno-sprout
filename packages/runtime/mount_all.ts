@@ -35,7 +35,9 @@ export async function mountAll(
     return await mountIsland(element, options);
   });
 
-  // Drain in document order so DOM side-effects are preserved.
+  // All dynamic imports are started in parallel (network is the bottleneck);
+  // the for-loop just collects results into the `results` array in document
+  // order so callers see a stable, ordered report.
   for (let i = 0; i < promises.length; i++) {
     const promise = promises[i]!;
     const result = await promise;
