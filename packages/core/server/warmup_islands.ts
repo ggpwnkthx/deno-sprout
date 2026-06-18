@@ -34,10 +34,10 @@ export async function warmupIslands(manifest: Manifest): Promise<void> {
         { id: island.id, file: island.file },
       );
     }
-    if (typeof component !== "function" && typeof component !== "object") {
+    if (typeof component !== "function") {
       throw new CoreError(
         "ROUTE_RENDER_FAILED",
-        `island ${JSON.stringify(island.id)} default export is not a component`,
+        `island ${JSON.stringify(island.id)} default export is not a function`,
         { id: island.id, file: island.file, type: typeof component },
       );
     }
@@ -45,6 +45,6 @@ export async function warmupIslands(manifest: Manifest): Promise<void> {
       id: island.id,
       src: island.publicPath,
     };
-    registerIslandComponent(component, metadata);
+    registerIslandComponent(component as unknown as (...args: never) => unknown, metadata);
   }));
 }

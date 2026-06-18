@@ -164,7 +164,8 @@ export type RequestContext = {
   /**
    * Send an HTML response. `value` is stringified with `String(value)`
    * so a Hono `JSXNode` or `HtmlEscapedString` can be passed directly.
-   * Returns the resulting `Response`.
+   * `null` and `undefined` produce an empty body. Returns the resulting
+   * `Response`.
    */
   html(value: Renderable | Response, init?: ResponseInit): Response | Promise<Response>;
   /**

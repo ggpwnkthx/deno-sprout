@@ -71,17 +71,11 @@ export type ServeDevSourceMapOptions = {
   readonly config: ResolvedConfig;
 };
 
-/** Choose the JSX import source for a given asset kind. */
-function jsxImportSourceFor(kind: AssetKind): string {
-  if (kind === "island") {
-    return "@sprout/jsx/dom";
-  }
-  // The runtime entry does not contain JSX today; the browser
-  // bundles import Hono's DOM helpers directly. Pass the
-  // canonical source so any future JSX in the runtime compiles
-  // the same way the server does.
-  return "@sprout/jsx/dom";
-}
+// The runtime entry does not contain JSX today; the browser
+// bundles import Hono's DOM helpers directly. Pass the
+// canonical source so any future JSX in the runtime compiles
+// the same way the server does.
+const JSX_IMPORT_SOURCE = "@sprout/jsx/dom";
 
 /**
  * Compile and serve a dev asset. Throws a `CoreError` when the
@@ -95,7 +89,7 @@ export async function serveDevAsset(opts: ServeDevAssetOptions): Promise<Respons
     id: opts.id,
     entry: opts.entry,
     publicPath: opts.publicPath,
-    jsxImportSource: jsxImportSourceFor(opts.kind),
+    jsxImportSource: JSX_IMPORT_SOURCE,
     config: opts.config,
     mode: "development",
   };
@@ -121,7 +115,7 @@ export async function serveDevSourceMap(
     id: opts.id,
     entry: opts.entry,
     publicPath: `${opts.kind}/${opts.id}.js.map`,
-    jsxImportSource: jsxImportSourceFor(opts.kind),
+    jsxImportSource: JSX_IMPORT_SOURCE,
     config: opts.config,
     mode: "development",
   };

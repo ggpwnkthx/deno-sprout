@@ -48,26 +48,6 @@ export type ServeFrozenAssetOptions = {
 };
 
 /**
- * The result of an asset lookup. Used by the serve layer to
- * decide which bytes to return. The shape mirrors the spec:
- *
- *   - `asset` is the typed `FrozenAsset` entry; its `hash`
- *     becomes the strong `ETag`.
- *   - `bytes` is the raw asset body.
- *   - `gzipBytes` is the optional `.gz` companion body (may be
- *     `null` when the manifest has no companion).
- *
- * The serve layer is expected to look this up through its LRU
- * before calling {@link serveFrozenAsset}. The helper is the
- * shape decision, not the I/O decision.
- */
-export type FrozenAssetLookup = {
-  readonly asset: import("@sprout/compiler").FrozenAsset;
-  readonly bytes: Uint8Array;
-  readonly gzipBytes: Uint8Array | null;
-};
-
-/**
  * Serve a frozen asset. Returns a 404 `Response` (via the typed
  * `coreErrorToResponse` path) when `publicPath` is not in the
  * index.

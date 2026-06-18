@@ -42,7 +42,6 @@ import { resetDevCacheForTests } from "../compiler/build/dev_assets_test_utils.t
 
 const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
 const FIXTURE = join(REPO_ROOT, "tests/fixtures/basic-app");
-const TMP_ROOT = join(REPO_ROOT, "tests/.tmp");
 
 /**
  * Copy the basic-app fixture (excluding the dist / .sprout
@@ -69,7 +68,7 @@ async function copyFixtureTo(target: string): Promise<void> {
 async function makeTempDir(
   prefix: string,
 ): Promise<{ readonly path: string; cleanup: () => Promise<void> }> {
-  const dir = await Deno.makeTempDir({ prefix, dir: TMP_ROOT });
+  const dir = await Deno.makeTempDir({ prefix });
   return {
     path: dir,
     cleanup: async () => {

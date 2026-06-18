@@ -14,19 +14,16 @@
 //
 // M8 pins the typed errors for each rejection path so the
 // response shape is part of the public contract.
-import { assertEquals, assertRejects, assertStringIncludes } from "jsr:@std/assert@1";
-import { fromFileUrl, join } from "@std/path";
+import { assertEquals, assertStringIncludes } from "jsr:@std/assert@1";
+import { join } from "@std/path";
 import { resolvePublicFile, serveStaticFile } from "./server/static_files.ts";
 import { CoreError } from "./server/errors.ts";
 import { etagMatches } from "./server/prod_assets.ts";
 
-const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
-const TMP_ROOT = join(REPO_ROOT, "tests/.tmp");
-
 async function makeTempDir(
   prefix: string,
 ): Promise<{ readonly path: string; cleanup: () => Promise<void> }> {
-  const dir = await Deno.makeTempDir({ prefix, dir: TMP_ROOT });
+  const dir = await Deno.makeTempDir({ prefix });
   return {
     path: dir,
     cleanup: async () => {
@@ -302,7 +299,3 @@ Deno.test("M8 core: etagMatches handles comma-separated lists", () => {
   // Whitespace around entries is ignored.
   assertEquals(etagMatches('  "abc"  ,  "y"  ', '"abc"'), true);
 });
-
-// Silence the unused-import warning for `assertRejects` (kept for
-// future tests that may use it).
-void assertRejects;

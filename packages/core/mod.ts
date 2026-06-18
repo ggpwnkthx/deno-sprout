@@ -11,9 +11,10 @@
 // directly. The framework asset routes (`/@sprout/runtime.js`,
 // `/@sprout/app.css`, `/@sprout/island/<id>.js`) are NOT yet
 // registered; they will land in the M4 development asset pipeline.
-export { createApp, serve } from "./server/app.ts";
+export { createApp, getHono, serve } from "./server/app.ts";
 export type {
   App,
+  AppAdvanced,
   CreateAppOptions,
   PageProps,
   RequestContext,

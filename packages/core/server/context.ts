@@ -84,7 +84,8 @@ export function buildRequestContext(
       return new Response("", withSecurityHeaders(init, "text/html; charset=utf-8"));
     }
     if (value === null) {
-      return new Response("null", withSecurityHeaders(init, "text/html; charset=utf-8"));
+      // String(null) === "null"; we want an empty body.
+      return new Response("", withSecurityHeaders(init, "text/html; charset=utf-8"));
     }
     // JSXNode / HtmlEscapedString / number / boolean / bigint:
     // wrap in a streaming ReadableStream that defers String(value).

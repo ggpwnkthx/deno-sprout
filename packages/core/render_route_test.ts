@@ -5,12 +5,8 @@
 // without reifying the full HTML shell. The outer try/catch for
 // ROUTE_RENDER_FAILED must remain functional.
 import { assert, assertEquals, assertMatch } from "jsr:@std/assert@1";
-import { fromFileUrl, join } from "@std/path";
 import { createApp } from "./mod.ts";
 import type { App } from "./mod.ts";
-
-const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
-const TMP_ROOT = join(REPO_ROOT, "tests/.tmp");
 
 interface TmpProject {
   readonly dir: string;
@@ -21,7 +17,7 @@ async function makeProject(
   prefix: string,
   files: Record<string, string>,
 ): Promise<TmpProject> {
-  const dir = await Deno.makeTempDir({ prefix, dir: TMP_ROOT });
+  const dir = await Deno.makeTempDir({ prefix });
   await Deno.writeTextFile(
     `${dir}/sprout.config.ts`,
     `export default { root: ".", styles: { app: false } };\n`,

@@ -16,16 +16,12 @@
 // assert on the typed response. The same pattern as the M3
 // `create_app_error_test.ts` (a throwing route handler) extended
 // to the other failure modes.
-import { assert, assertEquals, assertInstanceOf, assertMatch } from "jsr:@std/assert@1";
-import { fromFileUrl, join } from "@std/path";
+import { assert, assertEquals, assertMatch } from "jsr:@std/assert@1";
 import { discoverProject, validateManifest } from "@sprout/compiler";
 import { createApp } from "./mod.ts";
 import { loadRouteModules } from "./server/render_route.tsx";
 import { CoreError, coreErrorToResponse } from "./server/errors.ts";
 import type { App } from "./mod.ts";
-
-const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
-const TMP_ROOT = join(REPO_ROOT, "tests/.tmp");
 
 interface TmpProject {
   readonly dir: string;
@@ -36,7 +32,7 @@ async function makeProject(
   prefix: string,
   files: Record<string, string>,
 ): Promise<TmpProject> {
-  const dir = await Deno.makeTempDir({ prefix, dir: TMP_ROOT });
+  const dir = await Deno.makeTempDir({ prefix });
   await Deno.writeTextFile(
     `${dir}/sprout.config.ts`,
     `export default { root: ".", styles: { app: false } };\n`,
@@ -451,10 +447,3 @@ Deno.test("loadRouteModules: returns a map with one entry per route file and a v
     await project.cleanup();
   }
 });
-
-// Silence the unused-import warning for `assertInstanceOf` (kept
-// for future test symmetry with the existing error tests).
-void assertInstanceOf;
-// Silence the unused-import warning for `assert` (kept for
-// future guards that need a boolean check).
-void assert;

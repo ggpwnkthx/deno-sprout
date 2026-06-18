@@ -448,15 +448,6 @@ async function registerProductionAssetRoutes(
   // resolves the asset on each request.
   hono.get("/@sprout/island/:id{.+\\.js}", async (c) => {
     const publicPath = `/@sprout/island/${c.req.param("id")}` as const;
-    if (!frozenIndex.assets.has(publicPath)) {
-      return coreErrorToResponse(
-        new CoreError(
-          "STATIC_FILE_NOT_FOUND",
-          `no frozen asset for ${publicPath}`,
-          { publicPath },
-        ),
-      );
-    }
     const preloaded = await lookup(publicPath);
     if (preloaded === null) {
       return coreErrorToResponse(

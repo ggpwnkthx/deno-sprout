@@ -275,3 +275,18 @@ Deno.test("context: html(undefined) produces an empty body (not 'undefined')", a
   const body = await res.text();
   assertEquals(body, "");
 });
+
+Deno.test("context: html(null) produces an empty body (not 'null')", async () => {
+  const ctx = buildRequestContext({
+    request: new Request("http://0.0.0.0/"),
+    url: new URL("http://0.0.0.0/"),
+    params: {},
+  });
+  const res = await ctx.html(null) as Response;
+  assertEquals(res.status, 200);
+  assertEquals(res.headers.get("content-type"), "text/html; charset=utf-8");
+  assertEquals(res.headers.get("x-content-type-options"), "nosniff");
+  // The body must be empty, not the literal string "null".
+  const body = await res.text();
+  assertEquals(body, "");
+});
