@@ -9,10 +9,10 @@
 // This file lives in `@sprout/runtime` because it is a runtime concern
 // (mounting browser islands), not a compiler concern.
 import { mountAll } from "./mount_all.ts";
+import { scheduleMount } from "./entry_bootstrap.ts";
 
 let started = false;
 
-/** Start the browser island mount loop once. */
 export function start(root?: ParentNode | null): void {
   if (started) {
     return;
@@ -28,16 +28,11 @@ export function start(root?: ParentNode | null): void {
     });
   };
 
-  if (
-    (root === undefined || root === null) &&
-    typeof document !== "undefined" &&
-    document.readyState === "loading"
-  ) {
-    document.addEventListener("DOMContentLoaded", run, { once: true });
-    return;
-  }
-
-  queueMicrotask(run);
+  scheduleMount(
+    typeof document !== "undefined" ? document : undefined,
+    root,
+    run,
+  );
 }
 
 start();

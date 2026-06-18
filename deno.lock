@@ -1,0 +1,118 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@deno/loader@0.5": "0.5.0",
+    "jsr:@ggpwnkthx/esbuild-plugin-deno@0.2.8": "0.2.8",
+    "jsr:@ggpwnkthx/esbuild@0.2": "0.2.8",
+    "jsr:@ggpwnkthx/esbuild@0.2.8": "0.2.8",
+    "jsr:@hono/hono@4.12.24": "4.12.24",
+    "jsr:@std/assert@1": "1.0.19",
+    "jsr:@std/encoding@^1.0.5": "1.0.10",
+    "jsr:@std/fs@1": "1.0.24",
+    "jsr:@std/fs@^1.0.24": "1.0.24",
+    "jsr:@std/internal@^1.0.12": "1.0.14",
+    "jsr:@std/internal@^1.0.14": "1.0.14",
+    "jsr:@std/path@^1.0.8": "1.1.5",
+    "jsr:@std/path@^1.1.4": "1.1.5",
+    "jsr:@std/path@^1.1.5": "1.1.5"
+  },
+  "jsr": {
+    "@deno/loader@0.5.0": {
+      "integrity": "a6d94408de5e6bacac404f8f6963c8b8cc278cfd1a878aa2f06b34a083d6bfee"
+    },
+    "@ggpwnkthx/esbuild@0.2.8": {
+      "integrity": "0ddf288f7bb74fbc8999ffd8d8d0f3d2b78851187150e448c533cfbe117e1ec6"
+    },
+    "@ggpwnkthx/esbuild-plugin-deno@0.2.8": {
+      "integrity": "b8d0c830f0825157f52b8908ab2a3876ebbecab2fd14cf8ba1fc76e77e8f707b",
+      "dependencies": [
+        "jsr:@deno/loader",
+        "jsr:@ggpwnkthx/esbuild@0.2",
+        "jsr:@std/path@^1.1.4"
+      ]
+    },
+    "@hono/hono@4.12.24": {
+      "integrity": "a74a40f06ae6704ddd0e8e576f6da9d34666c3e1e0f5412a2c1ff800ffd092f4"
+    },
+    "@std/assert@1.0.19": {
+      "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
+      "dependencies": [
+        "jsr:@std/internal@^1.0.12"
+      ]
+    },
+    "@std/encoding@1.0.10": {
+      "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
+    },
+    "@std/fs@1.0.24": {
+      "integrity": "f3061b45b81673a2bece689da041df32d174be064c89eb6397fb5718d3fb7877",
+      "dependencies": [
+        "jsr:@std/internal@^1.0.14",
+        "jsr:@std/path@^1.1.5"
+      ]
+    },
+    "@std/internal@1.0.14": {
+      "integrity": "291516b3d4c35024d6ffbc0a9df5bf4c64116e05b50012cf846710152d2ffdf7"
+    },
+    "@std/path@1.1.5": {
+      "integrity": "ccea00982ea28c36becaf6e62f855406c76a8c32d462f66f415bbb7d83a271bc",
+      "dependencies": [
+        "jsr:@std/internal@^1.0.14"
+      ]
+    }
+  },
+  "workspace": {
+    "dependencies": [
+      "jsr:@ggpwnkthx/esbuild-plugin-deno@0.2.8",
+      "jsr:@ggpwnkthx/esbuild@0.2.8",
+      "jsr:@hono/hono@4.12.24",
+      "jsr:@std/encoding@^1.0.5",
+      "jsr:@std/fs@^1.0.24",
+      "jsr:@std/path@^1.0.8"
+    ],
+    "members": {
+      "packages/cli": {
+        "dependencies": [
+          "jsr:@sprout/compiler@0.2.0",
+          "jsr:@sprout/config@0.2.0",
+          "jsr:@sprout/core@0.2.0",
+          "jsr:@sprout/utils@0.2.0",
+          "jsr:@std/path@^1.0.8"
+        ]
+      },
+      "packages/compiler": {
+        "dependencies": [
+          "jsr:@ggpwnkthx/esbuild-plugin-deno@0.2.8",
+          "jsr:@ggpwnkthx/esbuild@0.2.8",
+          "jsr:@sprout/config@0.2.0",
+          "jsr:@sprout/jsx@0.2.0",
+          "jsr:@sprout/runtime@0.2.0",
+          "jsr:@sprout/utils@0.2.0",
+          "jsr:@std/encoding@^1.0.5",
+          "jsr:@std/fs@^1.0.24",
+          "jsr:@std/path@^1.0.8"
+        ]
+      },
+      "packages/config": {
+        "dependencies": [
+          "jsr:@sprout/utils@0.2.0",
+          "jsr:@std/path@^1.0.8"
+        ]
+      },
+      "packages/core": {
+        "dependencies": [
+          "jsr:@hono/hono@4.12.24"
+        ]
+      },
+      "packages/jsx": {
+        "dependencies": [
+          "jsr:@hono/hono@4.12.24"
+        ]
+      },
+      "packages/runtime": {
+        "dependencies": [
+          "jsr:@sprout/jsx@0.2.0"
+        ]
+      }
+    }
+  }
+}

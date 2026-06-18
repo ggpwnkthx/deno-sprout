@@ -5,4 +5,4 @@
 // runtime; the browser entry point is `@sprout/jsx/dom`; the shared
 // helpers are at `@sprout/jsx/shared`.
 export { Fragment, jsx, jsxs } from "./server/jsx-runtime.ts";
-export type { ComponentTag, JSX } from "./server/jsx-runtime.ts";
+export type { JSX } from "./server/jsx-runtime.ts";
