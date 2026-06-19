@@ -17,7 +17,6 @@ export { discoverRoutes } from "./discover/routes.ts";
 export { validateManifest } from "./manifest/validate.ts";
 export { formatDiscoveredProject, formatManifest } from "./inspect.ts";
 export {
-  globToRegExp,
   islandFileToPublicPath,
   isReservedAssetPath,
   matchesDiscoveryGlobs,

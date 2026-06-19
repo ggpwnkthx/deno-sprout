@@ -6,9 +6,8 @@
 //   - `data-sprout-src`: the public module URL
 //   - `data-sprout-props`: the JSON-serialized props
 //
-// Two additional `data-sprout-*` attributes are reserved for the
-// runtime to set on the client after a successful mount (`mounted`)
-// or a failure (`error`).
+// One additional `data-sprout-*` attribute is reserved for the
+// runtime to set on the client after a failure (`error`).
 //
 // The server-side `serializeJsonProps` call performs full prop
 // validation, so the placeholder builder doubles as the rejection

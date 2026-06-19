@@ -34,8 +34,6 @@ export function isReservedAssetPath(publicPath: string): boolean {
   return publicPath.startsWith(RESERVED_ASSET_PREFIX);
 }
 
-export { globToRegExp };
-
 // ---------------------------------------------------------------------------
 // include / exclude helper
 // ---------------------------------------------------------------------------

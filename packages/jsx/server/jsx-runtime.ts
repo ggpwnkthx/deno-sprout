@@ -122,4 +122,3 @@ const jsxs: typeof jsx = jsx;
 export { Fragment, jsx, jsxs };
 export type { ComponentTag };
 export type { JSX } from "@hono/hono/jsx";
-export type { IslandMetadata } from "./island-registry.ts";

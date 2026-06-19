@@ -7,8 +7,7 @@
   "description": "Foundation helpers shared by every Sprout package: typed base error, slash-normalized path helpers, content-type lookup, and Accept-Encoding parser.",
   "license": "MIT",
   "exports": {
-    ".": "./mod.ts",
-    "./cause": "./cause.ts"
+    ".": "./mod.ts"
   },
   "publish": {
     "exclude": [

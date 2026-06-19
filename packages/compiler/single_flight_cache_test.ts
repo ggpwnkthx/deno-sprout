@@ -1,12 +1,9 @@
 // Tests for the single-flight dev build cache.
 import { assertEquals, assertNotEquals } from "jsr:@std/assert@1";
-import { fromFileUrl, join } from "@std/path";
+import { join } from "@std/path";
 import { hashInputs, keyOf, SingleFlightCache } from "./build/cache.ts";
 import type { CacheKey } from "./build/cache.ts";
 import type { EsbuildBundleResult } from "./build/esbuild.ts";
-
-const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
-const TMP_ROOT = join(REPO_ROOT, "tests/.tmp");
 
 const baseKey: CacheKey = {
   entry: "/abs/main.tsx",
@@ -51,7 +48,7 @@ Deno.test("SingleFlightCache: coalesces concurrent calls", async () => {
   const cache = new SingleFlightCache();
   // Use a real on-disk file as the entry so the stat check on a
   // hit does not fall through to the "file went away" path.
-  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf-", dir: TMP_ROOT });
+  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf-" });
   try {
     const file = join(tmp, "main.tsx");
     await Deno.writeTextFile(file, "export const x = 1;\n");
@@ -89,7 +86,7 @@ Deno.test("SingleFlightCache: coalesces concurrent calls", async () => {
 
 Deno.test("SingleFlightCache: subsequent calls with no input change return the cached entry", async () => {
   const cache = new SingleFlightCache();
-  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf2-", dir: TMP_ROOT });
+  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf2-" });
   try {
     const file = join(tmp, "main.tsx");
     await Deno.writeTextFile(file, "export const x = 1;\n");
@@ -120,7 +117,7 @@ Deno.test("SingleFlightCache: subsequent calls with no input change return the c
 
 Deno.test("SingleFlightCache: invalidate clears the matching entry", async () => {
   const cache = new SingleFlightCache();
-  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf3-", dir: TMP_ROOT });
+  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf3-" });
   try {
     const file = join(tmp, "main.tsx");
     await Deno.writeTextFile(file, "export const x = 1;\n");
@@ -153,7 +150,7 @@ Deno.test("SingleFlightCache: invalidate clears the matching entry", async () =>
 
 Deno.test("SingleFlightCache: stat-mtime change drops the entry on the next call", async () => {
   const cache = new SingleFlightCache();
-  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf4-", dir: TMP_ROOT });
+  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf4-" });
   try {
     const file = join(tmp, "main.tsx");
     await Deno.writeTextFile(file, "export const x = 1;\n");
@@ -187,7 +184,7 @@ Deno.test("SingleFlightCache: stat-mtime change drops the entry on the next call
 
 Deno.test("SingleFlightCache: size reflects the number of cached entries", async () => {
   const cache = new SingleFlightCache();
-  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf5-", dir: TMP_ROOT });
+  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf5-" });
   try {
     const a = join(tmp, "a.tsx");
     const b = join(tmp, "b.tsx");
@@ -229,7 +226,7 @@ Deno.test("SingleFlightCache: size reflects the number of cached entries", async
 
 Deno.test("SingleFlightCache: respects maxConcurrent across distinct keys", async () => {
   const cache = new SingleFlightCache(2);
-  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf6-", dir: TMP_ROOT });
+  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf6-" });
   try {
     const files = await Promise.all(
       Array.from({ length: 4 }, (_, i) => {
@@ -266,7 +263,7 @@ Deno.test("SingleFlightCache: respects maxConcurrent across distinct keys", asyn
 
 Deno.test("SingleFlightCache: queued builds run in FIFO order", async () => {
   const cache = new SingleFlightCache(1);
-  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf7-", dir: TMP_ROOT });
+  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf7-" });
   try {
     const a = join(tmp, "a.tsx");
     const b = join(tmp, "b.tsx");
@@ -327,7 +324,7 @@ Deno.test("SingleFlightCache: queued builds run in FIFO order", async () => {
 
 Deno.test("SingleFlightCache: build failure releases the permit", async () => {
   const cache = new SingleFlightCache(1);
-  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf8-", dir: TMP_ROOT });
+  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf8-" });
   try {
     const a = join(tmp, "a.tsx");
     const b = join(tmp, "b.tsx");
@@ -366,7 +363,7 @@ Deno.test("SingleFlightCache: build failure releases the permit", async () => {
 
 Deno.test("sprout-sf10-SingleFlightCache: cache hit does not leak a permit", async () => {
   const cache = new SingleFlightCache(2);
-  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf10-", dir: TMP_ROOT });
+  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf10-" });
   try {
     const a = join(tmp, "a.tsx");
     const b = join(tmp, "b.tsx");
@@ -418,7 +415,7 @@ Deno.test("sprout-sf10-SingleFlightCache: cache hit does not leak a permit", asy
 
 Deno.test("SingleFlightCache: default is unbounded", async () => {
   const cache = new SingleFlightCache();
-  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf9-", dir: TMP_ROOT });
+  const tmp = await Deno.makeTempDir({ prefix: "sprout-sf9-" });
   try {
     const files = await Promise.all(
       Array.from({ length: 5 }, (_, i) => {

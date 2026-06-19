@@ -38,13 +38,12 @@ import { buildProduction, CompilerError, formatBuildSummary, validateManifest } 
 import type { BuildSummary, FrozenAsset, FrozenManifest } from "./mod.ts";
 
 const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
-const TMP_ROOT = join(REPO_ROOT, "tests/.tmp");
 const FIXTURE = join(REPO_ROOT, "tests/fixtures/basic-app");
 
 async function makeTempDir(
   prefix: string,
 ): Promise<{ readonly path: string; cleanup: () => Promise<void> }> {
-  const dir = await Deno.makeTempDir({ prefix, dir: TMP_ROOT });
+  const dir = await Deno.makeTempDir({ prefix });
   return {
     path: dir,
     cleanup: async () => {

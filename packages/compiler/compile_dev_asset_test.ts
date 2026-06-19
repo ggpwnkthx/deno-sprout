@@ -18,7 +18,7 @@ import {
   assertNotEquals,
   assertStringIncludes,
 } from "jsr:@std/assert@1";
-import { fromFileUrl, join } from "@std/path";
+import { join } from "@std/path";
 import { loadConfig } from "@sprout/config";
 import { resolveRuntimeEntryFile } from "./source_paths.ts";
 import { compileDevAsset, compileDevSourceMap, resolveIslandEntryFile } from "./mod.ts";
@@ -26,9 +26,6 @@ import { resetDevCacheForTests } from "./build/dev_assets_test_utils.ts";
 import { esbuildBundle, VIRTUAL_ENTRY_DIR } from "./build/esbuild.ts";
 import { encodeHex } from "@std/encoding/hex";
 import type { ResolvedConfig } from "@sprout/config";
-
-const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
-const TMP_ROOT = join(REPO_ROOT, "tests/.tmp");
 
 const dummyConfig: ResolvedConfig = {
   mode: "development",
@@ -51,7 +48,7 @@ const dummyConfig: ResolvedConfig = {
 async function makeTempDir(
   prefix: string,
 ): Promise<{ readonly path: string; cleanup: () => Promise<void> }> {
-  const dir = await Deno.makeTempDir({ prefix, dir: TMP_ROOT });
+  const dir = await Deno.makeTempDir({ prefix });
   return {
     path: dir,
     cleanup: async () => {
@@ -344,10 +341,10 @@ Deno.test(
   async () => {
     resetDevCacheForTests();
     // Build a tmp project with one island in <tmp>/src/islands/.
-    // The tmp dir is rooted under the repo's tests/.tmp/ so the
-    // deno-resolver can walk up to the workspace `deno.jsonc`;
-    // the assertion only cares about the on-disk location of
-    // the virtual entry file, not the project's contents.
+    // The test passes an explicit `root` to `loadConfig` so the
+    // tmp dir location (system temp, outside the worktree) does
+    // not affect resolution. The assertion only checks the
+    // on-disk location of the virtual entry file.
     const tmp = await makeTempDir("sprout-virtual-entry-loc-");
     try {
       await Deno.mkdir(join(tmp.path, "src/islands"), { recursive: true });

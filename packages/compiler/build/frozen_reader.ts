@@ -12,7 +12,7 @@
 // when you have an `outDir` and a one-shot read (CLI tools, tests).
 // The serve layer should build the index once and pass it
 // directly to `readFrozenAsset`.
-import { assert } from "jsr:@std/assert@1";
+import { assert } from "@std/assert";
 import { join } from "@std/path";
 import { CompilerError } from "../errors.ts";
 import { type FrozenIndex } from "../manifest/types.ts";

@@ -25,16 +25,12 @@ import { fromFileUrl, join } from "@std/path";
 import { CliError, run } from "./mod.ts";
 import { FrameworkError } from "@sprout/utils";
 
-const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
-const FIXTURE = join(REPO_ROOT, "tests/fixtures/basic-app");
+const FIXTURE = join(fromFileUrl(new URL("../../", import.meta.url)), "tests/fixtures/basic-app");
 
 async function makeTempDir(
   prefix: string,
 ): Promise<{ readonly path: string; cleanup: () => Promise<void> }> {
-  const dir = await Deno.makeTempDir({
-    prefix,
-    dir: join(REPO_ROOT, "tests/.tmp"),
-  });
+  const dir = await Deno.makeTempDir({ prefix });
   return {
     path: dir,
     cleanup: async () => {

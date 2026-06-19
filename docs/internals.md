@@ -9,6 +9,13 @@ of the manifest".
 If you are trying to understand *what* the framework is doing, read
 this. If you are trying to use the framework, you can ignore this.
 
+`@sprout/compiler` depends upward on `@sprout/runtime` (to resolve the
+runtime entry file at `source_paths.ts:22` and to emit the virtual island
+entry that imports `@sprout/runtime`'s `mountComponent`) and on
+`@sprout/jsx/shared` (to share the `ISLAND_PUBLIC_PATTERN` regex for
+manifest validation). The deps are one-way (no cycles) but mean
+`compiler` sits at the same layer as `runtime`, not below it.
+
 ## The manifest
 
 The framework has two manifest shapes: the in-memory `Manifest` and

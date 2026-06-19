@@ -58,8 +58,9 @@
     ]
   },
   "imports": {
-    "@std/fs": "jsr:@std/fs@^1.0.24",
     "@std/encoding": "jsr:@std/encoding@^1.0.5",
+    "@std/assert": "jsr:@std/assert@^1.0.19",
+    "@std/fs": "jsr:@std/fs@^1.0.24",
     "esbuild": "jsr:@ggpwnkthx/esbuild@0.2.8",
     "@ggpwnkthx/esbuild-plugin-deno": "jsr:@ggpwnkthx/esbuild-plugin-deno@0.2.8",
     "@std/path": "jsr:@std/path@^1.0.8",

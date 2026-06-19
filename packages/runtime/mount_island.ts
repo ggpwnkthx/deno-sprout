@@ -7,7 +7,7 @@
 // result. On any failure the element is marked with
 // `data-sprout-error="<CODE>"` and the function resolves (does not
 // throw) with `ok: false`.
-import { causeMessage } from "@sprout/utils/cause";
+import { causeMessage } from "@sprout/utils";
 import { parseJsonProps, validateIslandPublicPath } from "@sprout/jsx/shared";
 import { RuntimeError } from "./errors.ts";
 import type { IslandMountResult } from "./module_contract.ts";

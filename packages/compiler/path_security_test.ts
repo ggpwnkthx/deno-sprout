@@ -20,17 +20,14 @@
 // therefore fails with `FROZEN_MANIFEST_UNSUPPORTED` for unknown
 // public paths (covered in `frozen_reader_test.ts`).
 import { assertEquals, assertRejects, assertThrows } from "jsr:@std/assert@1";
-import { fromFileUrl, join } from "@std/path";
+import { join } from "@std/path";
 import { CompilerError, islandFileToPublicPath, routeFileToPattern } from "./mod.ts";
 import { loadFrozenIndex } from "./build/frozen_index.ts";
-
-const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
-const TMP_ROOT = join(REPO_ROOT, "tests/.tmp");
 
 async function makeTempDir(
   prefix: string,
 ): Promise<{ readonly path: string; cleanup: () => Promise<void> }> {
-  const dir = await Deno.makeTempDir({ prefix, dir: TMP_ROOT });
+  const dir = await Deno.makeTempDir({ prefix });
   return {
     path: dir,
     cleanup: async () => {

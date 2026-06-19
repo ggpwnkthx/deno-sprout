@@ -38,10 +38,7 @@ const PATHS_OUTSIDE_ROOT = join(REPO_ROOT, "tests/fixtures/paths-outside-root");
 async function makeTempDir(
   prefix: string,
 ): Promise<{ readonly path: string; cleanup: () => Promise<void> }> {
-  const dir = await Deno.makeTempDir({
-    prefix,
-    dir: join(REPO_ROOT, "tests/.tmp"),
-  });
+  const dir = await Deno.makeTempDir({ prefix });
   return {
     path: dir,
     cleanup: async () => {

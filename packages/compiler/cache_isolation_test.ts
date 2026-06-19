@@ -3,17 +3,15 @@
 // Verifies that two projects with different roots do not share cache
 // entries even if their island ids collide.
 import { assertEquals, assertNotEquals } from "jsr:@std/assert@1";
-import { fromFileUrl, join } from "@std/path";
+import { join } from "@std/path";
 import { loadConfig } from "@sprout/config";
 import { compileDevAsset } from "./mod.ts";
 import { resetDevCacheForTests } from "./build/dev_assets_test_utils.ts";
 
-const REPO_ROOT = fromFileUrl(new URL("../../", import.meta.url));
-
 async function makeTempDir(
   prefix: string,
 ): Promise<{ readonly path: string; cleanup: () => Promise<void> }> {
-  const dir = await Deno.makeTempDir({ prefix, dir: join(REPO_ROOT, "tests/.tmp") });
+  const dir = await Deno.makeTempDir({ prefix });
   return {
     path: dir,
     cleanup: async () => {

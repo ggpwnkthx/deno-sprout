@@ -11,14 +11,13 @@ import type { ConfigErrorCode } from "./mod.ts";
 export const REPO_ROOT: string = fromFileUrl(new URL("../../", import.meta.url));
 
 /**
- * Create a fresh temp directory under `tests/.tmp/` for a single test.
+ * Create a fresh temp directory for a single test.
  * The cleanup callback removes the directory recursively.
  */
 export async function makeTempDir(
   prefix: string,
 ): Promise<{ readonly path: string; cleanup: () => Promise<void> }> {
-  const TMP_ROOT = join(REPO_ROOT, "tests/.tmp");
-  const dir = await Deno.makeTempDir({ prefix, dir: TMP_ROOT });
+  const dir = await Deno.makeTempDir({ prefix });
   return {
     path: dir,
     cleanup: async () => {

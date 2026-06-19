@@ -22,7 +22,7 @@ import {
   CompilerError,
   resolveRuntimeEntryFile,
 } from "@sprout/compiler";
-import { causeMessage } from "@sprout/utils/cause";
+import { causeMessage } from "@sprout/utils";
 import { NOSNIFF } from "@sprout/utils";
 import { CoreError, coreErrorToResponse } from "./errors.ts";
 

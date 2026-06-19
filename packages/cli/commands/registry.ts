@@ -110,7 +110,7 @@ export const COMMAND_PERMISSIONS: Readonly<Record<string, readonly string[]>> = 
   dev: ["--allow-read", "--allow-write", "--allow-env", "--allow-net", "--allow-run"],
   build: ["--allow-read", "--allow-write", "--allow-env", "--allow-net", "--allow-run"],
   serve: ["--allow-read", "--allow-env", "--allow-net"],
-  inspect: ["--allow-read", "--allow-env"],
+  inspect: ["--allow-read", "--allow-env"], // --allow-env reserved for the config layer's future env-var surface
   help: [],
 };
 /**
